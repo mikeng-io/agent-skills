@@ -1,0 +1,23 @@
+# Security-Focused Configuration
+# Place in .deep-verify/config.yaml
+
+# Prioritize security expertise
+auto_detect_models: true
+parallel_execution: true
+
+# Model preferences - prefer higher capability for security
+model_preferences:
+  - capability: "highest"
+    models: ["opus", "gpt-4"]
+  - capability: "high"
+    models: ["sonnet", "gpt-3.5"]
+
+# Output
+output_format: "markdown"
+show_model_selection: true
+
+# Security-focused paths
+documentation_paths:
+  security: "docs/security.md"
+  threats: "docs/threat-model.md"
+  compliance: "docs/compliance/"

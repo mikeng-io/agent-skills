@@ -1,0 +1,18 @@
+# Security-Focused Weights
+# Place in .deep-verify/weights.yaml
+
+weights:
+  # Higher adversarial focus
+  devils_advocate: 0.50      # More emphasis on finding risks
+  security: 0.25             # Higher security weight
+  integration: 0.10          # Lower integration focus
+  third_party: 0.05
+  other_domains: 0.10        # Reduced other domains
+
+# Domain weights
+domain_weights:
+  security: 0.25             # Maximum security focus
+  performance: 0.05          # Lower performance focus
+  accessibility: 0.03        # Lower accessibility focus
+  testing: 0.05
+  documentation: 0.02

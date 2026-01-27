@@ -1,0 +1,22 @@
+# Default Expert Weights
+# Place in .deep-verify/weights.yaml
+
+weights:
+  # Invariant Experts (always run)
+  devils_advocate: 0.40      # Biggest shareholder - surfaces hidden risks
+  integration: 0.15          # System-wide impact assessment
+  third_party: 0.05          # Fresh-eyes perspective
+
+  # Domain Experts (shared pool)
+  domain_experts: 0.40       # Total for all domain experts
+
+  # Dynamic Experts (auto-generated)
+  dynamic_experts: 0.10      # Per generated expert
+
+# Per-domain weights (optional)
+domain_weights:
+  security: 0.15             # Security expert weight
+  performance: 0.10          # Performance expert weight
+  accessibility: 0.08        # Accessibility expert weight
+  testing: 0.08              # Testing expert weight
+  documentation: 0.05        # Documentation expert weight

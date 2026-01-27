@@ -1,0 +1,31 @@
+# Basic Deep Verify Configuration
+# Place in .deep-verify/config.yaml
+
+# Main configuration
+auto_detect_models: true              # Auto-detect available models
+parallel_execution: true               # Run experts in parallel
+max_parallel_experts: 10              # Max concurrent experts
+timeout_seconds: 300                  # Per-expert timeout
+
+# Mode detection
+mode_detection:
+  implementation:
+    triggers:
+      - "implemented"
+      - "finished"
+      - "fixed"
+      - "added"
+  proposal:
+    triggers:
+      - "proposal"
+      - "prd"
+      - "spec"
+      - "design doc"
+      - "rfc"
+  ad_hoc:
+    default: true
+
+# Output
+output_format: "markdown"
+include_full_prompts: false
+show_model_selection: true
