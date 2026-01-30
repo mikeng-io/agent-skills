@@ -1,0 +1,701 @@
+---
+name: deep-research
+description: Generic multi-domain research framework with domain-aware scheduling. Model-agnostic and domain-agnostic - perform comprehensive research on any topic.
+location: managed
+context: fork
+allowed-tools:
+  - ToolSearch
+  - mcp__brave-search__brave_web_search
+  - mcp__web-search-prime__webSearchPrime
+  - mcp__web-reader__webReader
+  - mcp__sequential-thinking__sequentialthinking
+  - mcp__context7__query-docs
+  - mcp__zread__search_doc
+  - mcp__zread__read_file
+  - Read
+  - Task
+  - Write
+  - Bash(mkdir *)
+---
+
+# Deep Research: Multi-Domain Research Framework
+
+Execute this skill to perform comprehensive research on any topic using domain-aware scheduling and parallel information gathering.
+
+## Execution Instructions
+
+When invoked, you will:
+
+1. **Analyze the research intent** from the conversation to extract:
+   - Primary research topic/question
+   - Domains explicitly mentioned
+   - Domains inferred from context
+   - Research depth and scope indicators
+
+2. **Create a research plan** with domain-aware effort allocation:
+   - Primary domains get 70% of research effort
+   - Secondary domains get 30% of research effort
+   - Generate 5-10 search queries per domain
+
+3. **Execute parallel research** using multiple domain-focused agents:
+   - Spawn domain researchers in parallel
+   - Use available MCP tools with graceful fallbacks
+   - Collect and validate findings from each source
+
+4. **Synthesize findings** across domains:
+   - Identify patterns and consensus
+   - Surface contradictions and debates
+   - Generate evidence-based recommendations
+
+5. **Generate and save report** to `.outputs/research/`
+
+---
+
+## Step 1: Intent Analysis & Domain Detection
+
+Analyze the conversation to extract research intent and infer domains.
+
+```yaml
+research_intent:
+  primary_topic: ""           # Main research question/topic
+  explicit_domains: []        # Domains directly mentioned
+  inferred_domains: []        # Domains inferred from context
+  research_depth: BRIEF | STANDARD | COMPREHENSIVE
+  scope_indicators: []        # Keywords suggesting scope (e.g., "overview", "deep dive")
+```
+
+### Domain Detection Strategy
+
+**Primary Domains (70% effort allocation):**
+Extract from explicit mentions in conversation:
+- Topics directly stated by user
+- Subject areas named in research questions
+- Fields explicitly referenced
+
+**Secondary Domains (30% effort allocation):**
+Infer from contextual cues:
+- Language patterns (technical vs. business vs. creative)
+- Concerns expressed (performance, security, UX)
+- Artifacts referenced (code, designs, documents)
+
+### Domain Inference Examples
+
+```
+User: "Research how to implement event sourcing with Kafka"
+
+Explicit domains:
+  - Software Architecture
+  - Distributed Systems
+
+Inferred domains:
+  - Data Engineering (from "event sourcing")
+  - Performance (implied by distributed systems context)
+```
+
+```
+User: "I need to understand the business implications of AI regulation"
+
+Explicit domains:
+  - Business
+  - Law/Regulation
+
+Inferred domains:
+  - Ethics (from "AI regulation")
+  - Technology (AI context)
+```
+
+### Domain Output Format
+
+```yaml
+domain_analysis:
+  primary_domains:
+    - domain: "{domain name}"
+      confidence: HIGH | MEDIUM | LOW
+      rationale: "why detected"
+      keywords: ["relevant", "terms"]
+
+  secondary_domains:
+    - domain: "{domain name}"
+      confidence: HIGH | MEDIUM | LOW
+      rationale: "why inferred"
+      keywords: ["relevant", "terms"]
+```
+
+---
+
+## Step 2: Research Planning
+
+Generate a structured research plan with domain-aware effort allocation.
+
+### Research Question Generation
+
+For each domain, generate 5-10 targeted search queries:
+
+```yaml
+research_plan:
+  domains:
+    - domain: "{domain name}"
+      effort_allocation: 0.70  # or 0.30 for secondary
+      search_queries:
+        - "{broad overview query}"
+        - "{specific technical query}"
+        - "{implementation/practical query}"
+        - "{comparison/alternatives query}"
+        - "{challenges/limitations query}"
+        - "{recent developments query}"
+        - "{best practices query}"
+        - "{case studies query}"
+```
+
+### Query Generation Guidelines
+
+**Query Types:**
+1. **Overview**: "What is {topic}?", "{topic} overview"
+2. **Technical**: "{topic} implementation", "{topic} how it works"
+3. **Practical**: "{topic} best practices", "{topic} tutorial"
+4. **Comparative**: "{topic} vs {alternative}", "{topic} alternatives"
+5. **Critical**: "{topic} problems", "{topic} limitations"
+6. **Current**: "{topic} 2025", "{topic} latest developments"
+
+### Effort Allocation
+
+```yaml
+effort_distribution:
+  primary_domains: 0.70
+  secondary_domains: 0.30
+
+# Per-domain calculation
+queries_per_primary_domain: 8-10
+queries_per_secondary_domain: 4-6
+```
+
+---
+
+## Step 3: Information Gathering
+
+Execute parallel research using domain-focused agents.
+
+### Tool Availability Check
+
+Before spawning researchers, check available tools:
+
+```yaml
+# Core tools (expected to be available)
+core_tools:
+  - web_search                    # Brave Search or WebSearchPrime
+  - web_reader                    # For content extraction
+  - sequential_thinking            # For logic validation
+
+# Specialized tools (optional)
+specialized_tools:
+  - documentation_query           # context7 or zread
+  - repository_search             # For code/GitHub research
+
+# Fallback strategy
+fallback: "Use available tools, gracefully degrade"
+```
+
+### Domain Researcher Template
+
+Spawn a researcher for each domain using the Task tool:
+
+```
+Capability: high
+
+You are a {DOMAIN} RESEARCHER. Your role is to gather comprehensive information about {topic} from a {DOMAIN} perspective.
+
+## Research Focus
+{domain_specific_context}
+
+## Search Queries to Execute
+{list_of_queries}
+
+## Your Task
+1. Execute each search query using available search tools
+2. Read promising sources using web-reader tools
+3. Extract key findings, evidence, and sources
+4. Assess source credibility (HIGH/MEDIUM/LOW)
+5. Identify consensus vs. debate in the field
+
+## Tool Strategy
+- Use WebSearch tools for finding sources
+- Use web-reader for extracting content
+- Use documentation queries for technical topics
+- Gracefully handle unavailable tools
+
+## Output Format (JSON)
+{
+  "agent": "domain-researcher-{domain}",
+  "domain": "{domain name}",
+  "queries_executed": ["list of queries executed"],
+  "findings": [
+    {
+      "topic": "specific finding",
+      "consensus": "STRONG | MODERATE | WEAK | DEBATE",
+      "evidence": ["supporting points"],
+      "sources": [
+        {
+          "url": "source URL",
+          "title": "source title",
+          "credibility": "HIGH | MEDIUM | LOW",
+          "type": "academic | industry | blog | documentation | other",
+          "date": "publication date if available",
+          "key_points": ["extracted insights"]
+        }
+      ]
+    }
+  ],
+  "contradictions": [
+    {
+      "topic": "what's debated",
+      "viewpoints": ["conflicting perspectives"]
+    }
+  ],
+  "gaps": ["information not found or unclear"]
+}
+```
+
+### Parallel Execution
+
+Spawn all domain researchers in parallel:
+
+```yaml
+execution_strategy:
+  mode: parallel
+  max_concurrent: 10
+  timeout: 300  # seconds per researcher
+
+researchers:
+  - "{primary_domain_1}"
+  - "{primary_domain_2}"
+  - "{secondary_domain_1}"
+  - "{secondary_domain_2}"
+```
+
+---
+
+## Step 4: Cross-Domain Exploration
+
+After domain researchers complete, spawn cross-domain analysts:
+
+### Cross-Domain Analyst Template
+
+```
+Capability: high
+
+You are a CROSS-DOMAIN ANALYST. Your role is to explore intersections and connections between domains.
+
+## Domains to Analyze
+{list_of_domains}
+
+## Domain Findings Summary
+{summary_of_findings_from_each_domain}
+
+## Your Task
+1. Identify intersections between domains
+2. Find where domains agree and disagree
+3. Surface insights that emerge only from cross-domain perspective
+4. Identify trade-offs and tensions
+
+## Output Format (JSON)
+{
+  "agent": "cross-domain-analyst",
+  "intersections": [
+    {
+      "domains": ["domain1", "domain2"],
+      "connection": "how they relate",
+      "agreements": ["where domains align"],
+      "tensions": ["where domains conflict"],
+      "emergent_insights": ["insights from intersection"]
+    }
+  ],
+  "domain_mapping": {
+    "domain1": ["related domains"],
+    "domain2": ["related domains"]
+  }
+}
+```
+
+---
+
+## Step 5: Analysis & Synthesis
+
+Analyze findings for quality and generate synthesis.
+
+### Validation Strategy (Three-Layer)
+
+**Layer 1: Source Credibility Assessment**
+```yaml
+credibility_criteria:
+  HIGH:
+    - Academic papers with peer review
+    - Official documentation
+    - Industry standards bodies
+    - Recognized experts in field
+
+  MEDIUM:
+    - Industry blogs (established companies)
+    - Technical tutorials (reputable sources)
+    - Conference presentations
+    - Books from known publishers
+
+  LOW:
+    - Personal blogs without credentials
+    - Forum discussions
+    - Social media posts
+    - Unverified claims
+```
+
+**Layer 2: Cross-Reference Validation**
+```yaml
+validation_method: triangulation
+
+# Finding is validated if:
+triangulation_criteria:
+  - Mentioned by 3+ independent sources
+  - Appears in HIGH credibility sources
+  - Consistent across domains
+```
+
+**Layer 3: Internal Consistency Check**
+```
+Use sequential-thinking tool to validate:
+- Logical consistency of findings
+- Cause-effect relationships
+- Assumption validity
+```
+
+### Synthesis Generation
+
+Generate synthesis by:
+
+1. **Identify Patterns**: What themes emerge across sources?
+2. **Surface Debates**: Where do sources disagree?
+3. **Assess Evidence**: Which findings are well-supported?
+4. **Map Connections**: How do domains relate?
+
+---
+
+## Step 6: Recommendations & Reporting
+
+Generate structured report with evidence-based recommendations.
+
+### Report Structure
+
+```markdown
+# Deep Research Report: {Topic}
+
+**Generated:** {timestamp}
+**Research Duration:** {duration}
+**Domains Analyzed:** {list of domains}
+**Sources Consulted:** {count}
+**Validation Status:** {VALIDATED | PARTIAL | PRELIMINARY}
+
+## Executive Summary
+
+{3-5 sentence overview of key findings and recommendations}
+
+---
+
+## Research Intent & Scope
+
+**Primary Research Question:**
+{main question/topic}
+
+**Scope:**
+- Primary Domains: {list}
+- Secondary Domains: {list}
+- Research Depth: {BRIEF | STANDARD | COMPREHENSIVE}
+
+---
+
+## Key Findings by Domain
+
+### {Domain 1}
+
+#### {Finding 1}
+
+**Consensus:** {STRONG | MODERATE | WEAK | DEBATE}
+
+**Evidence:**
+- {point 1}
+- {point 2}
+
+**Sources:**
+- [{Title}]({URL}) - {credibility} - {key insight}
+- [{Title}]({URL}) - {credibility} - {key insight}
+
+#### {Finding 2}
+
+{repeat pattern}
+
+---
+
+## Cross-Domain Insights
+
+### Intersection: {Domain 1} + {Domain 2}
+
+**Connection:** {how domains relate}
+
+**Agreements:**
+- {where domains align}
+
+**Tensions:**
+- {where domains conflict}
+
+**Emergent Insights:**
+- {insights from intersection}
+
+---
+
+## Synthesis & Patterns
+
+### Key Patterns
+{patterns identified across domains}
+
+### Contradictions & Debates
+{areas of disagreement with viewpoints}
+
+### Information Gaps
+{what could not be found or needs more research}
+
+---
+
+## Recommendations
+
+### Recommendation 1: {Actionable recommendation}
+
+**Rationale:** {evidence-based reasoning}
+
+**Confidence:** {HIGH | MEDIUM | LOW}
+
+**Supporting Evidence:**
+- {finding from domain/source}
+
+### Recommendation 2: {Another recommendation}
+
+{repeat pattern}
+
+---
+
+## Research Quality Assessment
+
+**Validation Method:** Triangulation across sources
+**Source Credibility Distribution:**
+- HIGH: {count} sources
+- MEDIUM: {count} sources
+- LOW: {count} sources
+
+**Cross-Domain Validation:**
+- {percentage}% of findings validated across multiple domains
+
+**Limitations:**
+- {constraints or gaps in research}
+
+---
+
+## Sources Bibliography
+
+### {Domain 1} Sources
+1. [{Title}]({URL}) - {credibility} - {date}
+2. [{Title}]({URL}) - {credibility} - {date}
+
+### {Domain 2} Sources
+{repeat pattern}
+
+---
+
+## Appendix: Research Methodology
+
+**Search Strategy:**
+- Total queries executed: {count}
+- Domains researched: {list}
+- Tools used: {list}
+
+**Quality Controls:**
+- Source credibility assessment: ✓
+- Cross-reference validation: ✓
+- Internal consistency check: ✓
+```
+
+---
+
+## Step 7: Validate Output Format
+
+Before finalizing the report, validate it against the required format specification to ensure consistency.
+
+### Validation Gate
+
+Spawn an output validator sub-agent using the Task tool:
+
+```
+Capability: standard
+
+You are an OUTPUT VALIDATOR for deep-research reports. Your role is to ensure format compliance.
+
+## Files to Validate
+- Markdown: {path_to_markdown_file}
+- JSON: {path_to_json_file}
+
+## Validation Instructions
+Follow the validation procedure defined in: skills/deep-research/validators/output-validator.md
+
+## Schema Location
+JSON Schema: skills/deep-research/schemas/research-report-schema.json
+
+## Tasks
+1. Load and validate JSON against schema
+2. Validate markdown structure and required sections
+3. Verify source quality and credibility distribution
+4. Cross-check consistency between JSON and markdown
+5. Generate validation report
+
+## Output Format
+Return validation result as JSON with:
+- validation_status: PASS or FAIL
+- Specific errors and warnings
+- Source quality assessment
+- Suggestions for fixes
+
+## Strictness
+FAIL on any critical errors:
+- Missing required fields
+- Invalid enum values
+- Type mismatches
+- Missing required sections
+- Poor source quality (>70% LOW credibility)
+- Insufficient sources (<3 total)
+```
+
+### Handling Validation Results
+
+**If validation PASSES:**
+- Proceed to Step 8 (Save Report)
+
+**If validation FAILS:**
+1. Display all errors and warnings to user
+2. Provide specific suggestions for each violation
+3. DO NOT save report as "latest"
+4. Ask user if they want to:
+   - Fix the issues and regenerate
+   - Override validation (with explicit confirmation)
+   - Cancel research
+
+**Example failure output:**
+```
+❌ Validation FAILED
+
+JSON Errors:
+- Missing required field: recommendations
+- Invalid research_depth value: 'DEEP' (must be BRIEF, STANDARD, or COMPREHENSIVE)
+- executive_summary only 35 characters (minimum: 50)
+
+Markdown Errors:
+- Missing required section: ## Research Quality Assessment
+- Domain 'Machine Learning' in metadata but no findings section
+
+Source Quality Issues:
+- Only 2 sources consulted (minimum: 3)
+- 80% of sources are LOW credibility (threshold: 70%)
+- Only 1 HIGH credibility source (recommended: at least 30%)
+
+Suggestions:
+1. Add at least one recommendation with rationale and evidence
+2. Change research_depth to BRIEF, STANDARD, or COMPREHENSIVE
+3. Expand executive_summary to at least 50 characters
+4. Add ## Research Quality Assessment section
+5. Add findings section for Machine Learning or remove from domains
+6. Conduct more research - consult at least 3 sources total
+7. Include more HIGH credibility sources (academic papers, official docs)
+
+Would you like to regenerate the report with corrections?
+```
+
+---
+
+## Step 8: Save Report
+
+Save the validated report to:
+
+1. Create directory: `.outputs/research/`
+2. Save with timestamp: `YYYYMMDD-HHMMSS-research-{topic-slug}.md`
+3. Save JSON version: `YYYYMMDD-HHMMSS-research-{topic-slug}.json`
+4. Update symlink: `latest-research.md` → most recent report (only if validation passed)
+
+**Note:** Only update the "latest" symlink for reports that pass validation.
+
+```bash
+# Output directory structure
+.outputs/research/
+├── 20250115-143022-research-event-sourcing-kafka.md
+├── 20250115-143022-research-event-sourcing-kafka.json
+├── 20250116-091545-research-ai-regulation-business.md
+├── 20250116-091545-research-ai-regulation-business.json
+└── latest-research.md → (symlink to most recent)
+```
+
+---
+
+## Step 9: Configuration (Optional)
+
+The system uses these defaults unless overridden:
+
+### Default Configuration
+
+```yaml
+# Research execution
+research:
+  parallel_execution: true
+  max_concurrent_researchers: 10
+  timeout_seconds: 300
+
+# Effort allocation
+effort_distribution:
+  primary_domains: 0.70
+  secondary_domains: 0.30
+
+# Queries per domain
+queries_per_domain:
+  primary: 8-10
+  secondary: 4-6
+
+# Output
+output_directory: ".outputs/research/"
+output_format: "markdown"
+include_json: true
+```
+
+### Configuration Override Order
+
+1. Built-in defaults
+2. Environment variables
+3. Config files in `.outputs/research/config.yaml`
+4. Command-line arguments
+
+### Environment Variables
+
+```bash
+# Execution
+export DEEP_RESEARCH_PARALLEL="true"
+export DEEP_RESEARCH_MAX_CONCURRENT="10"
+export DEEP_RESEARCH_TIMEOUT="300"
+
+# Effort allocation
+export DEEP_RESEARCH_PRIMARY_RATIO="0.70"
+export DEEP_RESEARCH_SECONDARY_RATIO="0.30"
+
+# Output
+export DEEP_RESEARCH_OUTPUT_DIR=".outputs/research/"
+export DEEP_RESEARCH_OUTPUT_FORMAT="markdown"
+```
+
+---
+
+## Notes
+
+- **Model-agnostic**: Uses capability levels ("highest", "high", "standard") not specific model names
+- **Domain-agnostic**: Works for any domain detected from conversation
+- **Conversation-driven**: Extracts research intent and domains from what was discussed
+- **Tool-agnostic**: Gracefully handles unavailable tools with fallbacks
+- **Evidence-based**: All findings tied to sources with credibility assessment
+- **Cross-domain**: Identifies insights that emerge from domain intersections

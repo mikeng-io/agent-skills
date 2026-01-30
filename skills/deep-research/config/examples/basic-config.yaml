@@ -1,0 +1,27 @@
+# Basic Deep Research Configuration
+# Place in .outputs/research/config.yaml
+
+# Effort Allocation
+effort_distribution:
+  primary_domains: 0.70      # 70% to explicitly mentioned domains
+  secondary_domains: 0.30    # 30% to contextually inferred domains
+
+# Query Generation
+queries_per_domain:
+  primary: 8-10              # Queries for primary domains
+  secondary: 4-6             # Queries for secondary domains
+
+# Execution
+research:
+  parallel_execution: true   # Run researchers in parallel
+  max_concurrent_researchers: 10
+  timeout_seconds: 300       # Per-researcher timeout
+
+# Tool Detection
+auto_detect_tools: true
+tool_fallback: "graceful"
+
+# Output
+output_format: "markdown"
+include_json: true
+show_research_progress: true

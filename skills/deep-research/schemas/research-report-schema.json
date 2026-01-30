@@ -1,0 +1,392 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deep-research.dev/schemas/research-report.json",
+  "title": "Deep Research Report Schema",
+  "description": "JSON Schema for deep-research output validation",
+  "type": "object",
+  "required": [
+    "topic",
+    "generated",
+    "research_duration",
+    "domains_analyzed",
+    "sources_consulted",
+    "validation_status",
+    "executive_summary",
+    "research_intent",
+    "key_findings_by_domain",
+    "cross_domain_insights",
+    "synthesis",
+    "recommendations",
+    "quality_assessment",
+    "sources_bibliography"
+  ],
+  "properties": {
+    "topic": {
+      "type": "string",
+      "description": "Primary research topic/question"
+    },
+    "generated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of report generation"
+    },
+    "research_duration": {
+      "type": "string",
+      "description": "Duration of research (e.g., '45 minutes', '2 hours')"
+    },
+    "domains_analyzed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "description": "List of domains that were researched"
+    },
+    "sources_consulted": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of sources consulted"
+    },
+    "validation_status": {
+      "type": "string",
+      "enum": ["VALIDATED", "PARTIAL", "PRELIMINARY"],
+      "description": "Status of findings validation"
+    },
+    "executive_summary": {
+      "type": "string",
+      "minLength": 50,
+      "description": "3-5 sentence overview of key findings and recommendations"
+    },
+    "research_intent": {
+      "type": "object",
+      "required": ["primary_question", "primary_domains", "secondary_domains", "research_depth"],
+      "properties": {
+        "primary_question": {
+          "type": "string",
+          "description": "Main research question/topic"
+        },
+        "primary_domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Primary domains (70% effort)"
+        },
+        "secondary_domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Secondary domains (30% effort)"
+        },
+        "research_depth": {
+          "type": "string",
+          "enum": ["BRIEF", "STANDARD", "COMPREHENSIVE"]
+        }
+      }
+    },
+    "key_findings_by_domain": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["domain", "findings"],
+        "properties": {
+          "domain": {
+            "type": "string",
+            "description": "Domain name"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["topic", "consensus", "evidence", "sources"],
+              "properties": {
+                "topic": {
+                  "type": "string",
+                  "description": "Specific finding topic"
+                },
+                "consensus": {
+                  "type": "string",
+                  "enum": ["STRONG", "MODERATE", "WEAK", "DEBATE"]
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "description": "Supporting evidence points"
+                },
+                "sources": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["url", "title", "credibility", "type", "key_points"],
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "format": "uri"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "credibility": {
+                        "type": "string",
+                        "enum": ["HIGH", "MEDIUM", "LOW"]
+                      },
+                      "type": {
+                        "type": "string",
+                        "enum": ["academic", "industry", "blog", "documentation", "other"]
+                      },
+                      "date": {
+                        "type": "string",
+                        "description": "Publication date if available"
+                      },
+                      "key_points": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "description": "Extracted insights from this source"
+                      }
+                    }
+                  },
+                  "minItems": 1
+                }
+              }
+            },
+            "minItems": 1
+          }
+        }
+      },
+      "minItems": 1
+    },
+    "cross_domain_insights": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["domains", "connection"],
+        "properties": {
+          "domains": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 2,
+            "description": "Domains involved in this intersection"
+          },
+          "connection": {
+            "type": "string",
+            "description": "How domains relate"
+          },
+          "agreements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Where domains align"
+          },
+          "tensions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Where domains conflict"
+          },
+          "emergent_insights": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Insights from intersection"
+          }
+        }
+      }
+    },
+    "synthesis": {
+      "type": "object",
+      "required": ["key_patterns"],
+      "properties": {
+        "key_patterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Patterns identified across domains"
+        },
+        "contradictions_and_debates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["topic", "viewpoints"],
+            "properties": {
+              "topic": {
+                "type": "string"
+              },
+              "viewpoints": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 2
+              }
+            }
+          },
+          "description": "Areas of disagreement with viewpoints"
+        },
+        "information_gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "What could not be found or needs more research"
+        }
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["recommendation", "rationale", "confidence", "supporting_evidence"],
+        "properties": {
+          "recommendation": {
+            "type": "string",
+            "description": "Actionable recommendation"
+          },
+          "rationale": {
+            "type": "string",
+            "description": "Evidence-based reasoning"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["HIGH", "MEDIUM", "LOW"]
+          },
+          "supporting_evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "description": "Findings from domains/sources"
+          }
+        }
+      },
+      "minItems": 1
+    },
+    "quality_assessment": {
+      "type": "object",
+      "required": ["validation_method", "source_credibility_distribution", "cross_domain_validation_percentage"],
+      "properties": {
+        "validation_method": {
+          "type": "string",
+          "description": "Method used for validation (e.g., 'Triangulation across sources')"
+        },
+        "source_credibility_distribution": {
+          "type": "object",
+          "required": ["high", "medium", "low"],
+          "properties": {
+            "high": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "medium": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "low": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "cross_domain_validation_percentage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Percentage of findings validated across multiple domains"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Constraints or gaps in research"
+        }
+      }
+    },
+    "sources_bibliography": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["domain", "sources"],
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["url", "title", "credibility"],
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "credibility": {
+                  "type": "string",
+                  "enum": ["HIGH", "MEDIUM", "LOW"]
+                },
+                "date": {
+                  "type": "string"
+                }
+              }
+            },
+            "minItems": 1
+          }
+        }
+      },
+      "minItems": 1
+    },
+    "methodology": {
+      "type": "object",
+      "properties": {
+        "total_queries": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "domains_researched": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tools_used": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "quality_controls": {
+          "type": "object",
+          "properties": {
+            "source_credibility_assessment": {
+              "type": "boolean"
+            },
+            "cross_reference_validation": {
+              "type": "boolean"
+            },
+            "internal_consistency_check": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  }
+}

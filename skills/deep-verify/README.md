@@ -157,19 +157,29 @@ For specialized or niche topics:
 
 ## Output
 
-Reports are saved to a generic output directory:
+Reports are saved to a generic output directory with **strict format validation**:
 
 ```
 .outputs/verification/
 ├── YYYYMMDD-HHMMSS-verification-report.md
 ├── YYYYMMDD-HHMMSS-verification-report.json
-└── latest-report.md → (symlink to most recent)
+└── latest-verification.md → (symlink to most recent)
 ```
+
+**Format Standardization:**
+
+All outputs are validated against formal JSON schemas to ensure:
+- ✅ Consistent structure across all runs
+- ✅ Standardized enum values (no typos or variations)
+- ✅ Required sections always present
+- ✅ Predictable, parseable format
+
+See `schemas/README.md` for details on format requirements.
 
 **Configurable** via environment variable:
 
 ```bash
-export DEEP_VERIFY_OUTPUT_DIR=".outputs/reviews/"
+export DEEP_VERIFY_OUTPUT_DIR=".outputs/verification/"
 ```
 
 
@@ -240,7 +250,8 @@ The system is fully dynamic:
 ## Documentation
 
 - **[SKILL.md](./SKILL.md)** - Main skill definition
-- **[config/README.md](./config/README.md)** - Configuration guide (optional)
+- **[schemas/README.md](./schemas/README.md)** - Output format specifications
+- **[validators/output-validator.md](./validators/output-validator.md)** - Validation logic
 
 ## License
 

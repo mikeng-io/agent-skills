@@ -1,0 +1,147 @@
+# Domain Weights Configuration
+# Customize effort allocation for specific domains
+
+# Default effort distribution
+effort_distribution:
+  primary_domains: 0.70
+  secondary_domains: 0.30
+
+queries_per_domain:
+  primary: 8-10
+  secondary: 4-6
+
+# Domain-specific weights
+# Adjust multiplier > 1.0 for more effort, < 1.0 for less effort
+domain_weights:
+  # Technical domains - examples
+  architecture:
+    weight: 1.2              # 20% more effort
+    priority: HIGH
+    default_queries: 10
+
+  security:
+    weight: 1.0              # Standard effort
+    priority: HIGH
+    default_queries: 8
+
+  performance:
+    weight: 0.9              # 10% less effort
+    priority: MEDIUM
+    default_queries: 7
+
+  scalability:
+    weight: 0.8              # 20% less effort
+    priority: MEDIUM
+    default_queries: 6
+
+  # Business domains - examples
+  business_strategy:
+    weight: 1.1              # 10% more effort
+    priority: HIGH
+    default_queries: 9
+
+  market_research:
+    weight: 1.0
+    priority: MEDIUM
+    default_queries: 8
+
+  competitive_analysis:
+    weight: 0.9
+    priority: MEDIUM
+    default_queries: 7
+
+  # Academic domains - examples
+  academic_research:
+    weight: 1.3              # 30% more effort (academic needs depth)
+    priority: HIGH
+    default_queries: 12
+
+  theoretical_foundations:
+    weight: 1.2
+    priority: HIGH
+    default_queries: 10
+
+  state_of_the_art:
+    weight: 1.1
+    priority: MEDIUM
+    default_queries: 9
+
+  # Compliance domains - examples
+  legal:
+    weight: 1.2              # Legal needs precision
+    priority: HIGH
+    default_queries: 10
+
+  compliance:
+    weight: 1.1
+    priority: HIGH
+    default_queries: 9
+
+  regulation:
+    weight: 1.1
+    priority: MEDIUM
+    default_queries: 8
+
+  # Design domains - examples
+  ux_design:
+    weight: 1.0
+    priority: MEDIUM
+    default_queries: 8
+
+  ui_design:
+    weight: 0.9
+    priority: MEDIUM
+    default_queries: 7
+
+  accessibility:
+    weight: 1.0
+    priority: MEDIUM
+    default_queries: 8
+
+# Priority-based query allocation
+priority_allocation:
+  HIGH:
+    query_multiplier: 1.2
+    min_queries: 8
+    max_queries: 15
+
+  MEDIUM:
+    query_multiplier: 1.0
+    min_queries: 5
+    max_queries: 10
+
+  LOW:
+    query_multiplier: 0.7
+    min_queries: 3
+    max_queries: 7
+
+# Domain grouping
+# Related domains that share research effort
+domain_groups:
+  distributed_systems:
+    - architecture
+    - scalability
+    - performance
+    - reliability
+
+  data_engineering:
+    - databases
+    - data_pipelines
+    - streaming
+    - storage
+
+  security_privacy:
+    - security
+    - privacy
+    - compliance
+    - cryptography
+
+  user_experience:
+    - ux_design
+    - ui_design
+    - accessibility
+    - user_research
+
+# Apply weights when domains are detected
+# The system automatically calculates final query count:
+# final_queries = base_queries × domain_weight × priority_multiplier

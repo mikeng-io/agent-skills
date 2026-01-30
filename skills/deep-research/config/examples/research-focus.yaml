@@ -1,0 +1,79 @@
+# Research Focus Configuration
+# Demonstrates depth vs breadth tuning options
+
+# Option 1: Deep Research (comprehensive depth)
+# Use when you need thorough understanding of a complex topic
+deep_research_profile:
+  queries_per_domain:
+    primary: 12-15
+    secondary: 6-8
+
+  validation:
+    layers: 3                # All validation layers
+    triangulation_threshold: 3
+
+  cross_domain_analysis: full
+
+  effort_distribution:
+    primary_domains: 0.80    # Favor primary domains more
+    secondary_domains: 0.20
+
+# Option 2: Balanced Research (standard depth)
+# Use for most research tasks - good depth with reasonable time
+balanced_research_profile:
+  queries_per_domain:
+    primary: 8-10
+    secondary: 4-6
+
+  validation:
+    layers: 2                # Credibility + cross-reference
+    triangulation_threshold: 3
+
+  cross_domain_analysis: standard
+
+  effort_distribution:
+    primary_domains: 0.70
+    secondary_domains: 0.30
+
+# Option 3: Broad Research (coverage over depth)
+# Use when exploring many domains quickly
+broad_research_profile:
+  queries_per_domain:
+    primary: 5-7
+    secondary: 2-3
+
+  validation:
+    layers: 2                # Credibility + cross-reference
+    triangulation_threshold: 2
+
+  cross_domain_analysis: minimal
+
+  effort_distribution:
+    primary_domains: 0.60    # More balanced allocation
+    secondary_domains: 0.40
+
+# Option 4: Quick Research (rapid overview)
+# Use for fast preliminary research
+quick_research_profile:
+  queries_per_domain:
+    primary: 3-5
+    secondary: 1-2
+
+  validation:
+    layers: 1                # Credibility only
+    triangulation_threshold: 2
+
+  cross_domain_analysis: minimal
+
+  effort_distribution:
+    primary_domains: 0.50    # Equal treatment
+    secondary_domains: 0.50
+
+# Execution settings
+research:
+  parallel_execution: true
+  max_concurrent_researchers: 10
+  timeout_seconds: 180       # Shorter timeout for quick research
+
+# Select profile via environment variable:
+# export DEEP_RESEARCH_DEPTH="deep" | "balanced" | "broad" | "quick"

@@ -300,18 +300,100 @@ Generate a markdown report with this structure:
 
 ---
 
-## Step 5: Save Report
+## Step 5: Validate Output Format
 
-Save the report to:
+Before finalizing the report, validate it against the required format specification to ensure consistency.
+
+### Validation Gate
+
+Spawn an output validator sub-agent using the Task tool:
+
+```
+Capability: standard
+
+You are an OUTPUT VALIDATOR for deep-verify reports. Your role is to ensure format compliance.
+
+## Files to Validate
+- Markdown: {path_to_markdown_file}
+- JSON: {path_to_json_file}
+
+## Validation Instructions
+Follow the validation procedure defined in: skills/deep-verify/validators/output-validator.md
+
+## Schema Location
+JSON Schema: skills/deep-verify/schemas/verification-report-schema.json
+
+## Tasks
+1. Load and validate JSON against schema
+2. Validate markdown structure and required sections
+3. Cross-check consistency between JSON and markdown
+4. Generate validation report
+
+## Output Format
+Return validation result as JSON with:
+- validation_status: PASS or FAIL
+- Specific errors and warnings
+- Suggestions for fixes
+
+## Strictness
+FAIL on any critical errors:
+- Missing required fields
+- Invalid enum values
+- Type mismatches
+- Missing required sections
+```
+
+### Handling Validation Results
+
+**If validation PASSES:**
+- Proceed to Step 6 (Save Report)
+
+**If validation FAILS:**
+1. Display all errors and warnings to user
+2. Provide specific suggestions for each violation
+3. DO NOT save report as "latest"
+4. Ask user if they want to:
+   - Fix the issues and regenerate
+   - Override validation (with explicit confirmation)
+   - Cancel verification
+
+**Example failure output:**
+```
+❌ Validation FAILED
+
+JSON Errors:
+- Missing required field: risk_assessment.scenarios
+- Invalid verdict value: 'MAYBE' (must be PASS, PASS_WITH_CONCERNS, or FAIL)
+
+Markdown Errors:
+- Missing required section: ## Integration Impact
+- Domain 'Security' listed in metadata but no findings section found
+
+Suggestions:
+1. Add risk_assessment.scenarios array with at least one scenario
+2. Change verdict to one of the valid values
+3. Add ## Integration Impact section
+4. Add ## Security findings section or remove from domains_analyzed
+
+Would you like to regenerate the report with corrections?
+```
+
+---
+
+## Step 6: Save Report
+
+Save the validated report to:
 
 1. Create directory: `.outputs/verification/`
 2. Save with timestamp: `YYYYMMDD-HHMMSS-verification-report.md`
 3. Save JSON version: `YYYYMMDD-HHMMSS-verification-report.json`
-4. Update symlink: `latest-report.md` → most recent report
+4. Update symlink: `latest-verification.md` → most recent report (only if validation passed)
+
+**Note:** Only update the "latest" symlink for reports that pass validation.
 
 ---
 
-## Configuration (Optional)
+## Step 7: Configuration (Optional)
 
 The system uses these defaults unless overridden:
 
