@@ -161,22 +161,65 @@ exploration_scope: [list of unique files to re-explore]
 
 ### Full Exploration (First Run)
 
-Spawn parallel explorer sub-agents for faster analysis:
+Spawn explorer sub-agents with dependency-aware execution for optimal efficiency:
 
-**Parallel Execution Strategy:**
+**Dependency-Aware Execution Strategy:**
+
+Exploration has natural dependencies - some tasks must complete before others:
+- Architecture analysis needs structure and technology information first
+- Workflow tracing needs structure and dependency information first
+- Technology and dependency analysis both need structure first
+
+**Task Definitions with Dependencies:**
 ```yaml
-spawn_in_parallel:
-  - Structure Explorer (30% weight)
-  - Technology Explorer (20% weight)
-  - Architecture Explorer (25% weight)
-  - Workflow Explorer (15% weight)
-  - Dependency Explorer (10% weight)
+tasks:
+  # Wave 1: Foundation (must run first)
+  - id: structure
+    description: "Analyze directory structure"
+    agent: "structure-explorer"
+    depends_on: []
+
+  # Wave 2: Technology and dependency analysis (need structure)
+  - id: technology
+    description: "Identify technologies and frameworks"
+    agent: "technology-explorer"
+    depends_on: [structure]
+
+  - id: dependencies
+    description: "Map dependencies and imports"
+    agent: "dependency-explorer"
+    depends_on: [structure]
+
+  # Wave 3: Architecture and workflows (need structure + tech/deps)
+  - id: architecture
+    description: "Analyze architectural patterns"
+    agent: "architecture-explorer"
+    depends_on: [structure, technology]
+
+  - id: workflows
+    description: "Trace workflows and data flows"
+    agent: "workflow-explorer"
+    depends_on: [structure, dependencies]
 
 execution:
-  mode: parallel
-  max_concurrent: 5
+  mode: dag-orchestrated
+  waves:
+    wave_1: [structure]                     # 1 task
+    wave_2: [technology, dependencies]      # 2 tasks in parallel
+    wave_3: [architecture, workflows]       # 2 tasks in parallel
   capability: high
 ```
+
+**Why This Order Matters:**
+
+1. **Structure first** - You can't analyze architecture without knowing what files exist
+2. **Tech and deps together** - Both analyze different aspects of structure independently
+3. **Architecture and workflows last** - Both benefit from having structure + context
+
+**Performance Benefit:**
+- Sequential execution: ~15 seconds (5 tasks × 3s avg)
+- Dependency-aware parallel: ~9 seconds (1 wave of 1 + 2 waves of 2)
+- Speedup: 1.7x
 
 **Explorer Agent Templates:**
 
