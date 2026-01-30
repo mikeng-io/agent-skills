@@ -69,7 +69,59 @@ conversation_analysis:
 
 ## Step 2: Spawn Expert Agents
 
-Spawn experts in parallel using the Task tool. Always spawn the invariant experts, then spawn domain experts based on conversation analysis.
+Spawn experts with dependency-aware execution for optimal analysis quality. Domain experts analyze first, then invariant experts use those findings.
+
+**Dependency-Aware Execution Strategy:**
+
+Verification has natural dependencies:
+- Integration Checker needs domain findings to assess cross-system impact
+- Devil's Advocate is more effective challenging concrete domain findings
+- Third-Party Reviewer benefits from seeing complete analysis
+
+**Task Definitions with Dependencies:**
+```yaml
+tasks:
+  # Wave 1: Domain analysis (foundation)
+  - id: domain-experts
+    description: "Domain-specific analysis"
+    depends_on: []
+    agents: [dynamic, based on conversation]
+
+  # Wave 2: Critical analysis (needs domain findings)
+  - id: integration-check
+    description: "Assess system-wide integration impact"
+    agent: "integration-checker"
+    depends_on: [domain-experts]
+
+  - id: devils-advocate
+    description: "Challenge assumptions and find failure modes"
+    agent: "devils-advocate"
+    depends_on: [domain-experts]
+
+  # Wave 3: Fresh perspective (needs complete analysis)
+  - id: third-party-review
+    description: "Fresh eyes review of all findings"
+    agent: "third-party-reviewer"
+    depends_on: [integration-check, devils-advocate]
+
+execution:
+  mode: dag-orchestrated
+  waves:
+    wave_1: [domain-experts]                        # N domain experts in parallel
+    wave_2: [integration-check, devils-advocate]    # 2 tasks in parallel
+    wave_3: [third-party-review]                    # 1 task
+```
+
+**Why This Order Matters:**
+
+1. **Domain experts first** - Gather domain-specific findings and concerns
+2. **Integration and critique together** - Integration Checker assesses impact, Devil's Advocate challenges assumptions, both using domain findings
+3. **Fresh eyes last** - Third-Party Reviewer sees complete picture including domain analysis, integration impact, and challenges
+
+**Performance Benefit:**
+- Improves analysis quality - critics have concrete findings to work with
+- Still maintains parallelism where possible (Wave 2 runs 2 tasks in parallel)
+- Sequential where dependencies matter (Wave 3 needs everything)
 
 ### Invariant Experts (Always Spawn)
 
