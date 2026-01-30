@@ -25,8 +25,9 @@ Generic multi-agent verification framework with balanced expert analysis.
 - Model-agnostic agent dispatch
 - Balanced verification (Devil's Advocate counters confirmation bias)
 - Works for ANY domain (technical, creative, business, legal, etc.)
+- **Standardized output format with validation gates**
 
-**Output:** `.outputs/verification/` directory with timestamped reports
+**Output:** `.outputs/verification/` directory with validated, timestamped reports
 
 **Quick Start:**
 ```bash
@@ -54,8 +55,9 @@ Generic multi-domain research framework with domain-aware scheduling.
 - Parallel execution of domain-focused researchers
 - Evidence-based findings with three-layer validation
 - Cross-domain insight generation
+- **Standardized output format with source quality validation**
 
-**Output:** `.outputs/research/` directory with timestamped reports
+**Output:** `.outputs/research/` directory with validated, timestamped reports
 
 **Quick Start:**
 ```bash
@@ -79,6 +81,8 @@ deep-verify/
 │   ├── deep-verify/          # Multi-agent verification framework
 │   │   ├── SKILL.md          # Executable skill definition
 │   │   ├── README.md         # User documentation
+│   │   ├── schemas/          # Output format specifications
+│   │   ├── validators/       # Validation logic
 │   │   ├── config/           # Optional configuration
 │   │   │   ├── README.md     # Configuration guide
 │   │   │   └── examples/     # Configuration examples
@@ -87,6 +91,8 @@ deep-verify/
 │   └── deep-research/        # Multi-domain research framework
 │       ├── SKILL.md          # Executable skill definition
 │       ├── README.md         # User documentation
+│       ├── schemas/          # Output format specifications
+│       ├── validators/       # Validation logic
 │       ├── config/           # Optional configuration
 │       │   ├── README.md     # Configuration guide
 │       │   └── examples/     # Configuration examples
@@ -199,6 +205,64 @@ All skills should follow the output pattern:
 Examples:
 - `deep-verify` → `.outputs/verification/`
 - `deep-research` → `.outputs/research/`
+
+---
+
+## Output Format Standardization
+
+Both skills enforce **strict output format validation** to eliminate chaos and ensure consistency:
+
+### Problem: Format Chaos
+
+Without standardization:
+- ❌ Verdict could be "PASS", "Pass", "PASSED", "OK", "GOOD"
+- ❌ Impact could be "High", "HIGH", "high", "Major", "Severe"
+- ❌ Sections could be missing or renamed
+- ❌ Reports varied wildly between runs
+- ❌ Impossible to automate parsing or processing
+
+### Solution: JSON Schemas + Validation Gates
+
+Both skills now include:
+
+1. **Formal JSON Schemas** (`schemas/`)
+   - Define exact structure and field requirements
+   - Enforce standardized enum values
+   - Validate types and required fields
+
+2. **Validation Gates** (`validators/`)
+   - Run automatically before report finalization
+   - Validate JSON against schema
+   - Check markdown structure
+   - Verify cross-consistency
+   - Block completion on critical errors
+
+### Results
+
+After standardization:
+- ✅ Verdict is exactly "PASS", "PASS_WITH_CONCERNS", or "FAIL"
+- ✅ Impact is exactly "LOW", "MEDIUM", "HIGH", or "CRITICAL"
+- ✅ All sections consistently present
+- ✅ Reports have identical structure every time
+- ✅ Easy to parse programmatically
+- ✅ Source quality thresholds enforced (research)
+
+**Example validation output:**
+```
+❌ Validation FAILED
+
+JSON Errors:
+- Missing required field: risk_assessment.scenarios
+- Invalid verdict value: 'MAYBE' (must be PASS, PASS_WITH_CONCERNS, or FAIL)
+
+Markdown Errors:
+- Missing required section: ## Integration Impact
+
+Suggestions:
+1. Add risk_assessment.scenarios array with at least one scenario
+2. Change verdict to one of the valid values
+3. Add ## Integration Impact section
+```
 
 ---
 
