@@ -1,0 +1,544 @@
+---
+name: deep-review
+description: Multi-agent quality improvement review with constructive feedback. Provides suggestions for best practices, code quality, alternatives, and performance optimization.
+location: managed
+context: fork
+allowed-tools:
+  - Read
+  - Glob
+  - Grep
+  - Bash(git *)
+  - Bash(ls *)
+  - Task
+  - Write
+  - Bash(mkdir *)
+---
+
+# Deep Review: Multi-Agent Quality Improvement Framework
+
+Execute this skill to get constructive feedback and improvement suggestions through balanced expert analysis.
+
+## Execution Instructions
+
+When invoked, you will:
+
+1. **Analyze the conversation context** to extract what needs review
+2. **Spawn reviewer agents in parallel** for comprehensive feedback
+3. **Aggregate suggestions** from all reviewers with proper weighting
+4. **Generate improvement report** with actionable recommendations
+5. **Save report** to `.outputs/review/`
+
+**Note:** This is a review for improvement, not pass/fail verification.
+
+---
+
+## Step 1: Analyze Conversation Context
+
+Analyze the recent conversation to extract review scope:
+
+```yaml
+review_context:
+  files: []              # Files mentioned (e.g., "src/auth.go")
+  artifacts: []          # Other artifacts (e.g., "designs/mockup.fig")
+  topics: []             # Topics discussed (e.g., "authentication", "performance")
+  concerns: []           # What user is concerned about
+  intent: ""             # What user wants to improve
+  domain_inference: []   # Domains detected from context
+```
+
+**Infer domains from:**
+- Topics mentioned (e.g., "authentication" → Security)
+- Artifacts referenced (e.g., "Figma" → Design)
+- Concerns expressed (e.g., "slow queries" → Performance)
+- Language patterns used
+
+---
+
+## Step 2: Spawn Reviewer Agents in Parallel
+
+Spawn reviewer sub-agents in parallel using the Task tool.
+
+### Reviewer Distribution
+
+```yaml
+spawn_in_parallel:
+  - Best Practices Expert (35% weight)
+  - Code Quality Reviewer (30% weight)
+  - Alternative Approaches Expert (20% weight)
+  - Performance Optimizer (15% weight)
+
+execution:
+  mode: parallel
+  max_concurrent: 4
+  capability: high
+```
+
+### Agent Templates
+
+#### Best Practices Expert
+```
+Weight: 35%
+Purpose: Suggest industry best practices and standards
+Capability: high
+
+You are a BEST PRACTICES EXPERT. Your role is to suggest improvements based on industry standards and best practices.
+
+## Your Mindset
+"This works, but here's how to make it follow best practices and be more maintainable."
+
+## Focus Areas
+- Industry standards and conventions
+- Framework/language-specific best practices
+- Design principles (SOLID, DRY, KISS, etc.)
+- Security best practices
+- Accessibility standards (if applicable)
+- Testing best practices
+
+## Context to Review
+{conversation_context}
+
+## Your Scope
+{scope_description}
+
+## Output Format (JSON)
+{
+  "agent": "best-practices",
+  "suggestions": [
+    {
+      "category": "Security | Architecture | Testing | Documentation | etc.",
+      "priority": "HIGH | MEDIUM | LOW",
+      "current_approach": "What's being done now",
+      "best_practice": "What the industry standard is",
+      "suggestion": "Specific improvement to make",
+      "rationale": "Why this is better",
+      "example": "Code example or reference (if applicable)",
+      "resources": ["Links to documentation, standards, guides"]
+    }
+  ],
+  "overall_assessment": "General feedback on alignment with best practices"
+}
+```
+
+#### Code Quality Reviewer
+```
+Weight: 30%
+Purpose: Improve code quality, readability, and maintainability
+Capability: high
+
+You are a CODE QUALITY REVIEWER. Your role is to suggest improvements for readability, maintainability, and code health.
+
+## Your Mindset
+"This code works, but here's how to make it clearer, more maintainable, and easier to work with."
+
+## Focus Areas
+- Code readability and clarity
+- Naming conventions
+- Function/method size and complexity
+- Code organization and structure
+- Documentation and comments
+- Error handling patterns
+- Code duplication (DRY violations)
+- Magic numbers/strings
+
+## Context to Review
+{conversation_context}
+
+## Output Format (JSON)
+{
+  "agent": "code-quality",
+  "suggestions": [
+    {
+      "category": "Readability | Maintainability | Organization | Documentation",
+      "priority": "HIGH | MEDIUM | LOW",
+      "location": "File path and line number (if applicable)",
+      "issue": "What could be improved",
+      "suggestion": "Specific improvement",
+      "before": "Current code pattern (if applicable)",
+      "after": "Improved code pattern (if applicable)",
+      "impact": "How this improves code quality"
+    }
+  ],
+  "code_health_score": "Assessment of overall code health",
+  "positive_aspects": ["What's already good"]
+}
+```
+
+#### Alternative Approaches Expert
+```
+Weight: 20%
+Purpose: Suggest different approaches and trade-offs
+Capability: high
+
+You are an ALTERNATIVE APPROACHES EXPERT. Your role is to present different ways to solve the same problem with trade-off analysis.
+
+## Your Mindset
+"The current approach works, but here are alternative solutions with their pros and cons."
+
+## Focus Areas
+- Different design patterns
+- Alternative architectures
+- Different technology choices
+- Simpler solutions
+- More scalable approaches
+- Different frameworks/libraries
+- Trade-offs between approaches
+
+## Context to Review
+{conversation_context}
+
+## Output Format (JSON)
+{
+  "agent": "alternative-approaches",
+  "alternatives": [
+    {
+      "name": "Name of alternative approach",
+      "description": "What this approach involves",
+      "pros": ["Advantages of this approach"],
+      "cons": ["Disadvantages of this approach"],
+      "when_to_use": "Scenarios where this is better",
+      "complexity": "HIGH | MEDIUM | LOW",
+      "example": "Code example or reference (if applicable)"
+    }
+  ],
+  "current_approach_assessment": {
+    "strengths": ["What's good about current approach"],
+    "weaknesses": ["What could be better"],
+    "verdict": "When current approach is appropriate"
+  }
+}
+```
+
+#### Performance Optimizer
+```
+Weight: 15%
+Purpose: Identify performance optimization opportunities
+Capability: high
+
+You are a PERFORMANCE OPTIMIZER. Your role is to identify opportunities for performance improvements.
+
+## Your Mindset
+"This works, but here's how to make it faster, more efficient, or more scalable."
+
+## Focus Areas
+- Algorithm complexity (Big O)
+- Database query optimization
+- Caching opportunities
+- Lazy loading vs eager loading
+- Resource utilization (memory, CPU, network)
+- Bottlenecks and hot paths
+- Scalability considerations
+- Frontend performance (if applicable)
+
+## Context to Review
+{conversation_context}
+
+## Output Format (JSON)
+{
+  "agent": "performance",
+  "optimizations": [
+    {
+      "category": "Algorithm | Database | Caching | Resource | Scalability",
+      "priority": "HIGH | MEDIUM | LOW",
+      "current_complexity": "O(n^2), 500ms response time, etc.",
+      "opportunity": "What can be optimized",
+      "suggestion": "Specific optimization",
+      "expected_improvement": "How much faster/better",
+      "trade_offs": ["What you give up for this optimization"],
+      "effort": "HIGH | MEDIUM | LOW"
+    }
+  ],
+  "performance_assessment": "Overall performance analysis",
+  "premature_optimization_warning": "Areas where optimization might not be worth it"
+}
+```
+
+---
+
+## Step 3: Aggregate Suggestions
+
+After all reviewer agents complete, aggregate their suggestions:
+
+### Categorize by Priority
+
+```yaml
+high_priority:
+  - Suggestions marked as HIGH priority
+  - Security concerns from best practices
+  - Critical code quality issues
+
+medium_priority:
+  - Suggestions marked as MEDIUM priority
+  - Maintainability improvements
+  - Alternative approaches to consider
+
+low_priority:
+  - Nice-to-have improvements
+  - Minor optimizations
+  - Style preferences
+```
+
+### Identify Common Themes
+
+Look for suggestions mentioned by multiple reviewers:
+- If 2+ reviewers mention same issue → Highlight as important
+- If reviewers conflict → Present both viewpoints
+- If reviewers agree → Emphasize consensus
+
+### Build Summary Table
+
+| Aspect | Assessment | Key Suggestions |
+|--------|------------|-----------------|
+| Best Practices | Strong/Moderate/Weak | Top 3 suggestions |
+| Code Quality | Score/10 | Top 3 improvements |
+| Architecture | Appropriate/Consider Alternatives | Alternative approaches |
+| Performance | Good/Needs Optimization | Top optimizations |
+
+---
+
+## Step 4: Generate Review Report
+
+Generate a markdown report with this structure:
+
+```markdown
+# Deep Review Report
+
+**Review Type:** Quality Improvement
+**Reviewed At:** {timestamp}
+**Scope:** {what_was_reviewed}
+**Reviewers:** 4 expert agents
+
+---
+
+## Executive Summary
+
+{2-3 paragraphs summarizing key findings and recommendations}
+
+**Overall Assessment:** {High quality / Good with room for improvement / Needs work}
+
+**Top 3 Recommendations:**
+1. {Most important suggestion}
+2. {Second most important}
+3. {Third most important}
+
+---
+
+## Review Summary
+
+| Aspect | Assessment | Priority Suggestions |
+|--------|------------|---------------------|
+| Best Practices | {assessment} | {count} suggestions |
+| Code Quality | {score}/10 | {count} improvements |
+| Alternatives | {count} options | {count} trade-offs |
+| Performance | {assessment} | {count} optimizations |
+
+---
+
+## High Priority Suggestions
+
+### {Category}: {Suggestion Title}
+
+**Priority:** HIGH
+**Suggested by:** {Agent name(s)}
+
+**Current Approach:**
+{What's being done now}
+
+**Suggestion:**
+{Specific improvement to make}
+
+**Rationale:**
+{Why this is important}
+
+**Example:**
+```{language}
+// Before
+{current_code_pattern}
+
+// After
+{improved_code_pattern}
+```
+
+**Impact:** {Expected benefit}
+
+{Repeat for each high-priority suggestion}
+
+---
+
+## Medium Priority Suggestions
+
+{Same format as high priority, grouped by category}
+
+---
+
+## Alternative Approaches
+
+### Alternative 1: {Approach Name}
+
+**Description:** {What this involves}
+
+**Pros:**
+- {Advantage 1}
+- {Advantage 2}
+
+**Cons:**
+- {Disadvantage 1}
+- {Disadvantage 2}
+
+**When to Use:** {Scenarios where this is better}
+
+**Complexity:** {HIGH/MEDIUM/LOW}
+
+{Repeat for each alternative}
+
+---
+
+## Performance Optimization Opportunities
+
+### {Optimization Title}
+
+**Category:** {Algorithm/Database/Caching/etc.}
+**Priority:** {HIGH/MEDIUM/LOW}
+**Effort:** {HIGH/MEDIUM/LOW}
+
+**Current Performance:**
+{Metrics or complexity}
+
+**Optimization:**
+{Specific suggestion}
+
+**Expected Improvement:**
+{How much better}
+
+**Trade-offs:**
+- {What you give up}
+
+{Repeat for each optimization}
+
+---
+
+## Positive Aspects
+
+**What's Already Good:**
+- {Positive aspect 1}
+- {Positive aspect 2}
+- {Positive aspect 3}
+
+**Strengths to Maintain:**
+- {Strength 1}
+- {Strength 2}
+
+---
+
+## Resources & References
+
+**Best Practices:**
+- {Link to standard/guide}
+- {Link to documentation}
+
+**Alternative Approaches:**
+- {Link to pattern description}
+- {Link to comparison}
+
+**Performance:**
+- {Link to optimization guide}
+- {Link to benchmarking tool}
+
+---
+
+## Next Steps
+
+**Recommended Action Plan:**
+
+1. **Immediate (High Priority):**
+   - [ ] {Action item 1}
+   - [ ] {Action item 2}
+
+2. **Short Term (Medium Priority):**
+   - [ ] {Action item 3}
+   - [ ] {Action item 4}
+
+3. **Long Term (Low Priority):**
+   - [ ] {Action item 5}
+   - [ ] {Action item 6}
+
+**Estimated Impact:**
+- Code Quality: {improvement estimate}
+- Maintainability: {improvement estimate}
+- Performance: {improvement estimate}
+```
+
+---
+
+## Step 5: Save Report
+
+Save the review report and update symlink:
+
+```bash
+# Create output directory
+mkdir -p .outputs/review
+
+# Generate timestamp
+TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
+
+# Save markdown report
+REPORT_FILE=".outputs/review/${TIMESTAMP}-review-report.md"
+
+# Save JSON version
+JSON_FILE=".outputs/review/${TIMESTAMP}-review-report.json"
+
+# Update symlinks
+ln -sf "${TIMESTAMP}-review-report.md" .outputs/review/latest-review.md
+ln -sf "${TIMESTAMP}-review-report.json" .outputs/review/latest-review.json
+```
+
+**Output Structure:**
+```
+.outputs/review/
+├── 20260130-143000-review-report.md
+├── 20260130-143000-review-report.json
+├── latest-review.md → (symlink)
+└── latest-review.json → (symlink)
+```
+
+---
+
+## Configuration (Optional)
+
+```yaml
+# .outputs/review/config.yaml
+
+review:
+  # Reviewer weights
+  weights:
+    best_practices: 0.35
+    code_quality: 0.30
+    alternatives: 0.20
+    performance: 0.15
+
+  # Priority thresholds
+  high_priority_threshold: 0.8
+  medium_priority_threshold: 0.5
+
+  # Output options
+  include_code_examples: true
+  include_resources: true
+  max_suggestions_per_category: 10
+```
+
+**Environment Variables:**
+```bash
+export DEEP_REVIEW_OUTPUT_DIR=".outputs/review/"
+export DEEP_REVIEW_INCLUDE_EXAMPLES="true"
+```
+
+---
+
+## Notes
+
+- **Constructive Focus:** This is about improvement, not criticism
+- **No Verdict:** No pass/fail - only suggestions
+- **Actionable:** All suggestions include specific actions
+- **Balanced:** Includes positive aspects, not just problems
+- **Conversation-Driven:** Extracts context from what was discussed
+- **Domain-Agnostic:** Works for any domain (code, design, content, etc.)
+- **Parallel Execution:** All reviewers run simultaneously for speed

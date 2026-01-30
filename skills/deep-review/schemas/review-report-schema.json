@@ -1,0 +1,251 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deep-review.dev/schemas/review-report.json",
+  "title": "Deep Review Report Schema",
+  "description": "JSON Schema for deep-review output validation",
+  "type": "object",
+  "required": [
+    "review_type",
+    "reviewed_at",
+    "scope",
+    "reviewers_count",
+    "overall_assessment",
+    "top_recommendations",
+    "suggestions_by_priority"
+  ],
+  "properties": {
+    "review_type": {
+      "type": "string",
+      "const": "quality-improvement",
+      "description": "Type of review performed"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when review was performed"
+    },
+    "scope": {
+      "type": "string",
+      "description": "What was reviewed"
+    },
+    "reviewers_count": {
+      "type": "integer",
+      "const": 4,
+      "description": "Number of expert reviewers"
+    },
+    "overall_assessment": {
+      "type": "string",
+      "enum": ["high-quality", "good-with-improvements", "needs-work"],
+      "description": "Overall quality assessment"
+    },
+    "top_recommendations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "maxItems": 3,
+      "description": "Top 3 most important recommendations"
+    },
+    "suggestions_by_priority": {
+      "type": "object",
+      "required": ["high", "medium", "low"],
+      "properties": {
+        "high": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/suggestion"
+          }
+        },
+        "medium": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/suggestion"
+          }
+        },
+        "low": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/suggestion"
+          }
+        }
+      }
+    },
+    "alternative_approaches": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/alternative"
+      }
+    },
+    "performance_optimizations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/optimization"
+      }
+    },
+    "positive_aspects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "What's already good"
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["category", "links"],
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "suggestion": {
+      "type": "object",
+      "required": ["category", "priority", "suggestion", "rationale"],
+      "properties": {
+        "category": {
+          "type": "string",
+          "description": "Category of suggestion"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["HIGH", "MEDIUM", "LOW"]
+        },
+        "suggested_by": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["best-practices", "code-quality", "alternatives", "performance"]
+          },
+          "description": "Which reviewers suggested this"
+        },
+        "current_approach": {
+          "type": "string",
+          "description": "What's being done now"
+        },
+        "suggestion": {
+          "type": "string",
+          "description": "Specific improvement to make"
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Why this is important"
+        },
+        "example_before": {
+          "type": "string",
+          "description": "Current code pattern"
+        },
+        "example_after": {
+          "type": "string",
+          "description": "Improved code pattern"
+        },
+        "impact": {
+          "type": "string",
+          "description": "Expected benefit"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "alternative": {
+      "type": "object",
+      "required": ["name", "description", "pros", "cons", "when_to_use", "complexity"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of alternative approach"
+        },
+        "description": {
+          "type": "string",
+          "description": "What this approach involves"
+        },
+        "pros": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Advantages"
+        },
+        "cons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Disadvantages"
+        },
+        "when_to_use": {
+          "type": "string",
+          "description": "Scenarios where this is better"
+        },
+        "complexity": {
+          "type": "string",
+          "enum": ["HIGH", "MEDIUM", "LOW"]
+        },
+        "example": {
+          "type": "string",
+          "description": "Code example or reference"
+        }
+      }
+    },
+    "optimization": {
+      "type": "object",
+      "required": ["category", "priority", "opportunity", "suggestion", "expected_improvement", "effort"],
+      "properties": {
+        "category": {
+          "type": "string",
+          "enum": ["algorithm", "database", "caching", "resource", "scalability", "frontend"]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["HIGH", "MEDIUM", "LOW"]
+        },
+        "current_performance": {
+          "type": "string",
+          "description": "Current metrics or complexity"
+        },
+        "opportunity": {
+          "type": "string",
+          "description": "What can be optimized"
+        },
+        "suggestion": {
+          "type": "string",
+          "description": "Specific optimization"
+        },
+        "expected_improvement": {
+          "type": "string",
+          "description": "How much better"
+        },
+        "trade_offs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "What you give up"
+        },
+        "effort": {
+          "type": "string",
+          "enum": ["HIGH", "MEDIUM", "LOW"]
+        }
+      }
+    }
+  }
+}
