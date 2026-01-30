@@ -12,8 +12,18 @@ allowed-tools:
   - mcp__context7__query-docs
   - mcp__zread__search_doc
   - mcp__zread__read_file
+  - mcp__playwright__browser_navigate
+  - mcp__playwright__browser_snapshot
+  - mcp__playwright__browser_click
+  - mcp__playwright__browser_fill_form
+  - mcp__playwright__browser_take_screenshot
+  - mcp__playwright__browser_evaluate
+  - mcp__browser-tools__takeScreenshot
+  - mcp__browser-tools__getConsoleLogs
+  - mcp__browser-tools__getNetworkLogs
   - Read
   - Task
+  - Skill
   - Write
   - Bash(mkdir *)
 ---
@@ -26,20 +36,31 @@ Execute this skill to perform comprehensive research on any topic using domain-a
 
 When invoked, you will:
 
+0. **Discover available research tools** using ToolSearch:
+   - Find all available web search MCP tools
+   - Discover browser automation tools (Playwright, browser-tools)
+   - Identify documentation query tools
+   - Build tool inventory for research execution
+
 1. **Analyze the research intent** from the conversation to extract:
    - Primary research topic/question
    - Domains explicitly mentioned
    - Domains inferred from context
    - Research depth and scope indicators
+   - Research methodology requirements (web search, crawling, interactive)
 
 2. **Create a research plan** with domain-aware effort allocation:
    - Primary domains get 70% of research effort
    - Secondary domains get 30% of research effort
    - Generate 5-10 search queries per domain
+   - Identify sites that may require browser automation
+   - Plan crawling strategy for complex sources
 
 3. **Execute parallel research** using multiple domain-focused agents:
    - Spawn domain researchers in parallel
-   - Use available MCP tools with graceful fallbacks
+   - Use web search for general information
+   - Use browser automation for interactive sites, paywalls, or dynamic content
+   - Use agent-browser skill for complex web interactions
    - Collect and validate findings from each source
 
 4. **Synthesize findings** across domains:
@@ -47,7 +68,104 @@ When invoked, you will:
    - Surface contradictions and debates
    - Generate evidence-based recommendations
 
-5. **Generate and save report** to `.outputs/research/`
+5. **Validate output format** against schema
+
+6. **Generate and save report** to `.outputs/research/`
+
+---
+
+## Step 0: Discover Available Research Tools
+
+Before beginning research, discover all available MCP tools and skills that can be used for information gathering.
+
+### Tool Discovery Process
+
+Use ToolSearch to find available research tools:
+
+```yaml
+# Search for web search tools
+ToolSearch: "web search"
+  → Returns: brave-search, web-search-prime, etc.
+
+# Search for browser automation tools
+ToolSearch: "playwright browser"
+  → Returns: playwright navigation, screenshot, interaction tools
+
+# Search for content extraction tools
+ToolSearch: "web reader content"
+  → Returns: web-reader, content extraction tools
+
+# Search for documentation query tools
+ToolSearch: "documentation query"
+  → Returns: context7, zread tools
+```
+
+### Build Tool Inventory
+
+Create an inventory of available tools for the research session:
+
+```yaml
+tool_inventory:
+  web_search:
+    - mcp__brave-search__brave_web_search
+    - mcp__web-search-prime__webSearchPrime
+
+  web_reading:
+    - mcp__web-reader__webReader
+
+  browser_automation:
+    - mcp__playwright__browser_navigate
+    - mcp__playwright__browser_snapshot
+    - mcp__playwright__browser_click
+    - mcp__playwright__browser_fill_form
+    - mcp__playwright__browser_evaluate
+    - mcp__browser-tools__takeScreenshot
+    - mcp__browser-tools__getConsoleLogs
+
+  documentation:
+    - mcp__context7__query-docs
+    - mcp__zread__search_doc
+
+  skills:
+    - agent-browser (for complex web interactions)
+```
+
+### Tool Selection Strategy
+
+Choose tools based on research requirements:
+
+**Standard Web Research:**
+- Use `web-search` tools for general queries
+- Use `web-reader` for content extraction
+- Fallback gracefully if tools unavailable
+
+**Dynamic/Interactive Content:**
+- Use `browser_automation` (Playwright) for:
+  - JavaScript-heavy sites
+  - Sites requiring interaction (forms, buttons)
+  - Dynamic content that loads on scroll
+  - Paywalled content (with proper authorization)
+
+**Complex Interactions:**
+- Use `agent-browser` skill for:
+  - Multi-step workflows (login → navigate → extract)
+  - Complex form filling
+  - Sites requiring human-like interaction
+  - Screenshot capture with analysis
+
+### Tool Availability Handling
+
+**If preferred tools unavailable:**
+1. Log missing tools
+2. Use available alternatives
+3. Adjust research strategy accordingly
+4. Note limitations in final report
+
+**Example fallback chain:**
+```
+Preferred: Playwright → mcp__browser-tools → agent-browser skill
+Fallback: web-reader → basic web-search
+```
 
 ---
 
@@ -177,14 +295,25 @@ Execute parallel research using domain-focused agents.
 
 ### Tool Availability Check
 
-Before spawning researchers, check available tools:
+Use the tool inventory from Step 0 to determine research capabilities:
 
 ```yaml
 # Core tools (expected to be available)
 core_tools:
   - web_search                    # Brave Search or WebSearchPrime
   - web_reader                    # For content extraction
-  - sequential_thinking            # For logic validation
+  - sequential_thinking           # For logic validation
+
+# Browser automation (for dynamic/interactive content)
+browser_tools:
+  - playwright_navigate           # Navigate to URLs
+  - playwright_snapshot           # Capture page state
+  - playwright_click              # Interact with elements
+  - playwright_fill_form          # Fill out forms
+  - playwright_evaluate           # Execute JavaScript
+  - browser_screenshot            # Visual capture
+  - browser_console_logs          # Debug info
+  - agent_browser_skill           # Complex interactions
 
 # Specialized tools (optional)
 specialized_tools:
@@ -192,8 +321,37 @@ specialized_tools:
   - repository_search             # For code/GitHub research
 
 # Fallback strategy
-fallback: "Use available tools, gracefully degrade"
+fallback: "Use available tools, gracefully degrade, note limitations"
 ```
+
+### Research Methodology Selection
+
+Choose methodology based on source types:
+
+**Static Content (use web_search + web_reader):**
+- News articles
+- Blog posts
+- Academic papers (PDFs)
+- Documentation sites
+- Wikipedia-style content
+
+**Dynamic Content (use browser_automation):**
+- JavaScript-heavy sites (SPAs)
+- Infinite scroll pages
+- Content loaded on interaction
+- Sites with lazy loading
+
+**Interactive Content (use browser_automation + agent_browser):**
+- Sites requiring login (with authorization)
+- Multi-step workflows
+- Form submissions
+- Search interfaces
+- Filtered/paginated results
+
+**Paywalled/Gated Content:**
+- Use browser automation if access authorized
+- Note limitations if access unavailable
+- Look for alternative sources
 
 ### Domain Researcher Template
 
@@ -212,16 +370,45 @@ You are a {DOMAIN} RESEARCHER. Your role is to gather comprehensive information 
 
 ## Your Task
 1. Execute each search query using available search tools
-2. Read promising sources using web-reader tools
-3. Extract key findings, evidence, and sources
+2. Read promising sources using appropriate method:
+   - Static content: web-reader
+   - Dynamic content: browser automation (Playwright)
+   - Interactive content: agent-browser skill
+3. Extract key findings, evidence, and sources with URLs
 4. Assess source credibility (HIGH/MEDIUM/LOW)
 5. Identify consensus vs. debate in the field
 
 ## Tool Strategy
+
+**For Standard Web Research:**
 - Use WebSearch tools for finding sources
-- Use web-reader for extracting content
+- Use web-reader for extracting static content
 - Use documentation queries for technical topics
-- Gracefully handle unavailable tools
+
+**For Dynamic/Interactive Sites:**
+- Use Playwright tools for:
+  - Navigating: `mcp__playwright__browser_navigate`
+  - Capturing state: `mcp__playwright__browser_snapshot`
+  - Screenshots: `mcp__playwright__browser_take_screenshot`
+  - JavaScript execution: `mcp__playwright__browser_evaluate`
+
+**For Complex Interactions:**
+- Use agent-browser skill when:
+  - Multi-step workflows required
+  - Forms need to be filled
+  - Login/authentication needed (if authorized)
+  - Human-like interaction necessary
+
+**URL Requirements:**
+- ALWAYS capture source URLs
+- Use actual page URLs (not search result URLs)
+- Include direct links for cross-referencing
+- Note if URL requires authentication
+
+**Graceful Degradation:**
+- If browser tools unavailable, try web-reader
+- If web-reader fails, note source as "inaccessible"
+- Document tool limitations in findings
 
 ## Output Format (JSON)
 {
@@ -271,6 +458,140 @@ researchers:
   - "{secondary_domain_1}"
   - "{secondary_domain_2}"
 ```
+
+### Browser-Based Research Crawling
+
+For sources requiring browser automation, use this workflow:
+
+#### When to Use Browser Automation
+
+Use browser tools when encountering:
+- ❌ web-reader returns incomplete content
+- ❌ "JavaScript required" messages
+- ❌ Dynamic content not loading
+- ❌ Search interfaces requiring interaction
+- ❌ Paginated results needing navigation
+- ❌ Content behind forms or filters
+
+#### Playwright Research Workflow
+
+**Basic Navigation & Extraction:**
+```
+1. Navigate to URL
+   → mcp__playwright__browser_navigate(url)
+
+2. Capture page state
+   → mcp__playwright__browser_snapshot
+   → Returns: HTML, visible text, accessibility tree
+
+3. Extract specific content
+   → mcp__playwright__browser_evaluate(script)
+   → Execute JavaScript to extract data
+```
+
+**Interactive Research (Forms, Search, Filters):**
+```
+1. Navigate to site
+   → browser_navigate(url)
+
+2. Fill search/filter forms
+   → browser_fill_form(selector, value)
+
+3. Click search/submit buttons
+   → browser_click(selector)
+
+4. Wait for results to load
+   → browser_evaluate("check if loaded")
+
+5. Extract results
+   → browser_snapshot or browser_evaluate
+```
+
+**Multi-Page Crawling:**
+```
+For paginated results:
+1. Extract page 1
+2. Click "Next" button
+3. Extract page 2
+4. Repeat until complete or limit reached
+5. Aggregate all findings
+```
+
+#### Agent-Browser Skill Integration
+
+For complex multi-step workflows, use the agent-browser skill:
+
+```
+Invoke: /agent-browser or Skill tool with "agent-browser"
+
+Use cases:
+- Login flows (if authorized)
+- Multi-step forms
+- Complex navigation patterns
+- Sites requiring human-like timing
+- Screenshot capture with analysis
+```
+
+**Example agent-browser prompt:**
+```
+Use agent-browser to:
+1. Navigate to {research_site}
+2. Search for "{query}"
+3. Extract top 10 results with:
+   - Title
+   - URL
+   - Summary text
+   - Publication date (if available)
+4. Return as structured JSON
+```
+
+#### URL Capture Requirements
+
+**CRITICAL:** Always capture actual content URLs:
+
+✅ **Correct:**
+```json
+{
+  "url": "https://example.com/article/actual-content",
+  "title": "Article Title",
+  "method": "playwright-browser-automation"
+}
+```
+
+❌ **Wrong:**
+```json
+{
+  "url": "https://google.com/search?q=...",
+  "title": "Search results",
+  "method": "web-search"
+}
+```
+
+**URL Validation:**
+- URL must point to actual content (not search results)
+- URL must be clickable/accessible
+- URL must be permanent (not session-specific)
+- If URL requires auth, note: `"access": "requires-authentication"`
+
+#### Browser Automation Best Practices
+
+**Performance:**
+- Use browser automation only when necessary
+- Prefer web-reader for static content
+- Limit concurrent browser sessions (max 3)
+- Set reasonable timeouts (30s per page)
+
+**Ethics & Legal:**
+- Respect robots.txt
+- Honor rate limiting
+- Don't bypass paywalls without authorization
+- Note access requirements in findings
+
+**Error Handling:**
+- If browser automation fails → try web-reader
+- If web-reader fails → note as "inaccessible"
+- Log failures in research quality assessment
+- Don't block research on single source failure
 
 ---
 

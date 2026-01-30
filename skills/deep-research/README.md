@@ -18,10 +18,14 @@ It works for:
 - **Conversation-Driven:** Extracts research intent from what you discuss
 - **Model-Agnostic:** Works with any available AI model (no hardcoded names)
 - **Domain-Agnostic:** Dynamically adapts to ANY domain or topic
+- **Tool Discovery:** Automatically detects available MCP tools and adapts research strategy
+- **Multi-Method Research:** Web search, browser automation, and interactive crawling
 - **Domain-Aware Scheduling:** Allocates research effort based on domain relevance
 - **Parallel Research:** Executes multiple domain researchers simultaneously
-- **Evidence-Based:** All findings tied to credible sources with validation
+- **Browser Automation:** Handles dynamic content, interactive sites, and complex workflows
+- **Evidence-Based:** All findings tied to credible, clickable source URLs with validation
 - **Cross-Domain Insights:** Identifies emergent insights from domain intersections
+- **Standardized Output:** Format validation with source quality enforcement
 - **No Configuration Required:** Works out of the box
 
 ## Quick Start
@@ -186,17 +190,38 @@ Performance (30%):
 
 ### Phase 3: Information Gathering
 
-Execute parallel research:
+Execute parallel research with multi-method approach:
+- Discover available research tools automatically
 - Spawn domain researchers in parallel
-- Use available MCP tools
-- Extract findings with source attribution
+- Adapt research method to content type
+- Extract findings with clickable source URLs
 - Assess source credibility
 
-**Tools Used:**
+**Research Methods:**
+
+**Standard Web Research:**
 - WebSearch (Brave Search, WebSearchPrime)
 - Web Reader (content extraction)
 - Documentation Query (for technical topics)
-- Sequential Thinking (logic validation)
+
+**Dynamic Content:**
+- Playwright browser automation for JavaScript-heavy sites
+- Browser snapshot capture for dynamic loading
+- JavaScript evaluation for data extraction
+
+**Interactive Research:**
+- Form filling and search interfaces
+- Multi-step navigation workflows
+- Paginated result extraction
+- Agent-browser skill for complex interactions
+
+**Tool Selection Logic:**
+```
+Static content → web-reader
+Dynamic content → Playwright automation
+Complex interaction → agent-browser skill
+Fallback gracefully if tools unavailable
+```
 
 ### Phase 4: Cross-Domain Analysis
 
@@ -252,6 +277,149 @@ Generate structured report:
 | "privacy vs. security in UX" | Security, UX Design, Privacy | Compliance, User Trust |
 
 Any domain can be detected - the system analyzes conversation naturally.
+
+## Browser Automation & Web Crawling
+
+Deep Research includes advanced browser automation capabilities for handling modern web content.
+
+### When Browser Automation is Used
+
+**Automatic Detection:**
+The skill automatically uses browser automation when:
+- ❌ Standard web-reader returns incomplete content
+- ❌ JavaScript is required to view content
+- ❌ Dynamic content doesn't load without interaction
+- ❌ Search interfaces require form submission
+- ❌ Paginated results need navigation
+
+### Research Method Selection
+
+```
+┌─────────────────────────────────────────┐
+│ Content Type Detection                  │
+└─────────────────────────────────────────┘
+              ↓
+    ┌─────────┴─────────┐
+    │                   │
+Static HTML        Dynamic/Interactive
+    │                   │
+web-reader     Browser Automation
+    │                   │
+    ↓                   ↓
+Extract with      Playwright Tools
+URLs              + agent-browser
+```
+
+### Browser Automation Capabilities
+
+**Playwright Tools:**
+- `browser_navigate` - Navigate to URLs
+- `browser_snapshot` - Capture page state (HTML, text, accessibility tree)
+- `browser_click` - Interact with page elements
+- `browser_fill_form` - Fill search forms and inputs
+- `browser_evaluate` - Execute JavaScript for data extraction
+- `browser_take_screenshot` - Visual capture for analysis
+
+**Agent-Browser Skill:**
+- Complex multi-step workflows
+- Login flows (with proper authorization)
+- Human-like interaction timing
+- Form filling and submission
+- Screenshot capture with AI analysis
+
+### Use Cases
+
+**Dynamic Content Sites:**
+```
+Example: React/Vue/Angular SPAs
+Method: Playwright browser_snapshot
+Result: Full rendered HTML with data
+```
+
+**Search Interfaces:**
+```
+Example: Research databases, catalogs
+Method: browser_fill_form + browser_click
+Result: Extracted search results with URLs
+```
+
+**Paginated Results:**
+```
+Example: Multi-page reports, archives
+Method: Navigate → Extract → Click Next → Repeat
+Result: Aggregated data from all pages
+```
+
+**Interactive Filters:**
+```
+Example: Product databases, directory sites
+Method: agent-browser skill for complex workflows
+Result: Filtered results with proper attribution
+```
+
+### URL Capture Requirements
+
+**Critical:** All sources must include clickable URLs pointing to actual content:
+
+✅ **Correct:**
+```json
+{
+  "url": "https://docs.example.com/event-sourcing",
+  "title": "Event Sourcing Patterns",
+  "method": "browser-automation",
+  "credibility": "HIGH"
+}
+```
+
+❌ **Wrong:**
+```json
+{
+  "url": "https://google.com/search?q=event+sourcing",
+  "title": "Search results",
+  "method": "web-search"
+}
+```
+
+**URL Requirements:**
+- Must point to actual content (not search results)
+- Must be clickable and accessible
+- Must be permanent (not session-specific)
+- If authentication required, note in findings
+
+### Tool Discovery
+
+The skill automatically discovers available research tools at runtime:
+
+**Step 0: Tool Discovery**
+```yaml
+1. Search for web search tools → ToolSearch("web search")
+2. Search for browser tools → ToolSearch("playwright browser")
+3. Search for content extraction → ToolSearch("web reader")
+4. Build tool inventory
+5. Select best method per source type
+```
+
+This ensures the skill works with whatever MCP tools are available in your environment.
+
+### Best Practices
+
+**Performance:**
+- Browser automation only when necessary
+- Limit concurrent browser sessions (max 3)
+- Set reasonable timeouts (30s per page)
+- Prefer web-reader for static content
+
+**Ethics & Legal:**
+- Respect robots.txt
+- Honor rate limiting
+- Don't bypass paywalls without authorization
+- Note access restrictions in findings
+
+**Quality:**
+- Always capture source URLs
+- Validate URL accessibility
+- Cross-reference findings
+- Document research method used
 
 ## Model Selection
 
