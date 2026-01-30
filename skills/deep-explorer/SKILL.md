@@ -161,75 +161,297 @@ exploration_scope: [list of unique files to re-explore]
 
 ### Full Exploration (First Run)
 
-Explore the entire codebase systematically:
+Spawn parallel explorer sub-agents for faster analysis:
 
-**Phase 1: Repository Structure**
+**Parallel Execution Strategy:**
 ```yaml
-structure_analysis:
-  - Map directory hierarchy
-  - Count files by type
-  - Identify organizational patterns
-  - Find configuration files
+spawn_in_parallel:
+  - Structure Explorer (30% weight)
+  - Technology Explorer (20% weight)
+  - Architecture Explorer (25% weight)
+  - Workflow Explorer (15% weight)
+  - Dependency Explorer (10% weight)
+
+execution:
+  mode: parallel
+  max_concurrent: 5
+  capability: high
 ```
 
-**Phase 2: Technology Stack**
-```yaml
-technology_inventory:
-  - Languages (from file extensions)
-  - Frameworks (from package.json, requirements.txt, etc.)
-  - Build tools (Makefile, package.json scripts, etc.)
-  - Dependencies (package.json, requirements.txt, go.mod, etc.)
+**Explorer Agent Templates:**
+
+#### Structure Explorer Agent
+```
+Capability: high
+
+You are a STRUCTURE EXPLORER. Analyze the repository structure and organization.
+
+## Your Task
+1. Map directory hierarchy using Glob and ls
+2. Count files by type (extensions)
+3. Identify organizational patterns
+4. Find configuration files
+5. Analyze naming conventions
+
+## Output Format (JSON)
+{
+  "agent": "structure-explorer",
+  "directory_structure": {
+    "total_directories": 24,
+    "total_files": 188,
+    "hierarchy": "..."
+  },
+  "file_distribution": {
+    "typescript": 145,
+    "javascript": 23,
+    "json": 12,
+    "markdown": 8
+  },
+  "organizational_patterns": [
+    "Feature-based organization",
+    "Separation of concerns",
+    "Test files colocated with source"
+  ],
+  "configuration_files": [
+    "package.json",
+    "tsconfig.json",
+    ".eslintrc.js",
+    "docker-compose.yml"
+  ]
+}
 ```
 
-**Phase 3: Architecture Analysis**
-```yaml
-architecture_patterns:
-  - Project structure (MVC, microservices, monolithic, etc.)
-  - Module organization
-  - Separation of concerns
-  - Design patterns used
+#### Technology Explorer Agent
+```
+Capability: high
+
+You are a TECHNOLOGY EXPLORER. Inventory the technology stack.
+
+## Your Task
+1. Detect languages from file extensions
+2. Identify frameworks from package.json, requirements.txt, etc.
+3. Find build tools (Makefile, scripts, etc.)
+4. Extract dependencies and versions
+
+## Output Format (JSON)
+{
+  "agent": "technology-explorer",
+  "languages": [
+    {"name": "TypeScript", "file_count": 145, "primary": true},
+    {"name": "JavaScript", "file_count": 23, "primary": false}
+  ],
+  "frameworks": [
+    {"name": "Express.js", "version": "^4.18.0", "purpose": "web server"},
+    {"name": "React", "version": "^18.2.0", "purpose": "frontend"}
+  ],
+  "build_tools": ["npm", "webpack", "docker"],
+  "dependencies": {
+    "production": {...},
+    "development": {...}
+  }
+}
 ```
 
-**Phase 4: Code Flow Tracing**
-```yaml
-code_flow_analysis:
-  - Entry points (main.ts, index.js, __main__.py, etc.)
-  - Key workflows
-  - Data flow patterns
-  - Integration points
+#### Architecture Explorer Agent
+```
+Capability: high
+
+You are an ARCHITECTURE EXPLORER. Identify architectural patterns and structure.
+
+## Your Task
+1. Analyze project structure (MVC, microservices, etc.)
+2. Identify module organization
+3. Detect design patterns used
+4. Assess separation of concerns
+
+## Output Format (JSON)
+{
+  "agent": "architecture-explorer",
+  "project_structure": "Layered architecture",
+  "layers": [
+    {"name": "API Layer", "location": "src/api/"},
+    {"name": "Business Logic", "location": "src/services/"},
+    {"name": "Data Layer", "location": "src/models/"}
+  ],
+  "design_patterns": [
+    {"pattern": "Factory", "location": "src/factories/"},
+    {"pattern": "Repository", "location": "src/repositories/"},
+    {"pattern": "Dependency Injection", "implementation": "constructor-based"}
+  ],
+  "separation_quality": "high"
+}
 ```
 
-**Phase 5: Component Relationships**
-```yaml
-dependency_mapping:
-  - Import/export patterns
-  - Component dependencies
-  - External dependencies
-  - Module coupling
+#### Workflow Explorer Agent
 ```
+Capability: high
+
+You are a WORKFLOW EXPLORER. Trace code flows and entry points.
+
+## Your Task
+1. Find entry points (main files)
+2. Trace key workflows
+3. Map data flow patterns
+4. Identify integration points
+
+## Output Format (JSON)
+{
+  "agent": "workflow-explorer",
+  "entry_points": [
+    {"file": "src/index.ts", "purpose": "Application bootstrap"}
+  ],
+  "key_workflows": [
+    {
+      "name": "User Authentication",
+      "flow": [
+        "src/api/auth/routes.ts",
+        "src/services/auth.service.ts",
+        "src/repositories/user.repository.ts",
+        "Database"
+      ]
+    }
+  ],
+  "data_flow_patterns": ["Request-Response", "Event-driven"],
+  "integration_points": ["Database", "External APIs", "Cache"]
+}
+```
+
+#### Dependency Explorer Agent
+```
+Capability: high
+
+You are a DEPENDENCY EXPLORER. Map component relationships and dependencies.
+
+## Your Task
+1. Analyze import/export patterns
+2. Map component dependencies using Grep
+3. Identify external dependencies
+4. Assess module coupling
+
+## Output Format (JSON)
+{
+  "agent": "dependency-explorer",
+  "import_patterns": {
+    "relative_imports": 145,
+    "absolute_imports": 23,
+    "external_imports": 67
+  },
+  "component_dependencies": {
+    "api/": ["services/", "middleware/", "utils/"],
+    "services/": ["repositories/", "models/"]
+  },
+  "coupling_analysis": {
+    "level": "low",
+    "circular_dependencies": []
+  }
+}
+```
+
+**Aggregate Results:**
+
+After all explorer agents complete, aggregate their findings into comprehensive report.
 
 ### Delta Exploration (Incremental)
 
-Re-explore only changed areas:
+Spawn parallel file analyzer sub-agents for each changed file/directory:
 
-**For each changed file:**
+**Parallel Execution Strategy:**
+```yaml
+# Group changes by directory or file
+change_groups:
+  - src/auth/ (3 files changed)
+  - src/api/ (2 files changed)
+  - src/config/ (1 file changed)
 
-1. **Read file content**
+# Spawn one agent per group
+spawn_in_parallel:
+  - File Analyzer: src/auth/*
+  - File Analyzer: src/api/*
+  - File Analyzer: src/config/*
+
+execution:
+  mode: parallel
+  max_concurrent: 10
+  capability: high
+```
+
+**File Analyzer Agent Template:**
+
+```
+Capability: high
+
+You are a FILE ANALYZER for delta exploration. Analyze changed files and their impact.
+
+## Files to Analyze
+{list_of_changed_files_in_this_group}
+
+## Change Types Detected
+{committed/uncommitted status for each file}
+
+## Your Task
+
+For each changed file:
+
+1. **Read file content** using Read tool
 2. **Analyze change type:**
-   - Modified: Compare with baseline, identify what changed
+   - Modified: Compare with previous, identify what changed
    - Added: Document new component
-   - Deleted: Note removal and impact
+   - Deleted: Note removal and document what it was
    - Renamed: Track move and update references
 
-3. **Trace impact:**
+3. **Trace impact** using Grep:
    - What components depend on this file?
    - What does this file depend on?
    - Are there breaking changes?
    - What tests are affected?
 
 4. **Flag stability:**
-   - Committed → Stable
-   - Uncommitted → Work in progress (⚠️)
+   - Committed → ✅ Stable
+   - Uncommitted → ⚠️ Work in progress
+
+## Output Format (JSON)
+{
+  "agent": "file-analyzer-{group}",
+  "files_analyzed": [
+    {
+      "file": "src/auth/oauth2.ts",
+      "change_type": "added",
+      "stability": "committed",
+      "status": "✅ Stable",
+      "analysis": {
+        "type": "Authentication Module",
+        "purpose": "OAuth2 authentication flow",
+        "exports": ["OAuth2Strategy", "authenticate()"],
+        "imports": ["express", "passport-oauth2"],
+        "dependencies": {
+          "imports": ["express", "passport"],
+          "imported_by": ["src/api/auth/routes.ts"]
+        },
+        "impact": [
+          "Replaces src/legacy/old-auth.ts",
+          "Used by src/api/auth/routes.ts",
+          "Affects login workflow"
+        ],
+        "breaking_changes": [
+          "Session-based auth no longer supported"
+        ],
+        "affected_tests": [
+          "tests/auth/oauth2.spec.ts (new)",
+          "tests/api/auth.spec.ts (modified)"
+        ]
+      }
+    }
+  ]
+}
+```
+
+**Aggregate Results:**
+
+After all file analyzer agents complete, aggregate their findings:
+- Combine all file analyses
+- Cross-reference impacts
+- Identify system-wide changes
+- Generate delta report
 
 ---
 

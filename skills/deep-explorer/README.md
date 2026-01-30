@@ -28,6 +28,7 @@ Deep Explorer helps you understand how a codebase works by analyzing its structu
 
 ## Key Features
 
+- **Parallel Sub-Agent Execution:** Spawns multiple explorer agents for faster analysis
 - **Git-Based Delta Tracking:** Efficiently tracks changes using Git as reference
 - **Full + Delta Exploration:** Complete analysis first run, incremental updates after
 - **Uncommitted Change Detection:** Analyzes both committed and work-in-progress files
@@ -36,6 +37,7 @@ Deep Explorer helps you understand how a codebase works by analyzing its structu
 - **Impact Analysis:** Shows what's affected by changes
 - **No Git Pollution:** Doesn't commit exploration reports to Git
 - **Flexible:** Works with dirty working directory
+- **Scalable:** Handles large codebases efficiently with parallel execution
 
 ## Quick Start
 
@@ -57,6 +59,42 @@ cp -r skills/deep-explorer ~/.claude/skills/
 # → Re-explores only changed areas
 # → Generates delta report showing what changed
 ```
+
+## Parallel Execution Architecture
+
+Deep Explorer uses parallel sub-agents to speed up analysis:
+
+### Full Exploration: 5 Parallel Agents
+
+```
+Spawn in parallel:
+├── Structure Explorer (30%) - Directory hierarchy, file distribution
+├── Technology Explorer (20%) - Languages, frameworks, dependencies
+├── Architecture Explorer (25%) - Patterns, design, organization
+├── Workflow Explorer (15%) - Entry points, data flows
+└── Dependency Explorer (10%) - Component relationships
+
+Each agent runs independently
+Results aggregated into comprehensive report
+```
+
+**Performance:** ~5x faster than sequential analysis
+
+### Delta Exploration: N Parallel Agents
+
+```
+Changed files grouped by directory:
+├── src/auth/ (3 files) → File Analyzer Agent #1
+├── src/api/ (2 files) → File Analyzer Agent #2
+└── src/config/ (1 file) → File Analyzer Agent #3
+
+Each agent analyzes its assigned files
+Results aggregated into delta report
+```
+
+**Performance:** Scales with number of changed files
+
+---
 
 ## How It Works
 
