@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://parallel-workflow.dev/schemas/workflow-execution.json",
+  "title": "Parallel Workflow Execution Schema",
+  "description": "JSON Schema for parallel-workflow execution report validation",
+  "type": "object",
+  "required": [
+    "workflow_type",
+    "executed_at",
+    "status",
+    "total_tasks",
+    "completed_tasks",
+    "failed_tasks",
+    "skipped_tasks",
+    "execution_time_ms",
+    "waves",
+    "task_results"
+  ],
+  "properties": {
+    "workflow_type": {
+      "type": "string",
+      "const": "dag-orchestrated",
+      "description": "Type of workflow execution"
+    },
+    "executed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when workflow was executed"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["SUCCESS", "PARTIAL_FAILURE", "FAILED"],
+      "description": "Overall execution status"
+    },
+    "total_tasks": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Total number of tasks in workflow"
+    },
+    "completed_tasks": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of tasks completed successfully"
+    },
+    "failed_tasks": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of tasks that failed"
+    },
+    "skipped_tasks": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of tasks skipped due to dependency failures"
+    },
+    "execution_time_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total execution time in milliseconds"
+    },
+    "parallelization_factor": {
+      "type": "number",
+      "minimum": 1.0,
+      "description": "Speedup achieved through parallelization"
+    },
+    "waves": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/wave"
+      },
+      "minItems": 1,
+      "description": "Execution waves in order"
+    },
+    "task_results": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/task_result"
+      },
+      "description": "Results for each task keyed by task ID"
+    },
+    "critical_path": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Task IDs forming the critical path"
+    },
+    "critical_path_duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Duration of critical path in milliseconds"
+    }
+  },
+  "$defs": {
+    "wave": {
+      "type": "object",
+      "required": ["wave_number", "task_ids", "start_time_ms", "end_time_ms", "duration_ms"],
+      "properties": {
+        "wave_number": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Wave sequence number (1-indexed)"
+        },
+        "task_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Task IDs executed in this wave"
+        },
+        "start_time_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Wave start time (ms from workflow start)"
+        },
+        "end_time_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Wave end time (ms from workflow start)"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Wave duration in milliseconds"
+        },
+        "skipped": {
+          "type": "boolean",
+          "description": "Whether this wave was skipped due to dependency failures"
+        }
+      }
+    },
+    "task_result": {
+      "type": "object",
+      "required": ["task_id", "description", "status", "wave_number"],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "description": "Unique task identifier"
+        },
+        "description": {
+          "type": "string",
+          "description": "Task description"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["COMPLETED", "FAILED", "SKIPPED"],
+          "description": "Task execution status"
+        },
+        "wave_number": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Which wave this task was in"
+        },
+        "agent_type": {
+          "type": "string",
+          "description": "Agent type used for execution"
+        },
+        "start_time_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Task start time (ms from workflow start)"
+        },
+        "end_time_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Task end time (ms from workflow start)"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Task duration in milliseconds"
+        },
+        "output": {
+          "type": "string",
+          "description": "Task output or result"
+        },
+        "error": {
+          "type": "string",
+          "description": "Error message if task failed"
+        },
+        "skipped_reason": {
+          "type": "string",
+          "description": "Reason task was skipped"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Task IDs this task depended on"
+        },
+        "dependents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Task IDs that depend on this task"
+        }
+      }
+    }
+  }
+}
