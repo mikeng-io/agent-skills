@@ -13,17 +13,111 @@ This repository contains reusable skills that are:
 
 ## Available Skills
 
+### [deep-explorer](./skills/deep-explorer/)
+
+Git-based codebase exploration with delta analysis and parallel execution.
+
+**Purpose:** Understand codebase structure, architecture, patterns, and changes
+
+**Features:**
+- Git-based delta tracking (committed + uncommitted + untracked changes)
+- Parallel exploration with 5 specialized agents (Structure, Technology, Architecture, Workflow, Dependency)
+- Full exploration mode for complete understanding
+- Delta exploration mode for incremental analysis
+- Baseline metadata storage for tracking changes
+- Works with dirty working directories (no forced commits)
+- Domain-agnostic codebase analysis
+
+**Output:** `.outputs/exploration/` directory with validated, timestamped reports
+
+**Quick Start:**
+```bash
+# Install the skill
+cp -r skills/deep-explorer ~/.claude/skills/
+
+# Explore codebase structure and patterns
+User: "I need to understand how this auth system works"
+/deep-explorer
+```
+
+**Documentation:** [skills/deep-explorer/README.md](./skills/deep-explorer/README.md)
+
+---
+
+### [deep-review](./skills/deep-review/)
+
+Multi-agent quality improvement framework with constructive feedback.
+
+**Purpose:** Get actionable suggestions to improve your work (no pass/fail verdict)
+
+**Features:**
+- 4 parallel expert reviewers (Best Practices 35%, Code Quality 30%, Alternatives 20%, Performance 15%)
+- Constructive feedback focused on improvement, not criticism
+- Prioritized suggestions (HIGH/MEDIUM/LOW)
+- Alternative approaches with trade-offs
+- Positive aspects included (what's already good)
+- Domain-agnostic quality analysis
+- **No verdicts** - improvement suggestions only
+
+**Output:** `.outputs/review/` directory with validated, timestamped reports
+
+**Quick Start:**
+```bash
+# Install the skill
+cp -r skills/deep-review ~/.claude/skills/
+
+# Get improvement suggestions
+User: "I implemented OAuth2 authentication. Can you review it?"
+/deep-review
+```
+
+**Documentation:** [skills/deep-review/README.md](./skills/deep-review/README.md)
+
+---
+
+### [deep-audit](./skills/deep-audit/)
+
+Multi-agent standards and compliance auditing with pass/fail verdicts.
+
+**Purpose:** Check work against established standards and compliance requirements
+
+**Features:**
+- 5 parallel specialist auditors (Security 30%, Accessibility 25%, Code Standards 20%, Regulatory 15%, Performance 10%)
+- Formal pass/fail verdicts (PASS, PASS_WITH_WARNINGS, FAIL)
+- Standards-based checking (OWASP, WCAG, GDPR, HIPAA, PEP8, ESLint, etc.)
+- Violation reports with severity levels (CRITICAL, HIGH, MEDIUM, LOW)
+- Compliance tracking for regulatory requirements
+- Remediation plans with priority
+- CRITICAL violations block deployment
+
+**Output:** `.outputs/audit/` directory with validated, timestamped reports
+
+**Quick Start:**
+```bash
+# Install the skill
+cp -r skills/deep-audit ~/.claude/skills/
+
+# Audit for compliance
+User: "Audit this code for security and accessibility"
+/deep-audit
+```
+
+**Documentation:** [skills/deep-audit/README.md](./skills/deep-audit/README.md)
+
+---
+
 ### [deep-verify](./skills/deep-verify/)
 
 Generic multi-agent verification framework with balanced expert analysis.
 
-**Purpose:** Verify work through multi-dimensional expert analysis
+**Purpose:** Verify work through multi-dimensional expert analysis with risk assessment
 
 **Features:**
 - Three-tier expert system (Invariant + Domain + Dynamic)
 - Conversation-driven domain detection
 - Model-agnostic agent dispatch
 - Balanced verification (Devil's Advocate counters confirmation bias)
+- Risk scenario analysis
 - Works for ANY domain (technical, creative, business, legal, etc.)
 - **Standardized output format with validation gates**
 
@@ -76,11 +170,60 @@ User: "Research event sourcing with Kafka for microservices"
 
 ---
 
+## When to Use Which Skill?
+
+Choose the right skill based on your goal:
+
+| Goal | Skill | Output |
+|------|-------|--------|
+| **Understand codebase** | [deep-explorer](./skills/deep-explorer/) | Architecture insights, patterns, structure |
+| **Get improvement ideas** | [deep-review](./skills/deep-review/) | Actionable suggestions, alternatives, trade-offs |
+| **Check compliance** | [deep-audit](./skills/deep-audit/) | PASS/FAIL verdict, violation reports, remediation |
+| **Assess risks** | [deep-verify](./skills/deep-verify/) | Risk scenarios, expert analysis, verification |
+| **Research topics** | [deep-research](./skills/deep-research/) | Evidence-based findings, sources, insights |
+
+**Example workflows:**
+
+```bash
+# New codebase workflow
+/deep-explorer          # Understand structure first
+/deep-review            # Get improvement suggestions
+/deep-audit             # Check compliance
+/deep-verify            # Verify changes work
+
+# Pre-deployment workflow
+/deep-audit             # Must pass compliance
+/deep-verify            # Verify no risks
+# Deploy if both pass
+
+# Learning workflow
+/deep-explorer          # Understand current patterns
+/deep-research          # Research best practices
+/deep-review            # Compare and get suggestions
+```
+
+---
+
 ## Repository Structure
 
 ```
 deep-verify/
 ├── skills/
+│   ├── deep-explorer/        # Git-based codebase exploration
+│   │   ├── SKILL.md          # Executable skill definition
+│   │   ├── README.md         # User documentation
+│   │   └── schemas/          # Output format specifications
+│   │
+│   ├── deep-review/          # Quality improvement framework
+│   │   ├── SKILL.md          # Executable skill definition
+│   │   ├── README.md         # User documentation
+│   │   └── schemas/          # Output format specifications
+│   │
+│   ├── deep-audit/           # Standards compliance auditing
+│   │   ├── SKILL.md          # Executable skill definition
+│   │   ├── README.md         # User documentation
+│   │   └── schemas/          # Output format specifications
+│   │
 │   ├── deep-verify/          # Multi-agent verification framework
 │   │   ├── SKILL.md          # Executable skill definition
 │   │   ├── README.md         # User documentation
@@ -112,30 +255,44 @@ deep-verify/
 
 ```bash
 # Copy individual skills to your project's .claude/skills/ directory
+cp -r skills/deep-explorer ~/.claude/skills/
+cp -r skills/deep-review ~/.claude/skills/
+cp -r skills/deep-audit ~/.claude/skills/
 cp -r skills/deep-verify ~/.claude/skills/
 cp -r skills/deep-research ~/.claude/skills/
 
 # Or symlink for development
+ln -s $(pwd)/skills/deep-explorer ~/.claude/skills/deep-explorer
+ln -s $(pwd)/skills/deep-review ~/.claude/skills/deep-review
+ln -s $(pwd)/skills/deep-audit ~/.claude/skills/deep-audit
 ln -s $(pwd)/skills/deep-verify ~/.claude/skills/deep-verify
 ln -s $(pwd)/skills/deep-research ~/.claude/skills/deep-research
 ```
 
 ### Using Multiple Skills Together
 
-Both skills can be used in the same project:
+All skills work together in complementary ways:
 
 ```bash
-# Install both skills
-cp -r skills/deep-verify ~/.claude/skills/
-cp -r skills/deep-research ~/.claude/skills/
+# Install all skills
+cp -r skills/deep-* ~/.claude/skills/
 
-# Research a topic first
-User: "Research event sourcing patterns"
-/deep-research
+# Complete workflow example
+User: "I joined a new project with an unfamiliar codebase"
+/deep-explorer          # Understand the architecture
 
-# Then verify your implementation
-User: "I implemented event sourcing. concerned about performance"
-/deep-verify
+User: "Now I need to add OAuth2 authentication"
+/deep-research          # Research best practices
+# ... implement feature ...
+/deep-review            # Get improvement suggestions
+/deep-audit             # Check security compliance
+/deep-verify            # Verify it works correctly
+
+# Pre-deployment workflow
+User: "Ready to deploy"
+/deep-audit             # Must pass compliance checks
+/deep-verify            # Must pass risk verification
+# Deploy only if both pass
 ```
 
 ---
@@ -339,8 +496,17 @@ Contributions are welcome! Please:
 
 ## Key Documentation
 
+### Comprehensive Guides
+
+- **[DEEP_SKILLS_SUITE.md](./DEEP_SKILLS_SUITE.md)** - Complete guide to all five skills and their relationships
 - **[STANDARDIZATION.md](./STANDARDIZATION.md)** - Output format standardization implementation
 - **[BROWSER_AUTOMATION.md](./BROWSER_AUTOMATION.md)** - Browser automation and tool discovery capabilities
+
+### Individual Skills
+
+- **[skills/deep-explorer/](./skills/deep-explorer/)** - Git-based codebase exploration
+- **[skills/deep-review/](./skills/deep-review/)** - Quality improvement framework
+- **[skills/deep-audit/](./skills/deep-audit/)** - Standards compliance auditing
 - **[skills/deep-verify/](./skills/deep-verify/)** - Multi-agent verification framework
 - **[skills/deep-research/](./skills/deep-research/)** - Multi-domain research framework
 
