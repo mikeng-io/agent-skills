@@ -1,0 +1,218 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deep-audit.dev/schemas/audit-report.json",
+  "title": "Deep Audit Report Schema",
+  "description": "JSON Schema for deep-audit output validation",
+  "type": "object",
+  "required": [
+    "audit_type",
+    "audited_at",
+    "scope",
+    "auditors_count",
+    "overall_verdict",
+    "audit_score",
+    "violation_summary",
+    "auditor_results"
+  ],
+  "properties": {
+    "audit_type": {
+      "type": "string",
+      "const": "standards-compliance",
+      "description": "Type of audit performed"
+    },
+    "audited_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when audit was performed"
+    },
+    "scope": {
+      "type": "string",
+      "description": "What was audited"
+    },
+    "auditors_count": {
+      "type": "integer",
+      "const": 5,
+      "description": "Number of specialist auditors"
+    },
+    "overall_verdict": {
+      "type": "string",
+      "enum": ["PASS", "PASS_WITH_WARNINGS", "FAIL"],
+      "description": "Overall audit verdict"
+    },
+    "audit_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Weighted average audit score"
+    },
+    "violation_summary": {
+      "type": "object",
+      "required": ["by_severity", "by_category", "blocking_count"],
+      "properties": {
+        "by_severity": {
+          "type": "object",
+          "required": ["critical", "high", "medium", "low"],
+          "properties": {
+            "critical": {"type": "integer", "minimum": 0},
+            "high": {"type": "integer", "minimum": 0},
+            "medium": {"type": "integer", "minimum": 0},
+            "low": {"type": "integer", "minimum": 0}
+          }
+        },
+        "by_category": {
+          "type": "object",
+          "properties": {
+            "security": {"type": "integer", "minimum": 0},
+            "accessibility": {"type": "integer", "minimum": 0},
+            "code_standards": {"type": "integer", "minimum": 0},
+            "regulatory": {"type": "integer", "minimum": 0},
+            "performance": {"type": "integer", "minimum": 0}
+          }
+        },
+        "blocking_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of violations that block deployment"
+        }
+      }
+    },
+    "auditor_results": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/auditor_result"
+      },
+      "minItems": 5,
+      "maxItems": 5
+    },
+    "compliance_status": {
+      "type": "object",
+      "properties": {
+        "wcag": {
+          "type": "object",
+          "properties": {
+            "level": {"type": "string", "enum": ["A", "AA", "AAA"]},
+            "status": {"type": "string", "enum": ["compliant", "non-compliant", "partial"]},
+            "violations": {"type": "integer", "minimum": 0}
+          }
+        },
+        "owasp": {
+          "type": "object",
+          "properties": {
+            "status": {"type": "string", "enum": ["safe", "vulnerable"]},
+            "violations": {"type": "integer", "minimum": 0}
+          }
+        },
+        "gdpr": {
+          "type": "object",
+          "properties": {
+            "status": {"type": "string", "enum": ["compliant", "non-compliant", "partial"]},
+            "violations": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    },
+    "remediation_plan": {
+      "type": "object",
+      "properties": {
+        "immediate": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "CRITICAL fixes required before deployment"
+        },
+        "short_term": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "HIGH priority fixes for this sprint"
+        },
+        "medium_term": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "MEDIUM priority fixes for next release"
+        },
+        "long_term": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "LOW priority fixes when convenient"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "auditor_result": {
+      "type": "object",
+      "required": ["agent", "verdict", "violations", "passed_checks", "score"],
+      "properties": {
+        "agent": {
+          "type": "string",
+          "enum": ["security-auditor", "accessibility-auditor", "code-standards-auditor", "regulatory-auditor", "performance-auditor"]
+        },
+        "verdict": {
+          "type": "string",
+          "enum": ["PASS", "FAIL"]
+        },
+        "violations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/violation"
+          }
+        },
+        "passed_checks": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "List of checks that passed"
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "violation": {
+      "type": "object",
+      "required": ["severity", "standard", "category", "violation", "remediation"],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+        },
+        "standard": {
+          "type": "string",
+          "description": "Standard violated (e.g., OWASP A03:2021, WCAG 2.1.1)"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of violation"
+        },
+        "location": {
+          "type": "string",
+          "description": "File path and line number"
+        },
+        "violation": {
+          "type": "string",
+          "description": "Description of the violation"
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Code snippet or reference"
+        },
+        "impact": {
+          "type": "string",
+          "description": "Impact description"
+        },
+        "remediation": {
+          "type": "string",
+          "description": "How to fix"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": "Links to documentation"
+        }
+      }
+    }
+  }
+}
