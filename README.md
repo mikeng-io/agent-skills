@@ -50,10 +50,13 @@ Generic multi-domain research framework with domain-aware scheduling.
 **Purpose:** Perform comprehensive research on any topic through parallel information gathering
 
 **Features:**
+- Automatic MCP tool discovery and adaptation
+- Browser automation for dynamic content (Playwright, agent-browser)
+- Multi-method research (web search, browser crawling, interactive sites)
 - Five-phase research methodology (Intent → Planning → Gathering → Analysis → Reporting)
 - Domain-aware effort allocation (Primary 70%, Secondary 30%)
 - Parallel execution of domain-focused researchers
-- Evidence-based findings with three-layer validation
+- Evidence-based findings with clickable source URLs
 - Cross-domain insight generation
 - **Standardized output format with source quality validation**
 
@@ -331,6 +334,15 @@ Contributions are welcome! Please:
 - [ ] Conversation-driven (extracts context naturally)
 - [ ] Output follows `.outputs/{purpose}/` pattern
 - [ ] Well-documented with examples
+
+---
+
+## Key Documentation
+
+- **[STANDARDIZATION.md](./STANDARDIZATION.md)** - Output format standardization implementation
+- **[BROWSER_AUTOMATION.md](./BROWSER_AUTOMATION.md)** - Browser automation and tool discovery capabilities
+- **[skills/deep-verify/](./skills/deep-verify/)** - Multi-agent verification framework
+- **[skills/deep-research/](./skills/deep-research/)** - Multi-domain research framework
 
 ---
 
