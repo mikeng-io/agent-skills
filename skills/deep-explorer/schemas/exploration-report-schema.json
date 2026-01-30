@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deep-explorer.dev/schemas/exploration-report.json",
+  "title": "Deep Explorer Report Schema",
+  "description": "JSON Schema for deep-explorer output validation",
+  "type": "object",
+  "required": [
+    "exploration_type",
+    "baseline_commit",
+    "baseline_timestamp",
+    "repository"
+  ],
+  "properties": {
+    "exploration_type": {
+      "type": "string",
+      "enum": ["full", "delta"],
+      "description": "Type of exploration performed"
+    },
+    "baseline_commit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$",
+      "description": "Git commit hash used as baseline (40-char SHA-1)"
+    },
+    "baseline_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when this exploration was performed"
+    },
+    "repository": {
+      "type": "string",
+      "description": "Repository name"
+    },
+    "files_analyzed": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of files analyzed"
+    },
+    "directories": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total number of directories analyzed"
+    },
+    "changes_analyzed": {
+      "type": "object",
+      "description": "Change statistics for delta explorations",
+      "properties": {
+        "committed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of committed changes"
+        },
+        "uncommitted": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of uncommitted changes"
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total changes analyzed"
+        }
+      }
+    },
+    "previous_baseline": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$",
+      "description": "Previous baseline commit hash (for delta explorations)"
+    },
+    "technology_stack": {
+      "type": "object",
+      "description": "Technologies detected in codebase",
+      "properties": {
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "file_count"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Language name"
+              },
+              "file_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "extensions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "frameworks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Frameworks detected"
+        },
+        "build_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Build tools detected"
+        }
+      }
+    },
+    "architecture_patterns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Architecture patterns identified"
+    },
+    "changed_files": {
+      "type": "object",
+      "description": "Files that changed (for delta explorations)",
+      "properties": {
+        "committed": {
+          "type": "object",
+          "properties": {
+            "modified": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "added": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "deleted": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "renamed": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "uncommitted": {
+          "type": "object",
+          "properties": {
+            "modified": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "staged": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "untracked": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
