@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CouncilReport",
+  "description": "Output schema for deep-council skill",
+  "type": "object",
+  "required": ["type", "review_id", "verdict", "bridges_invoked", "bridges_available", "bridges_skipped", "domains_covered", "multi_model_confirmed", "single_source_findings", "disputed_findings"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["deep-council"]
+    },
+    "review_id": {
+      "type": "string"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "CONCERNS"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "bridges_invoked": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["claude", "gemini", "codex", "opencode"]
+      }
+    },
+    "bridges_available": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "bridges_skipped": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "skip_reasons": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "domains_covered": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "intensity": {
+      "type": "string",
+      "enum": ["quick", "standard", "thorough"]
+    },
+    "fallback": {
+      "type": "boolean",
+      "description": "True when invoked in fallback mode from another skill"
+    },
+    "multi_model_confirmed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "title", "description", "confirmed_by"],
+        "properties": {
+          "id": { "type": "string" },
+          "severity": {
+            "type": "string",
+            "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+          },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "evidence": { "type": "string" },
+          "remediation": { "type": "string" },
+          "confirmed_by": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 2
+          },
+          "domains": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "single_source_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "title", "description", "source_bridge"],
+        "properties": {
+          "id": { "type": "string" },
+          "severity": {
+            "type": "string",
+            "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+          },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "source_bridge": { "type": "string" },
+          "domains": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "disputed_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "positions"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "positions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "bridge": { "type": "string" },
+                "severity": { "type": "string" },
+                "position": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "synthesis_notes": {
+      "type": "string"
+    }
+  }
+}
