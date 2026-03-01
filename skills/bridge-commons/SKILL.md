@@ -106,7 +106,7 @@ All bridges accept this standard input:
 
 ## Agent Prompt Template
 
-Construct one prompt per domain in `bridge_input.domains`. Resolve `{expert_role}`, `{focus_areas}`, and `{standards}` from domain-registry for each domain. Adapt framing based on `task_type`:
+Construct one prompt per domain in `bridge_input.domains`. Resolve `{expert_role}`, `{focus_areas}`, and `{standards}` from domain-registry using the **Lookup Protocol** in `domain-registry/README.md`. If no registry entry substantially covers the domain concern, synthesize a session-based virtual expert rather than falling back to a mismatched role. Adapt framing based on `task_type`:
 
 ```
 You are a {expert_role}.
