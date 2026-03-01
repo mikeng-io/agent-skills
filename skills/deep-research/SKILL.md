@@ -6,6 +6,9 @@ context: fork
 allowed-tools:
   - ToolSearch
   - mcp__brave-search__brave_web_search
+  - mcp__brave-search__brave_news_search
+  - mcp__brave-search__brave_local_search
+  - mcp__perplexity__search
   - mcp__web-search-prime__webSearchPrime
   - mcp__web-reader__webReader
   - mcp__sequential-thinking__sequentialthinking
@@ -87,7 +90,12 @@ Use ToolSearch to find available research tools:
 ```yaml
 # Search for web search tools
 ToolSearch: "web search"
-  → Returns: brave-search, web-search-prime, etc.
+  → Returns: brave-search (independent index + news + local), web-search-prime, etc.
+
+# Search for AI-synthesized search (Perplexity)
+ToolSearch: "perplexity"
+  → Returns: mcp__perplexity__search (AI-grounded answers with citations)
+  → If found: use for synthesis-heavy queries or to cross-validate web findings
 
 # Search for browser automation tools (agent-browser preferred, playwright as fallback)
 ToolSearch: "browser automation"
@@ -115,8 +123,11 @@ Create an inventory of available tools for the research session:
 ```yaml
 tool_inventory:
   web_search:
-    - mcp__brave-search__brave_web_search
-    - mcp__web-search-prime__webSearchPrime
+    - mcp__brave-search__brave_web_search      # Brave Search MCP — independent index, no Google bias
+    - mcp__brave-search__brave_news_search     # Brave news search — recent/breaking content
+    - mcp__brave-search__brave_local_search    # Brave local search — geo-specific results
+    - mcp__perplexity__search                  # Perplexity MCP — AI-synthesized answers with citations
+    - mcp__web-search-prime__webSearchPrime    # WebSearch Prime — fallback general search
 
   web_reading:
     - mcp__web-reader__webReader
@@ -150,8 +161,10 @@ tool_inventory:
 Choose tools based on research requirements:
 
 **Standard Web Research:**
-- Use `web-search` tools for general queries
-- Use `web-reader` for content extraction
+- Use `web-search` tools for general queries; prefer Brave Search for independent index coverage
+- Use Perplexity (`mcp__perplexity__search`) for synthesis-heavy questions or cross-validation — it returns AI-synthesized answers with citations, useful for "what is the current consensus on X"
+- Use `web-reader` for content extraction from specific URLs
+- Multi-search strategy: run Brave Web + Perplexity in parallel, then cross-reference results to surface contradictions
 - Fallback gracefully if tools unavailable
 
 **Dynamic/Interactive Content:**
@@ -450,6 +463,7 @@ You are a {DOMAIN} RESEARCHER. Your role is to gather comprehensive information 
   "findings": [
     {
       "topic": "specific finding",
+      "severity": "CRITICAL | HIGH | MEDIUM | LOW | INFO",
       "consensus": "STRONG | MODERATE | WEAK | DEBATE",
       "evidence": ["supporting points"],
       "sources": [
@@ -977,8 +991,7 @@ skill: deep-research
 timestamp: {ISO-8601}
 artifact_type: research
 domains: [{domain1}, {domain2}]
-verdict: PASS | FAIL | CONCERNS        # if applicable
-context_summary: "{brief description of what was reviewed}"
+context_summary: "{brief description of what was researched}"
 session_id: "{unique id}"
 ---
 ```
@@ -1073,3 +1086,5 @@ export DEEP_RESEARCH_OUTPUT_FORMAT="markdown"
 - **Cross-domain**: Identifies insights that emerge from domain intersections
 - **Multi-Model**: For cross-model research synthesis, see `deep-council`
 - **Domain-Aware**: Research agents adapt to domain context via domain-registry
+- **Context Routing**: If the research scope is complex or multi-domain, invoke the `context` skill first to classify artifact type and determine optimal routing (parallel-workflow vs debate-protocol vs deep-council)
+- **Severity vs Consensus**: `severity` (CRITICAL/HIGH/MEDIUM/LOW/INFO) reflects the finding's importance; `consensus` (STRONG/MODERATE/WEAK/DEBATE) reflects source agreement strength — both are recorded per finding

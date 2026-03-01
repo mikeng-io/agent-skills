@@ -4,6 +4,7 @@ description: Generic multi-agent verification framework with balanced expert ana
 location: managed
 context: fork
 allowed-tools:
+  - ToolSearch
   - Read
   - Write
   - Edit
@@ -11,7 +12,9 @@ allowed-tools:
   - Grep
   - Bash(git *)
   - Bash(ls *)
+  - Bash(mkdir *)
   - Task
+  - Skill
 ---
 
 # Deep Verify: Multi-Agent Verification Framework
@@ -500,8 +503,8 @@ Invoke `deep-council` in fallback mode with:
 - `context_summary`: paste context_summary from this verification
 - `intensity`: "standard" (or match this verification's intensity)
 
-`deep-council` will run bridge-claude (always available) plus any other
-available bridges, providing cross-model confirmation of critical findings.
+`deep-council` will run all available bridges (bridge-claude if Task tool
+accessible, plus any CLI bridges installed), providing cross-model confirmation of critical findings.
 Merge `multi_model_confirmed` findings from council report into this
 verification's final report.
 
@@ -515,3 +518,5 @@ verification's final report.
 - **No triggers/keywords**: Analyzes conversation naturally, doesn't match patterns
 - **Balanced**: Devil's Advocate weight equals all domain experts combined to counter confirmation bias
 - **Multi-Model**: Optionally follow with `deep-council` for cross-model confidence
+- **Context Routing**: If the artifact is complex or multi-domain, invoke the `context` skill first to classify artifact type and determine optimal routing (parallel-workflow vs debate-protocol vs deep-council)
+- **DeepWiki (optional)**: For code artifacts, invoke `Skill("deepwiki")` before spawning domain experts if the codebase has a Devin-indexed wiki — provides architectural context that sharpens domain expert analysis. Non-blocking; skip if unavailable.

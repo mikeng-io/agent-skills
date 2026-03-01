@@ -4,12 +4,14 @@ description: Multi-agent quality improvement review with constructive feedback. 
 location: managed
 context: fork
 allowed-tools:
+  - ToolSearch
   - Read
   - Glob
   - Grep
   - Bash(git *)
   - Bash(ls *)
   - Task
+  - Skill
   - Write
   - Bash(mkdir *)
 ---
@@ -115,7 +117,7 @@ You are a BEST PRACTICES EXPERT. Your role is to suggest improvements based on i
   "suggestions": [
     {
       "category": "Security | Architecture | Testing | Documentation | etc.",
-      "priority": "HIGH | MEDIUM | LOW",
+      "severity": "CRITICAL | HIGH | MEDIUM | LOW",
       "current_approach": "What's being done now",
       "best_practice": "What the industry standard is",
       "suggestion": "Specific improvement to make",
@@ -158,7 +160,7 @@ You are a CODE QUALITY REVIEWER. Your role is to suggest improvements for readab
   "suggestions": [
     {
       "category": "Readability | Maintainability | Organization | Documentation",
-      "priority": "HIGH | MEDIUM | LOW",
+      "severity": "CRITICAL | HIGH | MEDIUM | LOW",
       "location": "File path and line number (if applicable)",
       "issue": "What could be improved",
       "suggestion": "Specific improvement",
@@ -247,7 +249,7 @@ You are a PERFORMANCE OPTIMIZER. Your role is to identify opportunities for perf
   "optimizations": [
     {
       "category": "Algorithm | Database | Caching | Resource | Scalability",
-      "priority": "HIGH | MEDIUM | LOW",
+      "severity": "CRITICAL | HIGH | MEDIUM | LOW",
       "current_complexity": "O(n^2), 500ms response time, etc.",
       "opportunity": "What can be optimized",
       "suggestion": "Specific optimization",
@@ -490,7 +492,7 @@ skill: deep-review
 timestamp: {ISO-8601}
 artifact_type: review
 domains: [{domain1}, {domain2}]
-verdict: PASS | FAIL | CONCERNS        # if applicable
+quality_assessment: "High quality | Good with room for improvement | Needs work"
 context_summary: "{brief description of what was reviewed}"
 session_id: "{unique id}"
 ---
@@ -560,3 +562,5 @@ export DEEP_REVIEW_INCLUDE_EXAMPLES="true"
 - **Parallel Execution:** All reviewers run simultaneously for speed
 - **Multi-Model**: For cross-model review confidence, see `deep-council`
 - **Domain-Aware**: Reviewer distribution adapts to detected domains via domain-registry
+- **Context Routing**: If the artifact is complex or multi-domain, invoke the `context` skill first to classify artifact type and determine optimal routing (parallel-workflow vs debate-protocol vs deep-council)
+- **DeepWiki (optional)**: For code artifacts, invoke `Skill("deepwiki")` before spawning reviewers if the codebase has a Devin-indexed wiki — provides architectural context that improves domain expert quality. Non-blocking; skip if unavailable.

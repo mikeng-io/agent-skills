@@ -35,6 +35,11 @@ This document describes the relationship between all skills, how they depend on 
 │  ├── deep-audit          Compliance, security, standards audit      │
 │  ├── deep-verify         Verify spec compliance and correctness     │
 │  └── deep-research       Multi-domain research and synthesis        │
+│                                                                     │
+│  Optional Data Sources (invokable standalone or by other skills)   │
+│  ├── deepwiki            Devin DeepWiki — codebase wiki Q&A        │
+│  ├── brave-search        Brave Search MCP — web/news/local search  │
+│  └── perplexity          Perplexity MCP — AI-synthesized answers   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -219,6 +224,9 @@ Bridge availability is not guaranteed for any bridge — all depend on the execu
 | `deep-audit` | fork | Yes |
 | `deep-verify` | fork | Yes |
 | `deep-research` | fork | Yes |
+| `deepwiki` | fork | Yes |
+| `brave-search` | fork | Yes |
+| `perplexity` | fork | Yes |
 
 `context: reference` skills are read via the `Read` tool and embedded into Task agent prompts. They are not invoked separately.
 
