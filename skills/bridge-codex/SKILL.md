@@ -273,7 +273,7 @@ Use bridge-commons base timeout table and intensity multiplier. Codex multi-agen
 
 ```yaml
 # When multi_agent_enabled: true — increase base by 50%
-# e.g., 5-20 files: 180s → 240s to account for agent spawn latency
+# e.g., 5-20 files: 180s → 270s to account for agent spawn latency
 # When multi_agent_enabled: false — use bridge-commons base times directly
 ```
 

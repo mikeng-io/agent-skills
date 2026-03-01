@@ -207,7 +207,7 @@ Apply only when `task_type` is `review` or `analysis`. Set `null` for all other 
       "id": "X001",
       "type": "finding | recommendation | plan-item | implementation-note | observation",
       "severity": "CRITICAL | HIGH | MEDIUM | LOW | INFO | null",
-      "status": "confirmed | revised | discovered | null",
+      "status": "confirmed | revised | withdrawn | disputed | discovered",
       "title": "Short title",
       "description": "Detailed description",
       "evidence": "Specific reference — file, line, quote",
@@ -230,6 +230,13 @@ Apply only when `task_type` is `review` or `analysis`. Set `null` for all other 
 
 **Output ID prefixes:** `C` (claude), `G` (gemini), `X` (codex), `O` (opencode).
 
+Status placement rules:
+- confirmed: appears in `outputs` array
+- revised: appears in `outputs` array (updated finding, supersedes earlier version)
+- discovered: appears in `outputs` array (emerged during challenge rounds)
+- withdrawn: appears in `withdrawn_outputs` array (not in `outputs`)
+- disputed: appears in `disputed_outputs` array (also retained in `outputs` with disputed status)
+
 `debate_rounds`: number of rounds completed (0 for quick/consolidation-only, 1+ for debate mode). `null` when status is not COMPLETED.
 
 ---
@@ -248,6 +255,13 @@ When multiple agents within a bridge produce similar outputs:
 ## Post-Analysis Protocol
 
 After the initial parallel analysis, every bridge runs a post-analysis protocol before returning results. Two approaches are available — select based on intensity:
+
+**Note:** These round counts apply to the bridge-commons Post-Analysis Protocol — the iterative
+debate used within individual bridges (Gemini, Codex, OpenCode). They are distinct from the
+debate-protocol skill's round counts, which govern the standalone 5-phase protocol. The two
+systems have different purposes and calibrations:
+- Bridge Post-Analysis Protocol: lightweight, stateless-compatible, 1–3 rounds
+- debate-protocol 5-phase: full adversarial, DA obligations, Phase 3 challenge loop, 3–5 rounds
 
 | Intensity | Approach | Rounds after initial analysis |
 |-----------|----------|-------------------------------|

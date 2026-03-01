@@ -69,6 +69,18 @@ Construction steps:
 
 **The key test:** Would an expert with this title, these focus areas, and these standards naturally investigate the actual concern? If not — refine until yes.
 
+### Tier 3 Failure Path
+
+If virtual expert synthesis itself fails (model unavailable, synthesis timeout, invalid output):
+
+1. Return `status: DOMAIN_UNAVAILABLE` for that domain slot
+2. Log which domain was attempted and why synthesis failed
+3. Continue with remaining domain experts — do not halt the session
+4. The Devil's Advocate and Integration Checker cover cross-cutting concerns regardless
+
+This is the **GENERALIST_FALLBACK** mode: proceed with reduced domain coverage rather than
+blocking. Note the missing domain in the output's `domains_unavailable` field.
+
 ### Never substitute a mismatched expert
 
 Do not use a registry entry whose focus areas don't substantially cover the actual need just because it is the closest available option. "Close enough" misses the point:
