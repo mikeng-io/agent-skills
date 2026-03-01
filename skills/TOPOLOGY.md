@@ -16,7 +16,7 @@ This document describes the relationship between all skills, how they depend on 
 │  └── debate-protocol     5-phase structured review debate           │
 │                                                                     │
 │  Context Intelligence                                               │
-│  └── deep-context        Classify artifact, select domains, route   │
+│  └── context        Classify artifact, select domains, route   │
 │                                                                     │
 │  Bridge Adapters (reference — not invocable standalone)            │
 │  ├── bridge-claude       Task tool → claude CLI → Anthropic API     │
@@ -30,7 +30,7 @@ This document describes the relationship between all skills, how they depend on 
 │                                                                     │
 │  Deep Skills (user-invocable)                                       │
 │  ├── deep-explorer       Explore and map an artifact or codebase    │
-│  ├── deep-context        Classify and route (also standalone)       │
+│  ├── context        Classify and route (also standalone)       │
 │  ├── deep-review         Multi-agent review with findings           │
 │  ├── deep-audit          Compliance, security, standards audit      │
 │  ├── deep-verify         Verify spec compliance and correctness     │
@@ -55,7 +55,7 @@ bridge-commons ◄────────────────────�
 debate-protocol ◄─────────────────────────── deep-council (embedded inline)
                                               deep-verify (optional)
 
-deep-context ──────────────────────────────► domain selection
+context ──────────────────────────────► domain selection
                                              routing decision
 
 parallel-workflow ◄───────────────────────── deep-* skills (default path)
@@ -74,7 +74,7 @@ deep-council ◄─────────────────────�
 
 ## Routing Decision
 
-Every deep skill performs a routing decision — either inline or by calling `deep-context`. The routing determines which execution path to use.
+Every deep skill performs a routing decision — either inline or by calling `context`. The routing determines which execution path to use.
 
 ```
 Context analysis
@@ -157,7 +157,7 @@ Best for: maximum confidence, multi-model verification, explicit user request, t
 | Skill | Default path | Can escalate to | Notes |
 |-------|-------------|----------------|-------|
 | `deep-explorer` | parallel-workflow | — | Exploration only; no debate needed |
-| `deep-context` | single-agent | — | Classifier; always single-agent |
+| `context` | single-agent | — | Classifier; always single-agent |
 | `deep-review` | parallel-workflow | deep-council | Escalates on high-stakes or user request |
 | `deep-audit` | parallel-workflow | deep-council | Escalates on compliance/security signals |
 | `deep-verify` | parallel-workflow + debate-protocol | deep-council | Debate is default for verification |
@@ -191,7 +191,7 @@ If executor is not Claude Code, bridge availability depends on what CLIs/APIs ar
 | `domain-registry` | — (pure reference) | No |
 | `bridge-commons` | reference | No |
 | `debate-protocol` | fork | Yes |
-| `deep-context` | fork | Yes |
+| `context` | fork | Yes |
 | `bridge-claude` | reference | No |
 | `bridge-gemini` | reference | No |
 | `bridge-codex` | reference | No |

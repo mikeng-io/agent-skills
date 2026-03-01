@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ContextReport",
-  "description": "Output schema for deep-context skill",
+  "description": "Output schema for context skill",
   "type": "object",
   "required": ["artifact_type", "domains", "routing", "confidence"],
   "properties": {

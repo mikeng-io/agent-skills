@@ -115,7 +115,7 @@ mcp__devin__ask_question(repo="{owner}/{repo}", question="{your question}")
 
 ## Usage Patterns by Calling Context
 
-### Called by deep-context (domain detection)
+### Called by context (domain detection)
 
 ```
 Question: "What are the primary domains this codebase deals with? What are the main technical concerns?"

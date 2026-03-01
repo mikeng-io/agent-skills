@@ -33,7 +33,7 @@ When invoked, you will:
 
 ## Step 1: Context Extraction
 
-Apply deep-context analysis (inline — do not invoke as a separate skill):
+Apply context analysis (inline — do not invoke as a separate skill):
 
 ```yaml
 council_context:

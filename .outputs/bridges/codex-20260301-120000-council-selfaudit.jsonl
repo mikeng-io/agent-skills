@@ -1,0 +1,22 @@
+{"event": "bridge_start", "bridge": "codex", "session_id": "council-20260301-selfaudit", "timestamp": "2026-03-01T12:00:00Z"}
+{"event": "preflight", "step": "mcp_check", "result": "not-found", "detail": "no .mcp.json present in agent-skills root"}
+{"event": "preflight", "step": "cli_check", "result": "found", "path": "/Users/mike/.nvm/versions/node/v24.11.1/bin/codex"}
+{"event": "preflight", "step": "auth_check", "result": "authenticated", "provider": "ChatGPT"}
+{"event": "preflight", "step": "multi_agent_check", "result": "not_enabled", "detail": "child_agents_md=under development/false; proceeding in single-agent coordinator mode"}
+{"event": "preflight", "step": "timeout_estimate", "value_seconds": 300, "basis": "10 files / standard intensity / no bridge multiplier"}
+{"event": "preflight", "step": "reasoning_level", "value": "medium", "basis": "specification integrity review, no security/cryptographic keywords"}
+{"event": "dispatch", "mode": "single-agent-coordinator", "multi_agent_enabled": false, "connection": "cli", "flags": "--sandbox read-only --dangerously-bypass-approvals-and-sandbox --json -o /tmp/codex-bridge-council-20260301.json --config reasoning-effort=medium"}
+{"event": "output", "id": "X001", "severity": "CRITICAL", "domain": "Agent Orchestration", "title": "Core status semantics conflict (SKIPPED vs HALTED)"}
+{"event": "output", "id": "X002", "severity": "HIGH", "domain": "Agent Orchestration", "title": "Bridge input contract mismatch between orchestrator and commons"}
+{"event": "output", "id": "X003", "severity": "HIGH", "domain": "Agent Orchestration", "title": "False invariant: Claude bridge always available"}
+{"event": "output", "id": "X004", "severity": "MEDIUM", "domain": "Agent Orchestration", "title": "Debate round budgets are inconsistent across foundation docs"}
+{"event": "output", "id": "X005", "severity": "MEDIUM", "domain": "Agent Orchestration", "title": "Codex timeout multiplier definition is mathematically ambiguous"}
+{"event": "output", "id": "X006", "severity": "HIGH", "domain": "Prompt Engineering", "title": "Codex coordinator prompt diverges from required output schema"}
+{"event": "output", "id": "X007", "severity": "MEDIUM", "domain": "Prompt Engineering", "title": "Identifier vocabulary drift leaks into prompts"}
+{"event": "output", "id": "X008", "severity": "MEDIUM", "domain": "Prompt Engineering", "title": "Full-document embedding strategy risks prompt overload"}
+{"event": "output", "id": "X009", "severity": "HIGH", "domain": "Specification Integrity", "title": "Output item status enum is incomplete relative to debate states"}
+{"event": "output", "id": "X010", "severity": "MEDIUM", "domain": "Specification Integrity", "title": "Required-fields rule conflicts with bridge SKIPPED examples"}
+{"event": "output", "id": "X011", "severity": "MEDIUM", "domain": "Specification Integrity", "title": "Topology fallback chain is out of sync with bridge adapters"}
+{"event": "output", "id": "X012", "severity": "MEDIUM", "domain": "Developer Experience", "title": "Unclear orchestration path for HALTED bridges in council flow"}
+{"event": "output", "id": "X013", "severity": "LOW", "domain": "Developer Experience", "title": "deep-review verdict guidance is internally contradictory"}
+{"event": "bridge_complete", "status": "COMPLETED", "verdict": "FAIL", "output_count": 13, "timestamp": "2026-03-01T12:30:00Z"}

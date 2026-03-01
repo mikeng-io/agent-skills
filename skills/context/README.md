@@ -14,12 +14,12 @@ Artifact classifier and smart router for the Deep Skills Suite. Analyzes convers
 
 Standalone:
 ```
-Invoke: deep-context
+Invoke: context
 ```
 
 As pre-flight step (called by other skills inline):
 ```
-Other skill reads deep-context/SKILL.md and applies context analysis
+Other skill reads context/SKILL.md and applies context analysis
 steps before spawning domain experts.
 ```
 
