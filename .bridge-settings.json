@@ -1,0 +1,10 @@
+{
+  "bridges": {
+    "claude":   { "enabled": true },
+    "gemini":   { "enabled": true },
+    "codex":    { "enabled": true, "model": null },
+    "opencode": { "enabled": true, "model": null }
+  },
+  "reasoning_level": "medium",
+  "updated": "2026-03-01T00:00:00Z"
+}
