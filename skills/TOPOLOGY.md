@@ -207,28 +207,32 @@ Bridge availability is not guaranteed for any bridge — all depend on the execu
 
 ## Component Context Types
 
-| Component | context | Invocable standalone? |
-|-----------|---------|----------------------|
-| `domain-registry` | — (pure reference) | No |
-| `bridge-commons` | reference | No |
-| `debate-protocol` | fork | Yes |
-| `context` | fork | Yes |
-| `bridge-claude` | reference | No |
-| `bridge-gemini` | reference | No |
-| `bridge-codex` | reference | No |
-| `bridge-opencode` | reference | No |
-| `parallel-workflow` | fork | Yes |
-| `deep-council` | fork | Yes |
-| `deep-explorer` | fork | Yes |
-| `deep-review` | fork | Yes |
-| `deep-audit` | fork | Yes |
-| `deep-verify` | fork | Yes |
-| `deep-research` | fork | Yes |
-| `deepwiki` | fork | Yes |
-| `brave-search` | fork | Yes |
-| `perplexity` | fork | Yes |
+`context: fork` spawns an **isolated sub-agent** — no conversation history from the caller. Use for stateless data retrieval.
 
-`context: reference` skills are read via the `Read` tool and embedded into Task agent prompts. They are not invoked separately.
+Skills with **no `context` field** run **inline** in the invoking agent — full conversation history is accessible. Use for anything that needs to analyze "what was just discussed."
+
+`context: reference` skills are read via the `Read` tool and embedded into Task agent prompts. They are never invoked via the Skill tool.
+
+| Component | context | Inherits conversation? | Invocable standalone? |
+|-----------|---------|----------------------|-----------------------|
+| `domain-registry` | — (pure reference) | n/a | No |
+| `bridge-commons` | reference | n/a | No |
+| `bridge-claude` | reference | n/a | No |
+| `bridge-gemini` | reference | n/a | No |
+| `bridge-codex` | reference | n/a | No |
+| `bridge-opencode` | reference | n/a | No |
+| `debate-protocol` | *(inline)* | **Yes** | Yes |
+| `context` | *(inline)* | **Yes** | Yes |
+| `parallel-workflow` | *(inline)* | **Yes** | Yes |
+| `deep-council` | *(inline)* | **Yes** | Yes |
+| `deep-explorer` | *(inline)* | **Yes** | Yes |
+| `deep-review` | *(inline)* | **Yes** | Yes |
+| `deep-audit` | *(inline)* | **Yes** | Yes |
+| `deep-verify` | *(inline)* | **Yes** | Yes |
+| `deep-research` | *(inline)* | **Yes** | Yes |
+| `deepwiki` | fork | No — stateless lookup | Yes |
+| `brave-search` | fork | No — stateless lookup | Yes |
+| `perplexity` | fork | No — stateless lookup | Yes |
 
 ---
 

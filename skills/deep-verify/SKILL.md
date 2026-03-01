@@ -2,7 +2,6 @@
 name: deep-verify
 description: Generic multi-agent verification framework with balanced expert analysis. Model-agnostic and domain-agnostic - verify any work through expert analysis.
 location: managed
-context: fork
 allowed-tools:
   - ToolSearch
   - Read

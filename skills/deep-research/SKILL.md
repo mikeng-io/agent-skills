@@ -2,7 +2,6 @@
 name: deep-research
 description: Generic multi-domain research framework with domain-aware scheduling. Model-agnostic and domain-agnostic - perform comprehensive research on any topic.
 location: managed
-context: fork
 allowed-tools:
   - ToolSearch
   - mcp__brave-search__brave_web_search

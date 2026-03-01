@@ -2,7 +2,6 @@
 name: deep-council
 description: Multi-model review council. Dispatches review tasks to all available bridge adapters (Claude, Gemini, Codex, OpenCode), each of which runs internal sub-agents. Synthesizes findings across model families using debate-protocol. Usable standalone or as a second-pass from deep-verify. Orchestrator-agnostic — can be invoked by Claude Code, OpenCode, or Codex CLI.
 location: managed
-context: fork
 allowed-tools:
   - Read
   - Glob

@@ -2,7 +2,6 @@
 name: debate-protocol
 description: Generic 5-phase structured adversarial analysis protocol. Model-agnostic and domain-agnostic. Works for review, audit, research synthesis, planning, creative critique, or any task requiring multi-perspective examination. Can be used standalone or embedded by any orchestrating skill. Produces verdict with confirmed/withdrawn/disputed/merged/discovered findings.
 location: managed
-context: fork
 allowed-tools:
   - Read
   - Task

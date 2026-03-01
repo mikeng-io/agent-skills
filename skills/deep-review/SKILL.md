@@ -2,7 +2,6 @@
 name: deep-review
 description: Multi-agent quality improvement review with constructive feedback. Provides suggestions for best practices, code quality, alternatives, and performance optimization.
 location: managed
-context: fork
 allowed-tools:
   - ToolSearch
   - Read

@@ -2,7 +2,6 @@
 name: deep-audit
 description: Multi-agent standards and compliance auditing with pass/fail verdicts. Checks against security, accessibility, code standards, regulatory requirements, and performance benchmarks.
 location: managed
-context: fork
 allowed-tools:
   - ToolSearch
   - Read

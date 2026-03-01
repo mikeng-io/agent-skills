@@ -2,7 +2,6 @@
 name: context
 description: Analyze conversation context to classify what is being discussed, detect relevant domains from domain-registry, and determine optimal routing (parallel-workflow vs debate-protocol vs deep-council). Can be invoked directly or called by other skills as a pre-flight step.
 location: managed
-context: fork
 allowed-tools:
   - ToolSearch
   - Read

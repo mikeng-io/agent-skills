@@ -2,7 +2,6 @@
 name: deep-explorer
 description: Git-based codebase exploration with delta analysis. Performs full exploration on first run, then incremental delta exploration tracking committed and uncommitted changes.
 location: managed
-context: fork
 allowed-tools:
   - Read
   - Glob

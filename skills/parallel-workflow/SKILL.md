@@ -2,7 +2,6 @@
 name: parallel-workflow
 description: Use when executing multiple tasks with dependencies - automatically determines optimal parallel execution order while respecting task dependencies through DAG scheduling
 location: managed
-context: fork
 allowed-tools:
   - Read
   - Write
