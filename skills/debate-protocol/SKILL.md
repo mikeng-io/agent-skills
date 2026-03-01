@@ -1,6 +1,6 @@
 ---
 name: debate-protocol
-description: Generic 5-phase structured debate protocol for multi-agent review. Model-agnostic and domain-agnostic. Can be used standalone or called by deep-council, deep-verify, and any orchestrating skill. Produces verdict with confirmed/withdrawn/disputed/merged/discovered findings.
+description: Generic 5-phase structured adversarial analysis protocol. Model-agnostic and domain-agnostic. Works for review, audit, research synthesis, planning, creative critique, or any task requiring multi-perspective examination. Can be used standalone or embedded by any orchestrating skill. Produces verdict with confirmed/withdrawn/disputed/merged/discovered findings.
 location: managed
 context: fork
 allowed-tools:
@@ -10,9 +10,9 @@ allowed-tools:
   - Bash(mkdir *)
 ---
 
-# Debate Protocol: Generic 5-Phase Multi-Agent Review
+# Debate Protocol: Generic 5-Phase Adversarial Analysis
 
-Execute this skill to run a structured debate among expert reviewers, producing high-confidence findings through adversarial challenge.
+Execute this skill to run a structured adversarial analysis among domain experts and structural challengers, producing high-confidence findings through iterative challenge and synthesis.
 
 ## Execution Instructions
 
@@ -68,50 +68,54 @@ security-elevated:
 
 ## Phase 1: Independent Investigation (Parallel)
 
-Spawn all reviewers in parallel using Task tool. Each receives the same `review_scope` and `context_summary` but NO communication with other reviewers.
+Spawn all participants in parallel using Task tool. Each receives the same `scope` and `context_summary` but NO communication with other participants.
 
-### Reviewer Roster
+### Participant Roster
 
-Always spawn:
-- **Devil's Advocate** — pre-mortem failure analysis, cross-domain synthesis
-- **Integration Checker** — cross-component impacts, implicit contracts
-- **Test Architect** — test coverage gaps, assertion quality
+| Role | Count | Source |
+|------|-------|--------|
+| Domain expert | One per domain in `debate_input.domains` | domain-registry — `{expert_role}`, `{focus_areas}`, `{standards}` |
+| Devil's Advocate | 1 (always) | `debate-protocol/experts/devils-advocate.md` |
+| Integration Checker | 1 (always) | `debate-protocol/experts/integration-checker.md` |
 
-For each selected domain (from `domains` list), spawn the corresponding domain expert from domain-registry.
+Domain experts are the primary roster. DA and Integration Checker are structural roles that always accompany them.
 
-### Task Prompt Template for Each Reviewer
+### Task Prompt Template
 
 ```
-You are a [ROLE] reviewing: [review_scope]
+You are a {expert_role}.
 
-Context: [context_summary]
-Domains in scope: [domains]
+Task: {context_summary}
+Scope: {scope}
+Domains in scope: {domains}
 
 ## Phase 1: Independent Investigation
 
-Analyze independently. Do NOT coordinate with other reviewers.
+Analyze independently. Do NOT coordinate with other participants.
 
-Focus areas for your role:
-[role-specific focus areas from domain-registry]
+Focus areas: {focus_areas}
+Standards: {standards}
 
 ## Output Format (JSON)
 
 {
-  "reviewer": "[role-name]",
+  "participant": "{role-name}",
   "findings": [
     {
       "id": "F001",
       "severity": "CRITICAL | HIGH | MEDIUM | LOW | INFO",
       "title": "Short finding title",
       "description": "Detailed description",
-      "evidence": "Specific evidence or code reference",
-      "remediation": "How to fix",
-      "domains": ["domain1"]
+      "evidence": "Specific evidence or reference",
+      "recommendation": "What to do about it",
+      "domains": ["{domain}"]
     }
   ],
   "phase": 1
 }
 ```
+
+For Devil's Advocate and Integration Checker: apply the role-specific instructions from their expert files.
 
 ---
 
@@ -120,7 +124,7 @@ Focus areas for your role:
 Collect all Phase 1 findings. As coordinator:
 
 1. Assign unique IDs to all findings (F001, F002, ...)
-2. Broadcast complete finding list to all reviewers
+2. Broadcast complete finding list to all participants
 3. No responses yet — publication only
 
 Finding inventory at this point:
@@ -173,7 +177,7 @@ Send via Task agent communication (embed in follow-up Task prompts):
 
 Repeat for up to `max_rounds` rounds:
 1. Spawn DA Task agent with all current findings + challenge obligations
-2. Spawn all other reviewers with challenges directed at them
+2. Spawn all other participants with challenges directed at them
 3. Collect responses
 4. Update finding states
 
@@ -197,7 +201,7 @@ Update finding states:
 
 ## Phase 5: Final Verdict
 
-All reviewers submit final positions.
+All participants submit final positions.
 
 ### Verdict Logic
 
@@ -243,7 +247,7 @@ domains: [{domain1}, {domain2}]
 verdict: PASS | FAIL | CONCERNS
 intensity: quick | standard | thorough
 review_id: "{unique id}"
-context_summary: "{brief description of what was reviewed}"
+context_summary: "{brief description of the task}"
 ---
 ```
 
