@@ -32,6 +32,11 @@ When invoked, you will:
    - Always spawn: Devil's Advocate, Integration Checker, Third-Party Reviewer
    - Dynamically spawn domain experts based on what was discussed
 
+   **Domain expert selection via domain-registry:**
+   Read domain-registry/domains/*.md to match conversation signals.
+   Replace hardcoded domain experts with domain-registry selections.
+   Minimum: 1 domain expert. No maximum.
+
 3. **Aggregate findings** from all experts with proper weighting
 
 4. **Generate and save report** to `.outputs/verification/`
@@ -434,14 +439,37 @@ Would you like to regenerate the report with corrections?
 
 ## Step 6: Save Report
 
-Save the validated report to:
+## Artifact Output
 
-1. Create directory: `.outputs/verification/`
-2. Save with timestamp: `YYYYMMDD-HHMMSS-verification-report.md`
-3. Save JSON version: `YYYYMMDD-HHMMSS-verification-report.json`
-4. Update symlink: `latest-verification.md` → most recent report (only if validation passed)
+Save to `.outputs/verification/{YYYYMMDD-HHMMSS}-verification-{slug}.md` with YAML frontmatter:
 
-**Note:** Only update the "latest" symlink for reports that pass validation.
+```yaml
+---
+skill: deep-verify
+version: 2.0
+timestamp: {ISO-8601}
+artifact_type: verification
+domains: [{domain1}, {domain2}]
+verdict: PASS | FAIL | CONCERNS        # if applicable
+context_summary: "{brief description of what was reviewed}"
+session_id: "{unique id}"
+---
+```
+
+Also save JSON companion: `{timestamp}-verification-{slug}.json`
+
+**No symlinks.** To find the latest artifact:
+```bash
+ls -t .outputs/verification/ | head -1
+```
+
+**QMD Integration (optional, progressive enhancement):**
+```bash
+qmd collection add .outputs/verification/ --name "deep-verify-artifacts" --mask "**/*.md" 2>/dev/null || true
+qmd update 2>/dev/null || true
+```
+
+**Note:** Only save reports that pass validation.
 
 ---
 
@@ -464,6 +492,22 @@ These can be overridden via:
 
 ---
 
+## Multi-Model Second Pass (Optional)
+
+If multi-model confidence is needed after verification:
+
+Invoke `deep-council` in fallback mode with:
+- `review_scope`: same scope as this verification
+- `context_summary`: paste context_summary from this verification
+- `intensity`: "standard" (or match this verification's intensity)
+
+`deep-council` will run bridge-claude (always available) plus any other
+available bridges, providing cross-model confirmation of critical findings.
+Merge `multi_model_confirmed` findings from council report into this
+verification's final report.
+
+---
+
 ## Notes
 
 - **Model-agnostic**: Uses capability levels ("highest", "high", "standard") not specific model names
@@ -471,3 +515,4 @@ These can be overridden via:
 - **Conversation-driven**: All context extracted from what was discussed
 - **No triggers/keywords**: Analyzes conversation naturally, doesn't match patterns
 - **Balanced**: Devil's Advocate weight equals all domain experts combined to counter confirmation bias
+- **Multi-Model**: Optionally follow with `deep-council` for cross-model confidence
