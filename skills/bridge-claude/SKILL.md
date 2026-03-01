@@ -3,6 +3,10 @@ name: bridge-claude
 description: Reference adapter for Claude (Anthropic) dispatch. Read by any orchestrating skill via the Read tool. Defines how to invoke Claude sub-agents or the Anthropic API, with availability checks. Usable by any AI orchestrator — Claude Code, OpenCode, Codex, Gemini, or custom agents.
 location: managed
 context: reference
+dependencies:
+  - bridge-commons
+  - domain-registry
+  - debate-protocol
 ---
 
 # Bridge: Claude (Anthropic) Adapter

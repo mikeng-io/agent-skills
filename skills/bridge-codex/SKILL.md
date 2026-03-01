@@ -3,6 +3,9 @@ name: bridge-codex
 description: Reference adapter for Codex multi-agent review. Read by any orchestrating skill via the Read tool. MCP server path (preferred) with auto-setup option, CLI path as fallback, interactive pre-flight advisory when not configured, correct flags embedded. Usable by deep-council, deep-review, deep-audit, or any future skill that needs Codex-based review.
 location: managed
 context: reference
+dependencies:
+  - bridge-commons
+  - domain-registry
 ---
 
 # Bridge: Codex Multi-Agent Adapter

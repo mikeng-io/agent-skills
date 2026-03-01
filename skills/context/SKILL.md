@@ -2,6 +2,8 @@
 name: context
 description: Analyze conversation context to classify what is being discussed, detect relevant domains from domain-registry, and determine optimal routing (parallel-workflow vs debate-protocol vs deep-council). Can be invoked directly or called by other skills as a pre-flight step.
 location: managed
+dependencies:
+  - domain-registry
 allowed-tools:
   - ToolSearch
   - Read
@@ -22,6 +24,33 @@ Execute this skill to analyze conversation context, detect relevant domains, and
 ## Execution Instructions
 
 When invoked, analyze the current conversation and produce a context report.
+
+---
+
+## Dependency Check
+
+Before executing any step, verify the domain-registry is present:
+
+```
+[skills-root]/domain-registry/README.md
+```
+
+Where `[skills-root]` is the parent of this skill's directory. Resolve with `ls ../` from this skill's location.
+
+If missing → **stop immediately** and output:
+
+```
+⚠ Missing required skill for context:
+
+  domain-registry
+    Expected: {skills-root}/domain-registry/README.md
+
+Install:
+  git clone https://github.com/mikeng-io/agent-skills /tmp/agent-skills
+  cp -r /tmp/agent-skills/skills/domain-registry {skills-root}/
+```
+
+Dependency present → proceed to Step 1.
 
 ---
 

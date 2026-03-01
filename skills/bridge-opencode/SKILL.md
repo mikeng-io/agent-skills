@@ -3,6 +3,9 @@ name: bridge-opencode
 description: Reference adapter for OpenCode — model-agnostic multi-provider bridge. Read by any orchestrating skill via the Read tool. Covers pre-flight checks with interactive advisory, HTTP API server path (preferred), CLI run path as fallback, correct flags and model format embedded. Usable by deep-council, deep-review, deep-audit, or any future skill that needs multi-model review.
 location: managed
 context: reference
+dependencies:
+  - bridge-commons
+  - domain-registry
 ---
 
 # Bridge: OpenCode Multi-Model Adapter

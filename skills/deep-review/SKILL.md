@@ -2,6 +2,10 @@
 name: deep-review
 description: Multi-agent quality improvement review with constructive feedback. Provides suggestions for best practices, code quality, alternatives, and performance optimization.
 location: managed
+dependencies:
+  - context
+  - preflight
+  - domain-registry
 allowed-tools:
   - ToolSearch
   - Read
@@ -31,6 +35,38 @@ When invoked, you will:
 5. **Save report** to `.outputs/review/`
 
 **Note:** This is a review for improvement, not pass/fail verification.
+
+---
+
+## Dependency Check
+
+Before executing any step, verify all required skills are present:
+
+```
+[skills-root]/context/SKILL.md
+[skills-root]/preflight/SKILL.md
+[skills-root]/domain-registry/README.md
+```
+
+Where `[skills-root]` is the parent of this skill's directory. Resolve with `ls ../` from this skill's location.
+
+If any required file is missing → **stop immediately** and output:
+
+```
+⚠ Missing required skills for deep-review:
+
+  {missing-skill}
+    Expected: {skills-root}/{missing-skill}/SKILL.md
+
+Install the missing skill(s):
+  git clone https://github.com/mikeng-io/agent-skills /tmp/agent-skills
+  cp -r /tmp/agent-skills/skills/{missing-skill} {skills-root}/
+
+Or install the full suite at once:
+  cp -r /tmp/agent-skills/skills/ {skills-root}/
+```
+
+All dependencies present → proceed to Step 0.
 
 ---
 

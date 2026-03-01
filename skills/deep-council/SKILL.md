@@ -2,6 +2,15 @@
 name: deep-council
 description: Multi-model review council. Dispatches review tasks to all available bridge adapters (Claude, Gemini, Codex, OpenCode), each of which runs internal sub-agents. Synthesizes findings across model families using debate-protocol. Usable standalone or as a second-pass from deep-verify. Orchestrator-agnostic — can be invoked by Claude Code, OpenCode, or Codex CLI.
 location: managed
+dependencies:
+  - context
+  - preflight
+  - bridge-commons
+  - bridge-claude
+  - bridge-gemini
+  - bridge-codex
+  - bridge-opencode
+  - domain-registry
 allowed-tools:
   - Read
   - Glob
@@ -28,6 +37,43 @@ When invoked, you will:
 3. Dispatch all available bridges in parallel via Task agents
 4. Synthesize findings across bridges using debate-protocol logic
 5. Produce a consolidated multi-model report
+
+---
+
+## Dependency Check
+
+Before executing any step, verify all required skills are present. Use `Glob` or `ls` to check each:
+
+```
+[skills-root]/context/SKILL.md
+[skills-root]/preflight/SKILL.md
+[skills-root]/bridge-commons/SKILL.md
+[skills-root]/bridge-claude/SKILL.md
+[skills-root]/bridge-gemini/SKILL.md
+[skills-root]/bridge-codex/SKILL.md
+[skills-root]/bridge-opencode/SKILL.md
+[skills-root]/domain-registry/README.md
+```
+
+Where `[skills-root]` is the parent of this skill's directory (e.g., `skills/` or `.claude/skills/`). Resolve with `ls ../` from this skill's location.
+
+If any required file is missing → **stop immediately** and output:
+
+```
+⚠ Missing required skills for deep-council:
+
+  {missing-skill}
+    Expected: {skills-root}/{missing-skill}/SKILL.md
+
+Install the missing skill(s):
+  git clone https://github.com/mikeng-io/agent-skills /tmp/agent-skills
+  cp -r /tmp/agent-skills/skills/{missing-skill} {skills-root}/
+
+Or install the full suite at once:
+  cp -r /tmp/agent-skills/skills/ {skills-root}/
+```
+
+All dependencies present → proceed to Step 0.
 
 ---
 

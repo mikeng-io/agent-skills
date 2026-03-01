@@ -2,6 +2,10 @@
 name: deep-explorer
 description: Git-based codebase exploration with delta analysis. Performs full exploration on first run, then incremental delta exploration tracking committed and uncommitted changes.
 location: managed
+dependencies:
+  - context
+  - preflight
+  - domain-registry
 allowed-tools:
   - Read
   - Glob
@@ -30,6 +34,38 @@ When invoked, you will:
 4. **Execute exploration** - Explore entire codebase (full) or changed areas (delta)
 5. **Generate report** - Comprehensive exploration or delta change report
 6. **Save baseline** - Store current commit reference for next exploration
+
+---
+
+## Dependency Check
+
+Before executing any step, verify all required skills are present:
+
+```
+[skills-root]/context/SKILL.md
+[skills-root]/preflight/SKILL.md
+[skills-root]/domain-registry/README.md
+```
+
+Where `[skills-root]` is the parent of this skill's directory. Resolve with `ls ../` from this skill's location.
+
+If any required file is missing → **stop immediately** and output:
+
+```
+⚠ Missing required skills for deep-explorer:
+
+  {missing-skill}
+    Expected: {skills-root}/{missing-skill}/SKILL.md
+
+Install the missing skill(s):
+  git clone https://github.com/mikeng-io/agent-skills /tmp/agent-skills
+  cp -r /tmp/agent-skills/skills/{missing-skill} {skills-root}/
+
+Or install the full suite at once:
+  cp -r /tmp/agent-skills/skills/ {skills-root}/
+```
+
+All dependencies present → proceed to Step 0.
 
 ---
 

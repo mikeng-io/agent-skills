@@ -3,6 +3,9 @@ name: bridge-gemini
 description: Reference adapter for Gemini CLI. Read by any orchestrating skill via the Read tool. Defines how to invoke Gemini CLI in non-interactive mode, timeout estimation, and fallback behavior. Usable by deep-council, deep-review, deep-audit, or any future skill that needs Gemini-based review.
 location: managed
 context: reference
+dependencies:
+  - bridge-commons
+  - domain-registry
 ---
 
 # Bridge: Gemini CLI Adapter

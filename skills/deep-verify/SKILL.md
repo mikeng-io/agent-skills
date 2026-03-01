@@ -2,6 +2,10 @@
 name: deep-verify
 description: Generic multi-agent verification framework with balanced expert analysis. Model-agnostic and domain-agnostic - verify any work through expert analysis.
 location: managed
+dependencies:
+  - context
+  - preflight
+  - domain-registry
 allowed-tools:
   - ToolSearch
   - Read
@@ -37,6 +41,38 @@ When invoked, you will:
 3. **Aggregate findings** from all experts with proper weighting
 
 4. **Generate and save report** to `.outputs/verification/`
+
+---
+
+## Dependency Check
+
+Before executing any step, verify all required skills are present:
+
+```
+[skills-root]/context/SKILL.md
+[skills-root]/preflight/SKILL.md
+[skills-root]/domain-registry/README.md
+```
+
+Where `[skills-root]` is the parent of this skill's directory. Resolve with `ls ../` from this skill's location.
+
+If any required file is missing → **stop immediately** and output:
+
+```
+⚠ Missing required skills for deep-verify:
+
+  {missing-skill}
+    Expected: {skills-root}/{missing-skill}/SKILL.md
+
+Install the missing skill(s):
+  git clone https://github.com/mikeng-io/agent-skills /tmp/agent-skills
+  cp -r /tmp/agent-skills/skills/{missing-skill} {skills-root}/
+
+Or install the full suite at once:
+  cp -r /tmp/agent-skills/skills/ {skills-root}/
+```
+
+All dependencies present → proceed to Step 0.
 
 ---
 

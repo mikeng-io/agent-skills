@@ -2,6 +2,10 @@
 name: deep-audit
 description: Multi-agent standards and compliance auditing with pass/fail verdicts. Checks against security, accessibility, code standards, regulatory requirements, and performance benchmarks.
 location: managed
+dependencies:
+  - context
+  - preflight
+  - domain-registry
 allowed-tools:
   - ToolSearch
   - Read
@@ -31,6 +35,38 @@ When invoked, you will:
 5. **Save report** to `.outputs/audit/`
 
 **Note:** This is a formal audit with pass/fail verdict, not improvement suggestions.
+
+---
+
+## Dependency Check
+
+Before executing any step, verify all required skills are present:
+
+```
+[skills-root]/context/SKILL.md
+[skills-root]/preflight/SKILL.md
+[skills-root]/domain-registry/README.md
+```
+
+Where `[skills-root]` is the parent of this skill's directory. Resolve with `ls ../` from this skill's location.
+
+If any required file is missing → **stop immediately** and output:
+
+```
+⚠ Missing required skills for deep-audit:
+
+  {missing-skill}
+    Expected: {skills-root}/{missing-skill}/SKILL.md
+
+Install the missing skill(s):
+  git clone https://github.com/mikeng-io/agent-skills /tmp/agent-skills
+  cp -r /tmp/agent-skills/skills/{missing-skill} {skills-root}/
+
+Or install the full suite at once:
+  cp -r /tmp/agent-skills/skills/ {skills-root}/
+```
+
+All dependencies present → proceed to Step 0.
 
 ---
 
