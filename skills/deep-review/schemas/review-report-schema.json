@@ -113,15 +113,15 @@
   "$defs": {
     "suggestion": {
       "type": "object",
-      "required": ["category", "priority", "suggestion", "rationale"],
+      "required": ["category", "severity", "suggestion", "rationale"],
       "properties": {
         "category": {
           "type": "string",
           "description": "Category of suggestion"
         },
-        "priority": {
+        "severity": {
           "type": "string",
-          "enum": ["HIGH", "MEDIUM", "LOW"]
+          "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
         },
         "suggested_by": {
           "type": "array",
@@ -208,15 +208,15 @@
     },
     "optimization": {
       "type": "object",
-      "required": ["category", "priority", "opportunity", "suggestion", "expected_improvement", "effort"],
+      "required": ["category", "severity", "opportunity", "suggestion", "expected_improvement", "effort"],
       "properties": {
         "category": {
           "type": "string",
           "enum": ["algorithm", "database", "caching", "resource", "scalability", "frontend"]
         },
-        "priority": {
+        "severity": {
           "type": "string",
-          "enum": ["HIGH", "MEDIUM", "LOW"]
+          "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
         },
         "current_performance": {
           "type": "string",

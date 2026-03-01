@@ -59,7 +59,7 @@ deep-council (orchestrator)
 ## Fallback Mode
 
 When invoked as a second pass by deep-verify with `--fallback-mode`:
-- Uses only bridge-claude (always available)
+- Uses only bridge-claude (if Task tool accessible in executor environment)
 - Marks report `"fallback": true`
 - Merges with calling skill's findings
 
