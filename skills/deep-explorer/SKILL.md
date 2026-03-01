@@ -33,30 +33,31 @@ When invoked, you will:
 
 ---
 
-## Step 0: Verify Git Repository
+## Step 0: Verify Git Repository (Optional)
 
-Before exploration, verify the codebase is a Git repository:
+Check if the codebase is a Git repository to determine exploration mode:
 
 ```bash
 # Check if Git repository
 if ! git rev-parse --is-inside-work-tree 2>/dev/null; then
-  echo "ERROR: deep-explorer requires a Git repository"
-  echo "Please initialize Git: git init"
-  exit 1
-fi
-
-# Verify Git is functional
-if ! git rev-parse HEAD 2>/dev/null; then
-  echo "ERROR: No commits in repository"
-  echo "Please make at least one commit before using deep-explorer"
-  exit 1
+  # Git not available — proceed with full filesystem exploration
+  EXPLORATION_TYPE="full"
+  GIT_AVAILABLE=false
+else
+  # Verify Git is functional (has at least one commit)
+  if ! git rev-parse HEAD 2>/dev/null; then
+    EXPLORATION_TYPE="full"
+    GIT_AVAILABLE=false
+  else
+    GIT_AVAILABLE=true
+  fi
 fi
 ```
 
-**If Git repository does not exist:**
-- Display error message
-- Explain that deep-explorer requires Git for delta tracking
-- Exit gracefully
+**If not a git repository:**
+- Set EXPLORATION_TYPE="full" (no delta mode without git)
+- Proceed with file system exploration instead
+- Note in report: "Git not available — full filesystem exploration mode"
 
 ---
 
@@ -389,6 +390,10 @@ You are a DEPENDENCY EXPLORER. Map component relationships and dependencies.
   }
 }
 ```
+
+**Domain-Aware Agent Selection (optional enhancement):**
+If domain-registry is available, read `domain-registry/domains/technical.md` to
+identify additional domain-specific explorers relevant to the detected technology stack.
 
 **Aggregate Results:**
 
@@ -925,40 +930,34 @@ Next delta exploration will use commit `def456` as baseline.
 
 ## Step 5: Save Baseline & Report
 
-Save exploration results and update baseline:
+## Artifact Output
 
+Save to `.outputs/exploration/{YYYYMMDD-HHMMSS}-exploration-{slug}.md` with YAML frontmatter:
+
+```yaml
+---
+skill: deep-explorer
+version: 2.0
+timestamp: {ISO-8601}
+artifact_type: exploration
+domains: [{domain1}, {domain2}]
+verdict: PASS | FAIL | CONCERNS        # if applicable
+context_summary: "{brief description of what was reviewed}"
+session_id: "{unique id}"
+---
+```
+
+Also save JSON companion: `{timestamp}-exploration-{slug}.json`
+
+**No symlinks.** To find the latest artifact:
 ```bash
-# Create output directory
-mkdir -p .outputs/exploration
+ls -t .outputs/exploration/ | head -1
+```
 
-# Generate timestamp
-TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
-
-# Save markdown report
-REPORT_FILE=".outputs/exploration/${TIMESTAMP}-exploration-${EXPLORATION_TYPE}.md"
-echo "$REPORT_CONTENT" > "$REPORT_FILE"
-
-# Save JSON metadata
-JSON_FILE=".outputs/exploration/${TIMESTAMP}-exploration-${EXPLORATION_TYPE}.json"
-cat > "$JSON_FILE" <<EOF
-{
-  "exploration_type": "$EXPLORATION_TYPE",
-  "baseline_commit": "$(git rev-parse HEAD)",
-  "baseline_timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-  "repository": "$(basename $(git rev-parse --show-toplevel))",
-  "files_analyzed": $FILE_COUNT,
-  "changes_analyzed": {
-    "committed": $COMMITTED_COUNT,
-    "uncommitted": $UNCOMMITTED_COUNT,
-    "total": $TOTAL_COUNT
-  },
-  "previous_baseline": "$BASELINE_COMMIT"
-}
-EOF
-
-# Update symlink to latest exploration
-ln -sf "${TIMESTAMP}-exploration-${EXPLORATION_TYPE}.md" .outputs/exploration/latest-exploration.md
-ln -sf "${TIMESTAMP}-exploration-${EXPLORATION_TYPE}.json" .outputs/exploration/latest-exploration.json
+**QMD Integration (optional, progressive enhancement):**
+```bash
+qmd collection add .outputs/exploration/ --name "deep-explorer-artifacts" --mask "**/*.md" 2>/dev/null || true
+qmd update 2>/dev/null || true
 ```
 
 **Output Structure:**
@@ -967,9 +966,7 @@ ln -sf "${TIMESTAMP}-exploration-${EXPLORATION_TYPE}.json" .outputs/exploration/
 ├── 20260125-103000-exploration-full.md
 ├── 20260125-103000-exploration-full.json
 ├── 20260130-164500-exploration-delta.md
-├── 20260130-164500-exploration-delta.json
-├── latest-exploration.md → 20260130-164500-exploration-delta.md
-└── latest-exploration.json → 20260130-164500-exploration-delta.json
+└── 20260130-164500-exploration-delta.json
 ```
 
 ---
@@ -1011,9 +1008,10 @@ export DEEP_EXPLORER_INCLUDE_UNCOMMITTED="true"
 
 ## Notes
 
-- **Git Required:** This skill requires a Git repository for delta tracking
-- **Baseline Tracking:** First run establishes baseline, subsequent runs use delta
+- **Git Optional:** Git enables delta tracking; without it, full filesystem exploration mode is used
+- **Baseline Tracking:** First run establishes baseline, subsequent runs use delta (when git available)
 - **Uncommitted Changes:** Detected and flagged as work in progress
 - **No Git Commits:** Does not commit exploration reports to Git
 - **Flexible:** Works with dirty working directory
 - **Efficient:** Only re-explores changed areas on delta runs
+- **Multi-Model**: For cross-model codebase analysis, see `deep-council`
