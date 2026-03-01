@@ -50,7 +50,7 @@ audit_context:
 - Explicit standards mentioned (e.g., "WCAG 2.1", "OWASP Top 10")
 - Compliance needs (e.g., "GDPR compliance", "SOC2")
 - Domain context (e.g., "healthcare app" → HIPAA)
-- File types (e.g., `.tsx` → accessibility, `.py` → PEP8)
+- File types (e.g., `.tsx` → accessibility, source files → language-specific style standards)
 
 ---
 
@@ -61,12 +61,31 @@ Spawn auditor sub-agents in parallel using the Task tool.
 ### Auditor Distribution
 
 ```yaml
-spawn_in_parallel:
-  - Security Auditor (30% weight)
-  - Accessibility Auditor (25% weight)
-  - Code Standards Auditor (20% weight)
-  - Regulatory Auditor (15% weight)
-  - Performance Auditor (10% weight)
+auditor_selection:
+  step_1_read_domain_registry:
+    - Read domain-registry/domains/technical.md
+    - Read domain-registry/domains/business.md
+    - Read domain-registry/domains/creative.md
+
+  step_2_match_signals:
+    - Match conversation signals against each domain's trigger_signals
+    - Select all matching domains (minimum 2)
+
+  step_3_map_to_auditors:
+    - Each selected domain → spawn corresponding expert_role as auditor
+    - Weight distribution: 30% to primary domain, remainder shared equally
+
+  fallback_if_technical_signals:
+    - Security Auditor (30%)
+    - Accessibility Auditor (25%)
+    - Code Standards Auditor (20%)
+    - Regulatory Auditor (15%)
+    - Performance Auditor (10%)
+
+  examples:
+    - marketing artifact → Brand Compliance Auditor + Legal Auditor + Audience Fit Auditor
+    - financial document → Financial Accuracy Auditor + Regulatory Auditor + Risk Auditor
+    - design system → Visual Standards Auditor + Accessibility Auditor + Brand Auditor
 
 execution:
   mode: parallel
@@ -184,9 +203,9 @@ You are a CODE STANDARDS AUDITOR. Your role is to check for code style and stand
 "Does this follow the project's coding standards?"
 
 ## Standards to Check
-- Language-specific standards (PEP8, PSR, Google Style Guide, etc.)
-- Linting rules (ESLint, Pylint, RuboCop, etc.)
-- Formatting rules (Prettier, Black, etc.)
+- Applicable language-specific coding standards
+- Applicable linting rules and tools for the detected language
+- Formatting and style rules for the detected language
 - Naming conventions
 - File organization
 - Documentation requirements
@@ -202,7 +221,7 @@ You are a CODE STANDARDS AUDITOR. Your role is to check for code style and stand
   "violations": [
     {
       "severity": "HIGH | MEDIUM | LOW",
-      "standard": "PEP8 | ESLint rule | etc.",
+      "standard": "applicable coding standard | linting rule | etc.",
       "category": "Style | Formatting | Naming | Documentation",
       "location": "File path and line number",
       "violation": "Description of the violation",
@@ -558,33 +577,41 @@ Generate a markdown report with this structure:
 
 ## Step 5: Save Report
 
-Save the audit report and update symlink:
+## Artifact Output
 
+Save to `.outputs/audit/{YYYYMMDD-HHMMSS}-audit-{slug}.md` with YAML frontmatter:
+
+```yaml
+---
+skill: deep-audit
+version: 2.0
+timestamp: {ISO-8601}
+artifact_type: audit
+domains: [{domain1}, {domain2}]
+verdict: PASS | FAIL | CONCERNS        # if applicable
+context_summary: "{brief description of what was reviewed}"
+session_id: "{unique id}"
+---
+```
+
+Also save JSON companion: `{timestamp}-audit-{slug}.json`
+
+**No symlinks.** To find the latest artifact:
 ```bash
-# Create output directory
-mkdir -p .outputs/audit
+ls -t .outputs/audit/ | head -1
+```
 
-# Generate timestamp
-TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
-
-# Save markdown report
-REPORT_FILE=".outputs/audit/${TIMESTAMP}-audit-report.md"
-
-# Save JSON version
-JSON_FILE=".outputs/audit/${TIMESTAMP}-audit-report.json"
-
-# Update symlinks
-ln -sf "${TIMESTAMP}-audit-report.md" .outputs/audit/latest-audit.md
-ln -sf "${TIMESTAMP}-audit-report.json" .outputs/audit/latest-audit.json
+**QMD Integration (optional, progressive enhancement):**
+```bash
+qmd collection add .outputs/audit/ --name "deep-audit-artifacts" --mask "**/*.md" 2>/dev/null || true
+qmd update 2>/dev/null || true
 ```
 
 **Output Structure:**
 ```
 .outputs/audit/
 ├── 20260130-143000-audit-report.md
-├── 20260130-143000-audit-report.json
-├── latest-audit.md → (symlink)
-└── latest-audit.json → (symlink)
+└── 20260130-143000-audit-report.json
 ```
 
 ---
@@ -612,7 +639,7 @@ audit:
   standards:
     security: ["OWASP Top 10", "CWE"]
     accessibility: ["WCAG 2.1 AA"]
-    code: ["ESLint", "Prettier"]
+    code: ["applicable linting rules", "applicable formatting tools"]
     regulatory: ["GDPR"]
     performance: ["Core Web Vitals"]
 ```
@@ -635,3 +662,5 @@ export DEEP_AUDIT_FAIL_ON_CRITICAL="true"
 - **Conversation-Driven:** Infers standards from context
 - **Domain-Agnostic:** Works for any domain with standards
 - **Parallel Execution:** All auditors run simultaneously
+- **Multi-Model**: For cross-model audit confidence, see `deep-council`
+- **Domain-Aware**: Auditor selection adapts to domain context via domain-registry
