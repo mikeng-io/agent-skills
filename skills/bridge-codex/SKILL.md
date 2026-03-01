@@ -14,19 +14,37 @@ This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Rea
 ```yaml
 bridge: codex
 model_family: openai/codex
-connection_preference:
-  1: mcp-server    # codex mcp-server — preferred: persistent, no auth check needed
-  2: cli           # codex exec — direct CLI, requires auth + feature flag
-  3: halt          # Neither available: surface advisory, offer setup
-multi_agent: required        # Must be enabled for parallel domain dispatch
 availability: conditional
+connection_preference:
+  1: native-dispatch  # Executor is Codex — multi-agent dispatch (experimental)
+  2: mcp              # Any executor with MCP access — mcp__codex__codex server
+  3: cli              # Any other executor — codex exec
+  4: halt             # None available — surface advisory, offer setup
 ```
 
 ---
 
 ## Step 1: Pre-Flight — Connection Detection
 
-### Check A: MCP Server Configured?
+### Check A: Native Dispatch?
+
+If the executor is Codex CLI with multi-agent support enabled, this is the preferred path — spawn parallel Codex agents rather than routing through MCP or CLI.
+
+```bash
+# Check if running inside a Codex execution context
+echo ${CODEX_SESSION_ID:+found}
+
+# Check if multi-agent feature is enabled
+codex features list 2>/dev/null | grep -q "multi_agent" && echo "enabled"
+```
+
+If in a Codex session AND multi-agent is enabled → **use native dispatch** (multi-agent path).
+
+This is an experimental feature. If multi-agent is not enabled, or the executor is not Codex → proceed to Check B.
+
+---
+
+### Check B: MCP Server Configured?
 
 Look for a `codex` entry in the active MCP configuration:
 
@@ -42,19 +60,19 @@ If found → **use MCP path** (Step 3A). No further pre-flight needed — MCP se
 
 ---
 
-### Check B: CLI Available?
+### Check C: CLI Available?
 
 ```bash
 which codex
 ```
 
-If found → proceed to Check C.
+If found → proceed to Check D.
 
 If not found → **no connection available — go to Step 2 (Advisory)**.
 
 ---
 
-### Check C: Authenticated? (CLI path only)
+### Check D: Authenticated? (CLI path only)
 
 ```bash
 codex login status
@@ -64,7 +82,7 @@ Exit code 0 → authenticated. Other → **go to Step 2 (Advisory)** with `reaso
 
 ---
 
-### Check D: Multi-Agent Feature Enabled? (CLI path only — optional)
+### Check E: Multi-Agent Feature Enabled? (CLI path only — optional)
 
 ```bash
 codex features list
@@ -348,7 +366,7 @@ See `cli-reference.md` for complete flag reference.
 {
   "bridge": "codex",
   "model_family": "openai/codex",
-  "connection_used": "mcp | cli",
+  "connection_used": "native-dispatch | mcp | cli",
   "session_id": "...",
   "task_type": "review | planning | implementation | analysis | research",
   "status": "COMPLETED | SKIPPED | HALTED | ABORTED",

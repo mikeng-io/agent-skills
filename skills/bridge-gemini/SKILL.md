@@ -14,26 +14,51 @@ This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Rea
 ```yaml
 bridge: gemini
 model_family: google/gemini
-availability: conditional   # Requires gemini CLI
-connection: cli             # gemini -p "..." --approval-mode plan -o json
-availability_check: "which gemini"
+availability: conditional
+connection_preference:
+  1: native-dispatch  # Executor is Gemini CLI — Gemini subagents (enableAgents)
+  2: cli              # Any other executor — gemini -p
+  3: skip             # Neither — return SKIPPED (non-blocking)
 ```
 
-## Availability Check
+## Pre-Flight — Connection Detection
 
-Before executing, the bridge executor MUST check:
+### Check A: Native Dispatch?
+
+If the executor is Gemini CLI with subagent support enabled, this is the preferred path — spawn specialized Gemini subagents rather than shelling out to the CLI.
+
+```bash
+# Check if subagents are enabled in project or user settings
+cat .gemini/settings.json 2>/dev/null | python3 -c \
+  "import sys,json; d=json.load(sys.stdin); print(d.get('experimental',{}).get('enableAgents', False))"
+
+# Also check user-level settings
+cat ~/.gemini/settings.json 2>/dev/null | python3 -c \
+  "import sys,json; d=json.load(sys.stdin); print(d.get('experimental',{}).get('enableAgents', False))"
+```
+
+If `True` and the current executor is Gemini CLI → **use native dispatch** (subagent path in Subagent Mode section).
+
+If executor is not Gemini, or `enableAgents` is `false` or missing → proceed to Check B.
+
+---
+
+### Check B: CLI Installed?
 
 ```bash
 which gemini
 ```
 
-If gemini is not found → return immediately:
+If found → **use CLI path** (Execution section).
+
+If not found → return immediately:
+
 ```json
 {
   "bridge": "gemini",
   "status": "SKIPPED",
-  "reason": "gemini CLI not available (which gemini returned empty)",
-  "findings": [],
+  "skip_reason": "gemini CLI not available (which gemini returned empty)",
+  "outputs": [],
   "verdict": null
 }
 ```
@@ -134,6 +159,7 @@ Error handling:
 {
   "bridge": "gemini",
   "model_family": "google/gemini",
+  "connection_used": "native-dispatch | cli",
   "session_id": "...",
   "task_type": "review | planning | implementation | analysis | research",
   "status": "COMPLETED | SKIPPED",

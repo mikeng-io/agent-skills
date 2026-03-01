@@ -16,10 +16,10 @@ bridge: claude
 model_family: anthropic/claude
 availability: conditional   # Depends on executor — not always available
 connection_preference:
-  1: task-tool    # Executor is Claude Code — native Task/Agent Teams dispatch
-  2: claude-cli   # Executor is any other agent — invoke `claude -p` CLI
-  3: api          # Last resort — Anthropic HTTP API via ANTHROPIC_API_KEY
-  4: skip         # None available — return SKIPPED (non-blocking)
+  1: native-dispatch  # Executor is Claude Code — Task tool / Agent Teams
+  2: cli       # Any other executor — invoke `claude -p` CLI
+  3: api              # Last resort — Anthropic HTTP API via ANTHROPIC_API_KEY
+  4: skip             # None available — return SKIPPED (non-blocking)
 ```
 
 ---
@@ -299,7 +299,7 @@ For other task types (`planning`, `implementation`, `research`), verdict is `nul
 {
   "bridge": "claude",
   "model_family": "anthropic/claude",
-  "connection_used": "agent-teams | task-tool | claude-cli | api",
+  "connection_used": "native-dispatch | cli | api",
   "session_id": "...",
   "status": "COMPLETED | SKIPPED",
   "skip_reason": "...",

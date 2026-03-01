@@ -16,9 +16,10 @@ bridge: opencode
 model_family: multi-provider   # Routes to any configured AI provider
 availability: conditional
 connection_preference:
-  1: http-api    # opencode serve — persistent server, REST API at :4096
-  2: cli         # opencode run "prompt" — non-interactive single-shot
-  3: halt        # Neither: surface advisory, offer setup
+  1: native-dispatch  # Executor is OpenCode — internal agent routing
+  2: http-api         # Any executor — opencode serve REST API at :4096
+  3: cli              # Any other executor — opencode run
+  4: halt             # None available — surface advisory, offer setup
 ```
 
 ## Why OpenCode?
@@ -31,7 +32,24 @@ OpenCode is provider-agnostic — it routes to whichever AI providers are config
 
 ## Step 1: Pre-Flight — Connection Detection
 
-### Check A: HTTP API Server Running?
+### Check A: Native Dispatch?
+
+If the executor is OpenCode, this is the preferred path — route the task to an OpenCode internal agent within the current session rather than shelling out or calling the HTTP API.
+
+```bash
+# Check if running inside an OpenCode session
+echo ${OPENCODE_SESSION_ID:+found}
+# Alternatively: OPENCODE_CLIENT is set when OpenCode is the executor
+echo ${OPENCODE_CLIENT:+found}
+```
+
+If in an OpenCode session → **use native dispatch** (route to `general` or `explore` subagent).
+
+If executor is not OpenCode → proceed to Check B.
+
+---
+
+### Check B: HTTP API Server Running?
 
 ```bash
 curl -s --max-time 3 http://localhost:4096 -o /dev/null -w "%{http_code}"
@@ -42,19 +60,19 @@ If responds (any HTTP code) → **use HTTP API path** (Step 3A). Server is alrea
 
 ---
 
-### Check B: CLI Installed?
+### Check C: CLI Installed?
 
 ```bash
 which opencode
 ```
 
-If found → proceed to Check C.
+If found → proceed to Check D.
 
 If not found → **no connection available — go to Step 2 (Advisory)**.
 
 ---
 
-### Check C: Provider Authenticated? (CLI path only)
+### Check D: Provider Authenticated? (CLI path only)
 
 ```bash
 opencode auth list
@@ -285,7 +303,7 @@ See `cli-reference.md` for complete flag reference.
   "bridge": "opencode",
   "model_family": "multi-provider",
   "model_used": "provider/model or null",
-  "connection_used": "http-api | cli",
+  "connection_used": "native-dispatch | http-api | cli",
   "session_id": "...",
   "task_type": "review | planning | implementation | analysis | research",
   "status": "COMPLETED | SKIPPED | HALTED | ABORTED",
