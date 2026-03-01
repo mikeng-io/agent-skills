@@ -139,6 +139,32 @@ Return `status: HALTED` with the full advisory in `halt_message`. Never silently
 
 ---
 
+## Step 2: Read Multi-Model Configuration
+
+Before estimating timeout, check bridge settings for a `models` array. This is a **suite-owned config file** — separate from OpenCode's own `~/.config/opencode/` config — that tells the bridge which models to use for multi-model dispatch.
+
+```bash
+cat .bridge-settings.json 2>/dev/null
+```
+
+Extract `bridges.opencode.models`:
+
+```yaml
+multi_model_dispatch:
+  condition: "bridges.opencode.models is present AND has 2+ entries"
+  action: "Spawn one execution per model — treat each as an independent participant"
+  example_config:
+    models: ["glm/glm-4-7", "kimi/moonshot-v1-8k", "qwen/qwen-plus"]
+
+single_model_dispatch:
+  condition: "models missing OR empty OR has exactly 1 entry"
+  action: "Single execution using configured model or OpenCode's default"
+```
+
+**Why multi-model matters:** Each model has different training data, biases, and reasoning patterns. With 3 models configured, bridge-opencode becomes its own mini-council — 3 independent perspectives before findings even reach the cross-bridge synthesis layer.
+
+---
+
 ## Timeout Estimation
 
 Use bridge-commons base timeout table and intensity multiplier, then apply the OpenCode-specific multiplier:
@@ -146,10 +172,76 @@ Use bridge-commons base timeout table and intensity multiplier, then apply the O
 ```yaml
 opencode_multiplier: 1.5   # Always applied — provider routing overhead
 
-final_timeout: base_timeout × intensity_multiplier × 1.5   # seconds
+# Single-model dispatch:
+final_timeout: base_timeout × intensity_multiplier × 1.5
+
+# Multi-model dispatch (models run in parallel, not sequential):
+final_timeout: max(per_model_base_timeout) × intensity_multiplier × 1.5
+# NOT the sum — all model invocations run simultaneously
 ```
 
 OpenCode internally dispatches to one or more providers — each provider call adds latency.
+
+---
+
+## Step 3: Dispatch — Single-Model vs Multi-Model
+
+### Multi-Model Dispatch (when `models` has 2+ entries)
+
+Spawn one parallel execution per configured model. All models receive the identical `bridge_input` — independence is the point.
+
+**Via HTTP API (preferred when server running):**
+
+```bash
+# For each model in bridge_settings.opencode.models, in parallel:
+SESSION_A=$(curl -s -X POST http://localhost:4096/session \
+  -H "Content-Type: application/json" \
+  -d '{"title": "opencode-{model_slug}-{session_id}"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+
+curl -s -X POST http://localhost:4096/session/$SESSION_A/message \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": [{"type": "text", "text": "{constructed_prompt}"}],
+    "model": "{model_A}"   # e.g., "glm/glm-4-7"
+  }' &
+
+SESSION_B=... # similarly for model B
+SESSION_C=... # similarly for model C
+
+wait  # collect all
+```
+
+**Via CLI (fallback):**
+
+```bash
+# Run in parallel — one per model
+timeout {final_timeout} opencode run "{constructed_prompt}" --model {model_A} &
+PID_A=$!
+timeout {final_timeout} opencode run "{constructed_prompt}" --model {model_B} &
+PID_B=$!
+timeout {final_timeout} opencode run "{constructed_prompt}" --model {model_C} &
+PID_C=$!
+wait $PID_A $PID_B $PID_C
+```
+
+If any model invocation times out or errors → mark it as `skipped` in `instances_completed` and continue with remaining results. Never block on a single model failure.
+
+**Post-dispatch: Mini-Synthesis within bridge-opencode**
+
+After all model invocations complete, run a mini-synthesis before returning to deep-council:
+
+1. **Deduplication**: Findings with >70% description overlap across models → merge (inherit highest severity, list contributing models as `confirmed_by_models`)
+2. **Model-confirmed**: Merged findings are elevated (`intra-bridge_multi_model_confirmed: true`)
+3. **Single-model findings**: Retained with model attribution
+4. **Verdict**: Apply bridge-commons verdict logic to the merged finding set
+
+This mini-synthesis is the intra-bridge equivalent of deep-council's cross-bridge Stage B — but lighter (no full DA challenge round, just deduplication and model-agreement detection).
+
+---
+
+### Single-Model Dispatch (when `models` is empty/missing or has 1 entry)
+
+Proceed to Step 3A or 3B with the single configured model (or OpenCode's default if none specified).
 
 ---
 
@@ -271,11 +363,22 @@ See bridge-commons Output Schema. Bridge-specific fields:
   "bridge": "opencode",
   "model_family": "multi-provider",
   "connection_used": "native-dispatch | http-api | cli",
-  "model_used": "provider/model or null"
+  "dispatch_mode": "multi-model | single-model",
+  "models_configured": ["glm/glm-4-7", "kimi/moonshot-v1-8k", "qwen/qwen-plus"],
+  "models_used": ["glm/glm-4-7", "kimi/moonshot-v1-8k"],
+  "instances_spawned": 3,
+  "instances_completed": 2,
+  "intra_bridge_confirmed": 4
 }
 ```
 
-Output ID prefix: `O` (e.g., `O001`, `O002`).
+- `models_configured`: full list from `.bridge-settings.json`
+- `models_used`: models that successfully completed (subset if any timed out)
+- `instances_spawned`: number of parallel executions launched
+- `instances_completed`: number that returned results (may be less than spawned)
+- `intra_bridge_confirmed`: count of findings confirmed by 2+ models within this bridge (before cross-bridge synthesis)
+
+Output ID prefix: `O` (e.g., `O001`, `O002`). In multi-model mode, prefix per model: `O-glm-001`, `O-kimi-001`, etc. Merged findings use: `O-merged-001`.
 
 ---
 

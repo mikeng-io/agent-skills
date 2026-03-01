@@ -106,12 +106,17 @@ Show discovered configuration:
 ```
 Available bridges for this review:
 
-  [claude]     ✓ Always available (Task sub-agents)
+  [claude]     ✓ Task tool accessible
   [gemini]     ✓ CLI found           Model: {gemini default}
   [codex]      ✓ MCP configured      Models: {from codex models list}
-  [opencode]   ✓ Providers: {list}   Default: {provider/model}
+  [opencode]   ✓ Providers: {list}   Dispatch: {single-model | multi-model (N models)}
+                                     Models: {models array from settings, or "default"}
 
 Reasoning level (applies to Codex):  medium / high / xhigh  [medium]
+
+OpenCode multi-model: add/remove models, or press Enter to accept current settings.
+  Current: {bridges.opencode.models or "default (single model)"}
+  Format:  provider/model  e.g. glm/glm-4-7, kimi/moonshot-v1-8k, qwen/qwen-plus
 
 Enable/disable bridges, select models, or press Enter to accept defaults.
 ```
@@ -121,13 +126,17 @@ Wait for user input. Accept `Enter` to use defaults.
 ### Save Settings
 
 ```json
-// .bridge-settings.json
+// .bridge-settings.json — suite-owned config, separate from any CLI tool's own config
 {
   "bridges": {
     "claude":    { "enabled": true },
     "gemini":    { "enabled": true },
-    "codex":     { "enabled": true,  "model": null },
-    "opencode":  { "enabled": true,  "model": null }
+    "codex":     { "enabled": true, "model": null },
+    "opencode":  {
+      "enabled": true,
+      "model":   null,
+      "models":  []
+    }
   },
   "reasoning_level": "medium",
   "updated": "{ISO-8601}",
@@ -135,7 +144,12 @@ Wait for user input. Accept `Enter` to use defaults.
 }
 ```
 
-`model: null` means use the bridge's runtime-detected latest model.
+`opencode.models` — controls multi-model dispatch:
+- `[]` or missing → single invocation with OpenCode's default model
+- `["glm/glm-4-7", "kimi/moonshot-v1-8k"]` → two parallel invocations, mini-synthesis within bridge
+- `["glm/glm-4-7", "kimi/moonshot-v1-8k", "qwen/qwen-plus"]` → three models, bridge-opencode acts as its own mini-council
+
+`model` (singular) is a legacy single-model override — ignored when `models` has entries. See bridge-commons for the full bridge settings schema and the two-layer debate architecture.
 
 On load, if `(current_time - updated) > ttl_hours` → force re-discovery even without `--reconfigure`.
 

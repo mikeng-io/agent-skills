@@ -526,6 +526,86 @@ Invalid or unparseable output → attempt to extract structured content; if unre
 
 ---
 
+## Two-Layer Debate Architecture
+
+The full deep-council execution involves two distinct debate layers. Understanding the distinction prevents confusing the intra-bridge analysis with the cross-bridge synthesis.
+
+```
+deep-council
+│
+├── Layer 2: Intra-Bridge Analysis (runs inside each bridge, before returning to council)
+│   │
+│   ├── bridge-claude
+│   │     Full 5-phase debate-protocol (DA + IC + domain experts via Agent Teams or Task tool)
+│   │     Richest intra-bridge analysis — async messaging, multi-round adversarial
+│   │
+│   ├── bridge-gemini
+│   │     Post-Analysis Protocol rounds (sequential, stateless prompts)
+│   │     Lighter — no async messaging, 1–3 rounds via re-prompting
+│   │
+│   ├── bridge-codex
+│   │     Post-Analysis Protocol rounds (sequential, stateless prompts)
+│   │     Same pattern as gemini
+│   │
+│   └── bridge-opencode
+│         Single-model:  Post-Analysis Protocol rounds (same as gemini/codex)
+│         Multi-model:   N parallel model invocations → mini-synthesis within bridge
+│                        → becomes its own mini-council before reporting to Layer 1
+│
+└── Layer 1: Cross-Bridge Synthesis Debate (deep-council Step 6 Stage B)
+      Debate Coordinator Task agent challenges aggregated findings from ALL bridges
+      DA asks: "Did all bridges agree because they're all right, or shared bias/prompting?"
+      IC checks cross-bridge integration implications
+      2–3 challenge rounds (standard/thorough)
+      Output: confirmed / downgraded / disputed / withdrawn / integration findings
+```
+
+**Why the asymmetry exists:** bridge-claude has native sub-agent dispatch (Task tool, Agent Teams) — it can run truly parallel, async-communicating agents. CLI bridges (gemini, codex, opencode) are single-process invocations — they can only achieve multi-round analysis through sequential re-prompting, which is the Post-Analysis Protocol.
+
+**Multi-model opencode fills the gap:** With 2+ models configured in `.bridge-settings.json`, bridge-opencode spawns one invocation per model in parallel — each model produces independent findings, and a mini-synthesis deduplicates and elevates multi-model-confirmed findings. This gives bridge-opencode a Layer 2 that is closer in depth to bridge-claude, without requiring native sub-agent dispatch.
+
+**The two layers are complementary, not redundant:**
+- Layer 2 (intra-bridge) maximizes what each model family can find on its own
+- Layer 1 (cross-bridge) challenges whether different model families genuinely agree or just share the same blind spot
+
+---
+
+## Bridge Settings
+
+Bridges read suite configuration from `.bridge-settings.json` in the project root. This file is owned by the skill suite — it is not OpenCode's config, Gemini's config, or any CLI tool's config.
+
+```json
+{
+  "bridges": {
+    "claude":   { "enabled": true },
+    "gemini":   { "enabled": true },
+    "codex":    { "enabled": true,  "model": null },
+    "opencode": {
+      "enabled": true,
+      "model":  null,
+      "models": []
+    }
+  },
+  "reasoning_level": "medium",
+  "updated": "{ISO-8601}",
+  "ttl_hours": 24
+}
+```
+
+**`opencode.models` array** — controls multi-model dispatch for bridge-opencode:
+
+| Value | Behavior |
+|-------|---------|
+| `[]` (empty) or missing | Single invocation, OpenCode's configured default model |
+| `["glm/glm-4-7"]` (one entry) | Single invocation with that specific model |
+| `["glm/glm-4-7", "kimi/moonshot-v1-8k", "qwen/qwen-plus"]` | Three parallel invocations, one per model, mini-synthesis within bridge |
+
+Models must use `provider/model` format as required by OpenCode (e.g., `glm/glm-4-7`, not just `glm`).
+
+`model` (singular): legacy single-model override — ignored when `models` array has entries.
+
+---
+
 ## Notes
 
 - Bridges do not modify source files unless `task_type` is `implementation`

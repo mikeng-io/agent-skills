@@ -133,19 +133,33 @@ Best for: ≥ 3 domains, high-stakes changes, standard or thorough intensity.
 
 ### Path C: Deep Council (Multi-Model)
 
-Dispatches the task to multiple AI runtimes in parallel. Each bridge runs its own internal analysis (parallel-workflow or agent-teams). Results are then debated across model families using debate-protocol.
+Dispatches the task to multiple AI runtimes in parallel. The architecture has **two debate layers**:
+
+- **Layer 2 (intra-bridge):** Each bridge extracts maximum value from its own model family before reporting
+- **Layer 1 (cross-bridge):** After all bridges report, a Debate Coordinator challenges the aggregated findings across model families
 
 ```
 deep-council
-  ├── bridge-claude    (Claude Code sub-agents or CLI)
-  ├── bridge-gemini    (gemini CLI)         ← SKIPPED if unavailable
-  ├── bridge-codex     (Codex MCP or CLI)   ← SKIPPED if unavailable
-  └── bridge-opencode  (HTTP API or CLI)    ← SKIPPED if unavailable
-        │
-        └── cross-bridge synthesis (debate-protocol inline)
-              ├── multi-model confirmed findings (2+ bridges agree)
-              ├── single-source findings (1 bridge only)
-              └── disputed findings (bridges disagree)
+  │
+  ├── Layer 2: Each bridge runs independently in parallel
+  │     ├── bridge-claude    → full 5-phase debate (DA + IC + domain experts)
+  │     ├── bridge-gemini    → Post-Analysis Protocol rounds   ← SKIPPED if unavailable
+  │     ├── bridge-codex     → Post-Analysis Protocol rounds   ← SKIPPED if unavailable
+  │     └── bridge-opencode  → single-model: Post-Analysis rounds
+  │                            multi-model:  N parallel models → mini-synthesis
+  │                            (configured via .bridge-settings.json models array)
+  │                                                            ← SKIPPED if unavailable
+  │
+  └── Layer 1: Cross-bridge synthesis (deep-council Step 6)
+        Stage A: Mechanical deduplication (find overlapping findings)
+        Stage B: Debate Coordinator Task agent
+                 ├── DA challenges multi-model-confirmed findings
+                 │   ("all bridges agreed — shared bias or genuine?")
+                 ├── IC checks cross-bridge integration gaps
+                 └── 2–3 challenge rounds (standard/thorough)
+                       │
+                       └── confirmed / downgraded / disputed / withdrawn
+                           integration_findings (new — emerged from cross-bridge debate)
 ```
 
 Best for: maximum confidence, multi-model verification, explicit user request, thorough intensity.
@@ -170,17 +184,19 @@ Best for: maximum confidence, multi-model verification, explicit user request, t
 Deep council is non-blocking — bridges that are unavailable are skipped and the council continues with whatever is available.
 
 ```
-Executor is Claude Code  → bridge-claude always available (Task tool)
-gemini CLI installed     → bridge-gemini available
+Executor is Claude Code    → bridge-claude available (Task tool accessible)
+gemini CLI installed       → bridge-gemini available
 Codex MCP configured
-  OR codex CLI installed  → bridge-codex available
+  OR codex CLI installed   → bridge-codex available
 opencode serve running
   OR opencode CLI installed → bridge-opencode available
+  + .bridge-settings.json models array has 2+ entries → multi-model dispatch
 
-Minimum viable council: bridge-claude alone (always available when executor is Claude Code)
+Minimum viable council: any single bridge that returns COMPLETED
+Zero bridges complete → ABORTED (emitted by deep-council)
 ```
 
-If executor is not Claude Code, bridge availability depends on what CLIs/APIs are accessible in the environment.
+Bridge availability is not guaranteed for any bridge — all depend on the executor environment and installed tools. See bridge-commons for the two-layer debate architecture and `.bridge-settings.json` schema.
 
 ---
 
