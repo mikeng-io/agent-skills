@@ -141,6 +141,7 @@ routing_rules:
     conditions_any:
       - explicit_signals: ["multi-model", "multiple models", "council", "cross-model"]
       - user explicitly requests multiple AI perspectives
+      - intensity = thorough → deep-council (recommended — thorough analysis benefits from multi-model perspectives)
     description: "Multi-model review across Claude, Gemini, Codex, OpenCode bridges"
 ```
 

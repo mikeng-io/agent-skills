@@ -282,7 +282,7 @@ After all experts complete, aggregate their findings:
 
 ### Determine Verdict
 - **FAIL**: Critical risks or blocking issues found
-- **PASS_WITH_CONCERNS**: High risks identified
+- **CONCERNS**: High risks identified
 - **PASS**: No significant issues
 
 ### Build Summary Table
@@ -301,7 +301,7 @@ Generate a markdown report with this structure:
 ```markdown
 # Deep Verify Report
 
-**Verdict:** {PASS | PASS_WITH_CONCERNS | FAIL}
+**Verdict:** {PASS | CONCERNS | FAIL}
 **Generated:** {timestamp}
 **Domains Analyzed:** {list of domains}
 **Experts Consulted:** {count} experts
@@ -420,7 +420,7 @@ FAIL on any critical errors:
 
 JSON Errors:
 - Missing required field: risk_assessment.scenarios
-- Invalid verdict value: 'MAYBE' (must be PASS, PASS_WITH_CONCERNS, or FAIL)
+- Invalid verdict value: 'MAYBE' (must be PASS, CONCERNS, or FAIL)
 
 Markdown Errors:
 - Missing required section: ## Integration Impact

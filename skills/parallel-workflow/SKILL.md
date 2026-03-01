@@ -618,8 +618,12 @@ Save execution report to `.outputs/workflow/`:
 ```
 .outputs/workflow/
 ├── YYYYMMDD-HHMMSS-workflow-execution.md
-├── YYYYMMDD-HHMMSS-workflow-execution.json
-└── latest-workflow.md → (symlink)
+└── YYYYMMDD-HHMMSS-workflow-execution.json
+```
+
+**No symlinks.** To find the latest artifact:
+```bash
+ls -t .outputs/workflow/ | head -1
 ```
 
 JSON format follows schema in `schemas/workflow-execution-schema.json`

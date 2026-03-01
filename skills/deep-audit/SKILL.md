@@ -355,7 +355,7 @@ verdict_logic:
     - 3+ HIGH severity violations
     - Any regulatory violation (CRITICAL/HIGH)
 
-  PASS_WITH_WARNINGS:
+  CONCERNS:
     - 1-2 HIGH severity violations
     - Multiple MEDIUM violations
     - All checks passed but warnings exist
@@ -411,7 +411,7 @@ Generate a markdown report with this structure:
 
 ---
 
-## Overall Verdict: {PASS | PASS_WITH_WARNINGS | FAIL}
+## Overall Verdict: {PASS | CONCERNS | FAIL}
 
 **Audit Score:** {weighted_average}/100
 
@@ -561,7 +561,7 @@ Generate a markdown report with this structure:
 
 ## Re-Audit Recommendation
 
-{If FAIL or PASS_WITH_WARNINGS:}
+{If FAIL or CONCERNS:}
 **Re-audit required after fixing:**
 - All CRITICAL violations
 - All HIGH violations (recommended)

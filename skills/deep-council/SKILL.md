@@ -43,6 +43,8 @@ council_context:
   domains: []             # Selected from domain-registry signals in conversation
   intensity: "standard"   # quick | standard | thorough (from user request)
   review_id: ""           # Generate a unique ID: council-{YYYYMMDD-HHmmss}
+  task_type: "review"     # review | audit | research | planning | analysis | generic
+                          # Extracted from user intent — defaults to "review" for council runs
 ```
 
 **Extract from conversation:**
@@ -116,11 +118,14 @@ Wait for user input. Accept `Enter` to use defaults.
     "opencode":  { "enabled": true,  "model": null }
   },
   "reasoning_level": "medium",
-  "updated": "{ISO-8601}"
+  "updated": "{ISO-8601}",
+  "ttl_hours": 24
 }
 ```
 
 `model: null` means use the bridge's runtime-detected latest model.
+
+On load, if `(current_time - updated) > ttl_hours` → force re-discovery even without `--reconfigure`.
 
 Apply these settings when dispatching bridges in Step 4.
 
@@ -167,7 +172,7 @@ bridge_opencode:
 Build availability list: `available_bridges = [bridge names that are available]`
 Build skipped list: `skipped_bridges = [bridge names that are unavailable]`
 
-Minimum: claude is always available. Council proceeds with 1+ bridges.
+At least one bridge must return COMPLETED for synthesis to proceed. If zero bridges complete, emit ABORTED with explanation.
 
 ---
 
@@ -182,14 +187,20 @@ For each available bridge, spawn a Task agent. The Task prompt embeds:
 ```json
 {
   "bridge_input": {
+    "session_id": "{review_id}",
     "review_id": "{review_id}",
+    "scope": "{review_scope}",
     "review_scope": "{review_scope}",
+    "task_type": "{task_type}",
+    "task_description": "{context_summary}",
     "domains": {domains},
     "context_summary": "{context_summary}",
     "intensity": "{intensity}"
   }
 }
 ```
+
+`session_id` and `scope` are the bridge-commons canonical field names; `review_id` and `review_scope` are aliases for backward compatibility.
 
 ### Task Prompt Template (for each bridge)
 
@@ -235,6 +246,18 @@ Collect all bridge reports. Each should conform to its bridge's output format:
 
 SKIPPED bridges are noted but do not block synthesis.
 
+### HALTED Bridges
+
+If any bridge returns `status: HALTED`:
+
+1. Surface the bridge's `halt_message` to the user
+2. Offer: [skip this bridge / retry after setup / abort entire review]
+3. **Non-interactive default**: auto-SKIPPED with a warning in the report
+   (`"auto_skipped_halted_bridges": [{"bridge": "...", "halt_reason": "..."}]`)
+4. Continue council synthesis with remaining COMPLETED bridges
+
+HALTED does not block the council — it is surfaced and handled, then the council proceeds.
+
 ---
 
 ## Step 6: Cross-Bridge Synthesis
@@ -270,6 +293,12 @@ disputed:
 4. **Confidence calculation**: `multi-model-confirmed` > `single-source (claude)` > `single-source (other bridge)` > `disputed`
 
 ### Cross-Bridge Verdict
+
+**Note:** Cross-bridge verdict thresholds deliberately differ from per-bridge bridge-commons thresholds.
+Per-bridge: FAIL = any single CRITICAL finding (that bridge's internal debate flagged it).
+Cross-bridge: FAIL = multi-model-confirmed CRITICAL (requires multiple model families to agree).
+This is intentional — cross-bridge synthesis accounts for depth asymmetry (some bridges run richer
+debate than others) by requiring multi-model agreement before escalating to FAIL.
 
 ```yaml
 FAIL:
@@ -317,6 +346,10 @@ PASS:
       "evidence": "...",
       "remediation": "...",
       "confirmed_by": ["{bridge1}", "{bridge2}"],
+      "source_findings": [
+        {"bridge": "{bridge1}", "finding_id": "{original-id}"},
+        {"bridge": "{bridge2}", "finding_id": "{original-id}"}
+      ],
       "domains": ["{domain}"]
     }
   ],
@@ -341,6 +374,18 @@ PASS:
     }
   ],
   "synthesis_notes": "Summary of cross-model analysis"
+}
+```
+
+If zero bridges return COMPLETED, emit the following instead and stop:
+
+```json
+{
+  "status": "ABORTED",
+  "abort_reason": "No bridges returned COMPLETED results",
+  "bridges_attempted": ["..."],
+  "bridges_skipped": ["..."],
+  "bridges_halted": ["..."]
 }
 ```
 
@@ -393,7 +438,7 @@ If invoked with `--fallback-mode` (e.g., from deep-verify as a second pass):
 ## Notes
 
 - **No Skill-within-Skill**: Bridges are read via Read tool and embedded in Task prompts — NOT called via Skill tool
-- **Always at least 1 bridge**: Claude bridge is always available
-- **SKIPPED bridges don't block**: Council proceeds and notes what was skipped
+- **Minimum threshold**: At least one bridge must return COMPLETED; zero completions emits ABORTED
+- **SKIPPED/HALTED bridges don't block**: Council proceeds and notes what was skipped or halted
 - **Transparent attribution**: Every finding carries its source bridge(s)
 - **Intensity propagates**: The intensity setting flows to all bridges and their sub-agents
