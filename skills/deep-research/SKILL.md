@@ -60,7 +60,7 @@ When invoked, you will:
    - Spawn domain researchers in parallel
    - Use web search for general information
    - Use browser automation for interactive sites, paywalls, or dynamic content
-   - Use agent-browser skill for complex web interactions
+   - Use `mcp__playwright__*` tools directly for complex web interactions (multi-step flows, form submission, navigation). If Playwright MCP is not available, use `Bash` with `curl`/`wget` for simpler web requests.
    - Collect and validate findings from each source
 
 4. **Synthesize findings** across domains:
@@ -127,7 +127,7 @@ tool_inventory:
     - mcp__zread__search_doc
 
   skills:
-    - agent-browser (for complex web interactions)
+    - mcp__playwright__* (if available)
 ```
 
 ### Tool Selection Strategy
@@ -147,11 +147,12 @@ Choose tools based on research requirements:
   - Paywalled content (with proper authorization)
 
 **Complex Interactions:**
-- Use `agent-browser` skill for:
+- Use `mcp__playwright__*` tools directly for:
   - Multi-step workflows (login → navigate → extract)
   - Complex form filling
   - Sites requiring human-like interaction
   - Screenshot capture with analysis
+- If Playwright MCP is not available, use `Bash` with `curl`/`wget` for simpler web requests.
 
 ### Tool Availability Handling
 
@@ -163,8 +164,8 @@ Choose tools based on research requirements:
 
 **Example fallback chain:**
 ```
-Preferred: Playwright → mcp__browser-tools → agent-browser skill
-Fallback: web-reader → basic web-search
+Preferred: mcp__playwright__* → mcp__browser-tools
+Fallback: web-reader → basic web-search → Bash with curl/wget
 ```
 
 ---
@@ -318,7 +319,7 @@ browser_tools:
   - playwright_evaluate           # Execute JavaScript
   - browser_screenshot            # Visual capture
   - browser_console_logs          # Debug info
-  - agent_browser_skill           # Complex interactions
+  # agent-browser skill removed — use mcp__playwright__* tools directly for complex interactions
 
 # Specialized tools (optional)
 specialized_tools:
@@ -346,7 +347,7 @@ Choose methodology based on source types:
 - Content loaded on interaction
 - Sites with lazy loading
 
-**Interactive Content (use browser_automation + agent_browser):**
+**Interactive Content (use browser_automation via mcp__playwright__*):**
 - Sites requiring login (with authorization)
 - Multi-step workflows
 - Form submissions
@@ -378,7 +379,7 @@ You are a {DOMAIN} RESEARCHER. Your role is to gather comprehensive information 
 2. Read promising sources using appropriate method:
    - Static content: web-reader
    - Dynamic content: browser automation (Playwright)
-   - Interactive content: agent-browser skill
+   - Interactive content: mcp__playwright__* tools directly (browser automation)
 3. Extract key findings, evidence, and sources with URLs
 4. Assess source credibility (HIGH/MEDIUM/LOW)
 5. Identify consensus vs. debate in the field
@@ -398,11 +399,12 @@ You are a {DOMAIN} RESEARCHER. Your role is to gather comprehensive information 
   - JavaScript execution: `mcp__playwright__browser_evaluate`
 
 **For Complex Interactions:**
-- Use agent-browser skill when:
+- Use `mcp__playwright__*` tools directly when:
   - Multi-step workflows required
   - Forms need to be filled
   - Login/authentication needed (if authorized)
   - Human-like interaction necessary
+- If Playwright MCP is not available, use `Bash` with `curl`/`wget` for simpler requests.
 
 **URL Requirements:**
 - ALWAYS capture source URLs
@@ -522,14 +524,12 @@ For paginated results:
 5. Aggregate all findings
 ```
 
-#### Agent-Browser Skill Integration
+#### Complex Interaction via Playwright MCP
 
-For complex multi-step workflows, use the agent-browser skill:
+For complex multi-step workflows, use `mcp__playwright__*` tools directly. Browser automation requires Playwright MCP to be configured — if it is not available, fall back to `Bash` with `curl`/`wget`.
 
 ```
-Invoke: /agent-browser or Skill tool with "agent-browser"
-
-Use cases:
+Use mcp__playwright__* tools for:
 - Login flows (if authorized)
 - Multi-step forms
 - Complex navigation patterns
@@ -537,17 +537,14 @@ Use cases:
 - Screenshot capture with analysis
 ```
 
-**Example agent-browser prompt:**
+**Example Playwright workflow:**
 ```
-Use agent-browser to:
-1. Navigate to {research_site}
-2. Search for "{query}"
-3. Extract top 10 results with:
-   - Title
-   - URL
-   - Summary text
-   - Publication date (if available)
-4. Return as structured JSON
+Use mcp__playwright__* to:
+1. mcp__playwright__browser_navigate(url="{research_site}")
+2. mcp__playwright__browser_fill_form(selector="input[name=q]", value="{query}")
+3. mcp__playwright__browser_click(selector="button[type=submit]")
+4. mcp__playwright__browser_snapshot() → extract top results with title, URL, summary, date
+5. Return as structured JSON
 ```
 
 #### URL Capture Requirements
