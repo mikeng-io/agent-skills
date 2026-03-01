@@ -584,7 +584,6 @@ Save to `.outputs/audit/{YYYYMMDD-HHMMSS}-audit-{slug}.md` with YAML frontmatter
 ```yaml
 ---
 skill: deep-audit
-version: 2.0
 timestamp: {ISO-8601}
 artifact_type: audit
 domains: [{domain1}, {domain2}]

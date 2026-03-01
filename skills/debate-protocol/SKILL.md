@@ -237,7 +237,6 @@ Save to `.outputs/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.md` with YAML fron
 ```yaml
 ---
 skill: debate-protocol
-version: 2.0
 timestamp: {ISO-8601}
 artifact_type: debate
 domains: [{domain1}, {domain2}]

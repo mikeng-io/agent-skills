@@ -1,6 +1,6 @@
 # Bridge: Claude
 
-Reference adapter for Claude Code sub-agent dispatch. Part of the Deep Skills Suite v2 bridge layer.
+Reference adapter for Claude Code sub-agent dispatch. Part of the Deep Skills Suite bridge layer.
 
 ## What is this?
 
@@ -20,7 +20,14 @@ Claude bridges work via the Task tool — they spawn sub-agents internally. Ther
 
 ## Availability
 
-Always available — Claude Code is the native executor. No CLI check or installation required.
+Conditional — depends on what's available to the executor:
+
+1. **Task tool** — when Claude Code is the executor (native sub-agent dispatch)
+2. **Claude Code CLI** (`which claude`) — when any other executor can shell out to `claude -p`
+3. **Anthropic API** — `ANTHROPIC_API_KEY` in environment
+4. **SKIPPED** — none of the above available
+
+Bridge-claude is non-blocking — it returns SKIPPED if no Anthropic access is available.
 
 ## Output
 
@@ -28,6 +35,6 @@ Returns a `bridge_claude_report` JSON with findings, verdict, and confidence lev
 
 ## Part of
 
-- Deep Skills Suite v2
+- Deep Skills Suite
 - Consumed by: any orchestrating skill (e.g., `deep-council`, `deep-review`, `deep-audit`, or custom skills)
 - Depends on: `domain-registry` (for expert role selection)

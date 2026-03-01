@@ -201,7 +201,6 @@ Save context report to `.outputs/context/{YYYYMMDD-HHMMSS}-context.md` with YAML
 ```yaml
 ---
 skill: deep-context
-version: 2.0
 timestamp: {ISO-8601}
 artifact_type: {artifact_type}
 domains: [{domain1}, {domain2}]

@@ -1,6 +1,6 @@
 # Bridge: Gemini
 
-Reference adapter for Gemini CLI. Part of the Deep Skills Suite v2 bridge layer.
+Reference adapter for Gemini CLI. Part of the Deep Skills Suite bridge layer.
 
 ## What is this?
 
@@ -43,5 +43,5 @@ Never blocks or throws — always returns a report.
 
 ## Part of
 
-- Deep Skills Suite v2
+- Deep Skills Suite
 - Consumed by: any orchestrating skill (e.g., `deep-council`, `deep-review`, `deep-audit`, or custom skills)

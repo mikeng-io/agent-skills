@@ -446,7 +446,6 @@ Save to `.outputs/verification/{YYYYMMDD-HHMMSS}-verification-{slug}.md` with YA
 ```yaml
 ---
 skill: deep-verify
-version: 2.0
 timestamp: {ISO-8601}
 artifact_type: verification
 domains: [{domain1}, {domain2}]

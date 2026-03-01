@@ -487,7 +487,6 @@ Save to `.outputs/review/{YYYYMMDD-HHMMSS}-review-{slug}.md` with YAML frontmatt
 ```yaml
 ---
 skill: deep-review
-version: 2.0
 timestamp: {ISO-8601}
 artifact_type: review
 domains: [{domain1}, {domain2}]

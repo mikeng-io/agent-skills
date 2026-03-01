@@ -1,152 +1,297 @@
 ---
 name: bridge-claude
-description: Reference adapter for Claude Code sub-agent dispatch. Read by any orchestrating skill via the Read tool. Defines how to spawn Claude sub-agents as internal reviewers and collect consolidated findings. Usable by deep-council, deep-review, deep-audit, or any future skill that needs Claude-based sub-agent review.
+description: Reference adapter for Claude (Anthropic) dispatch. Read by any orchestrating skill via the Read tool. Defines how to invoke Claude sub-agents or the Anthropic API, with availability checks. Usable by any AI orchestrator — Claude Code, OpenCode, Codex, Gemini, or custom agents.
 location: managed
 context: reference
 ---
 
-# Bridge: Claude Sub-Agent Adapter
+# Bridge: Claude (Anthropic) Adapter
 
-This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for Claude sub-agent dispatch.
+This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for Anthropic model dispatch.
 
 ## Bridge Identity
 
 ```yaml
 bridge: claude
 model_family: anthropic/claude
-availability: always   # No CLI check needed — Claude is the native executor
-connection: task-tool  # Task tool dispatch, no external CLI
+availability: conditional   # Depends on executor — not always available
+connection_preference:
+  1: task-tool    # Executor is Claude Code — native Task/Agent Teams dispatch
+  2: claude-cli   # Executor is any other agent — invoke `claude -p` CLI
+  3: api          # Last resort — Anthropic HTTP API via ANTHROPIC_API_KEY
+  4: skip         # None available — return SKIPPED (non-blocking)
 ```
 
-## Input Format
+---
 
-When an orchestrating skill embeds this bridge in a Task agent prompt, it provides:
+## Step 1: Pre-Flight — Connection Detection
+
+### Check A: Task Tool Available?
+
+If the executor is Claude Code (or any agent with native Task tool access), this is the preferred path. No external process needed.
+
+If Task tool available → **use Task/Agent Teams path** (Steps 3A + 3B).
+
+---
+
+### Check B: Claude Code CLI Installed?
+
+```bash
+which claude
+```
+
+If found → **use Claude Code CLI path** (Step 3C). Any external executor (OpenCode, Codex, Gemini, custom agents) can invoke `claude -p` to get Claude's analysis without API keys.
+
+---
+
+### Check C: Anthropic API Accessible?
+
+```bash
+echo ${ANTHROPIC_API_KEY:+found}
+```
+
+If `ANTHROPIC_API_KEY` is set → **use API path** (Step 3D).
+
+---
+
+### Neither available → SKIPPED
+
+```json
+{
+  "bridge": "claude",
+  "status": "SKIPPED",
+  "skip_reason": "No Anthropic access — Task tool unavailable, claude CLI not found, ANTHROPIC_API_KEY not set",
+  "outputs": []
+}
+```
+
+Claude bridge is non-blocking when unavailable. SKIPPED is a valid outcome.
+
+---
+
+## Step 2: Input Format
 
 ```json
 {
   "bridge_input": {
-    "review_id": "...",
-    "review_scope": "Files and/or description of what to review",
+    "session_id": "...",
+    "scope": "Files and/or description of what to work on",
+    "task_description": "What the agent should do (review, plan, implement, analyze, research, etc.)",
     "domains": ["domain1", "domain2"],
     "context_summary": "What the conversation/task is about",
-    "intensity": "quick | standard | thorough"
+    "intensity": "quick | standard | thorough",
+    "task_type": "review | planning | implementation | analysis | research"
   }
 }
 ```
 
-## Execution Instructions
+`task_type` informs how agents frame their output — findings for review, plans for planning, designs for implementation.
 
-The Claude bridge executor (a Task sub-agent) follows these steps:
+---
 
-### Step 1: Spawn Domain Expert Sub-Agents in Parallel
+## Step 3: Select Dispatch Mode
 
-For each domain in `bridge_input.domains`, spawn a Task sub-agent using the corresponding `expert_role` from domain-registry.
+Claude bridge has two dispatch modes. Select based on task complexity and environment:
 
-Always additionally spawn:
-- **Devil's Advocate sub-agent**
-- **Integration Checker sub-agent**
+```yaml
+dispatch_mode:
+  agent_teams:
+    condition: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 AND (domains >= 3 OR intensity = thorough)"
+    description: "Teammates share a task list and communicate directly — best for complex multi-domain work"
+    preferred: true
 
-All sub-agents run in parallel via the Task tool.
+  task_tool:
+    condition: "Default — always available as fallback"
+    description: "Sub-agents report results to parent — best for focused, independent tasks"
+    preferred: false
+```
 
-### Step 2: Domain Expert Task Prompt Template
+**Agent Teams vs Task Tool:**
+
+| | Task Tool | Agent Teams |
+|---|-----------|------------|
+| Communication | Sub-agents report to parent only | Teammates message each other directly |
+| Coordination | Parent manages all | Shared task list, self-coordinating |
+| Best for | Quick focused tasks | Multi-domain debate, complex analysis |
+| Availability | Always | Requires `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
+
+---
+
+## Step 3: Build Agent Task
+
+Construct the task prompt from `bridge_input`. Adapt framing to `task_type`:
 
 ```
-You are a {expert_role} reviewing: {review_scope}
+You are a {expert_role} working on the following:
 
-Context: {context_summary}
-Intensity: {intensity}
+SCOPE: {scope}
+TASK: {task_description}
+CONTEXT: {context_summary}
+INTENSITY: {intensity}
 
-## Your Focus Areas
-{focus_areas from domain-registry for this domain}
+DOMAINS: {domains}
 
-## Relevant Standards
-{standards from domain-registry for this domain}
+{domain-specific focus areas from domain-registry}
 
-## Your Task
-
-Perform a thorough {intensity} review focused on your domain.
-
-1. Read any files mentioned in the scope
-2. Analyze for issues relevant to your domain
-3. Apply the standards listed above
-4. Classify each finding by severity: CRITICAL | HIGH | MEDIUM | LOW | INFO
-
-## Output Format (JSON)
-
+Produce your output as JSON:
 {
-  "reviewer": "{expert_role}",
+  "agent": "{expert_role}",
   "domain": "{domain}",
   "bridge": "claude",
-  "findings": [
+  "outputs": [
     {
       "id": "",
+      "type": "finding | recommendation | plan-item | implementation-note | observation",
       "severity": "CRITICAL | HIGH | MEDIUM | LOW | INFO",
-      "title": "Short finding title",
+      "title": "Short title",
       "description": "Detailed description",
-      "evidence": "Specific reference or code location",
-      "remediation": "How to fix"
+      "evidence": "Specific reference",
+      "action": "Recommended action"
     }
   ],
-  "overall_assessment": "Brief summary",
+  "summary": "Brief summary of output",
   "confidence": "high | medium | low"
 }
 ```
 
-### Step 3: Devil's Advocate Task Prompt
+---
+
+## Step 3A: Execute via Agent Teams (preferred for complex tasks)
+
+When `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set and task complexity warrants it (3+ domains or thorough intensity), use Agent Teams. Teammates share a task list and can message each other directly — enabling real-time debate between domain experts.
 
 ```
-You are a Devil's Advocate reviewer. Your job is to challenge assumptions
-and find failure modes.
-
-Reviewing: {review_scope}
-Context: {context_summary}
-Intensity: {intensity}
-
-## Your Focus
-- Pre-mortem analysis: What could go wrong?
-- Assumptions: What is taken for granted that might be wrong?
-- Edge cases: What unusual but valid scenarios are unhandled?
-- Cross-domain risks: What issues arise from combining multiple concerns?
-
-## Output Format (JSON)
-{same structure as domain expert, domain: "cross-domain"}
+1. TeamCreate → create "bridge-claude-{session_id}" team
+2. Spawn teammates:
+   - One per domain from bridge_input.domains
+   - Devil's Advocate (always)
+   - Integration Checker (always)
+3. Create tasks in shared task list — one per teammate
+4. Teammates self-coordinate: domain experts complete their analysis,
+   Devil's Advocate challenges findings via direct messages,
+   Integration Checker surfaces cross-component issues
+5. Wait for all tasks complete
+6. Synthesize via TaskList
+7. TeamDelete → clean up
 ```
 
-### Step 4: Integration Checker Task Prompt
+Teammates communicate findings and challenges directly without routing through the parent.
 
+### Teammate prompts
+
+**Domain expert:**
 ```
-You are an Integration Checker. Your job is to find cross-component issues.
-
-Reviewing: {review_scope}
-Context: {context_summary}
-
-## Your Focus
-- Interface mismatches between components
-- Implicit contracts that aren't documented
-- Missing error propagation across boundaries
-- Timing and ordering dependencies
-
-## Output Format (JSON)
-{same structure as domain expert, domain: "integration"}
+You are a {expert_role}. Your task: {task_description}
+Scope: {scope} | Context: {context_summary} | Intensity: {intensity}
+Focus: {focus_areas from domain-registry}
+Output format: the outputs JSON structure defined in bridge_input.
 ```
 
-### Step 5: Collect and Aggregate
+**Devil's Advocate:**
+```
+You are a Devil's Advocate. Challenge assumptions and find failure modes.
+Scope: {scope} | Context: {context_summary}
+Message domain expert teammates to challenge their findings directly.
+Focus: pre-mortem failure modes, incorrect assumptions, edge cases, cross-domain risks.
+Output format: same outputs JSON (domain: "cross-domain")
+```
 
-After all sub-agents complete:
-1. Assign unique finding IDs (F001, F002, ...)
-2. Deduplicate near-identical findings (keep highest severity)
-3. Apply severity classification consistency check
-4. Calculate overall bridge verdict
+**Integration Checker:**
+```
+You are an Integration Checker. Find cross-component issues.
+Scope: {scope} | Context: {context_summary}
+Focus: interface mismatches, undocumented contracts, error propagation gaps, timing dependencies.
+Output format: same outputs JSON (domain: "integration")
+```
 
-### Step 6: Severity Classification
+---
+
+## Step 3B: Execute via Task Tool (fallback)
+
+When Agent Teams is not available, spawn parallel Task sub-agents — one per domain + Devil's Advocate + Integration Checker. Sub-agents report results to parent only (no direct inter-agent communication).
+
+```
+Task 1: {domain_1} expert — focus: {focus_areas}, scope: {scope}
+Task 2: {domain_2} expert — focus: {focus_areas}, scope: {scope}
+...
+Task N: Devil's Advocate — challenge assumptions, find failure modes
+Task N+1: Integration Checker — cross-component impacts, implicit contracts
+```
+
+Use the same prompt templates as Agent Teams mode. All tasks run in parallel. Wait for all to complete.
+
+---
+
+## Step 3C: Execute via Claude Code CLI (external executors)
+
+When any non-Claude-Code executor can call the `claude` CLI:
+
+```bash
+timeout {final_timeout} claude -p "{constructed_prompt}" \
+  --output-format json \
+  --allowedTools "Read,Grep,Glob,Bash(ls *)"
+```
+
+**Key flags:**
+
+| Flag | Purpose |
+|------|---------|
+| `-p "prompt"` | Prompt string — non-interactive mode |
+| `--output-format json` | Structured JSON output for parsing |
+| `--output-format stream-json` | Streaming JSON for real-time processing |
+| `--allowedTools` | Restrict what Claude can do (scope to read-only for analysis) |
+| `--continue` | Resume the most recent session |
+
+For read-only analysis, scope tools to `Read,Grep,Glob,Bash(ls *)`. For implementation tasks, use the full tool set.
+
+See `cli-reference.md` for complete flag reference.
+
+---
+
+## Step 3D: Execute via Anthropic API (last resort for any executor)
+
+When the orchestrator is not Claude Code (no Task tool access), fall back to direct API:
+
+```bash
+# Discover latest model first — do not hardcode
+CLAUDE_MODEL=$(curl -s -H "x-api-key: $ANTHROPIC_API_KEY" \
+  https://api.anthropic.com/v1/models | python3 -c \
+  "import sys,json; models=json.load(sys.stdin)['data']; print(models[0]['id'])")
+
+curl -s -X POST https://api.anthropic.com/v1/messages \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"model\": \"$CLAUDE_MODEL\",
+    \"max_tokens\": 8096,
+    \"messages\": [{\"role\": \"user\", \"content\": \"{constructed_prompt}\"}]
+  }"
+```
+
+Single API call covers all domains in one prompt. Less parallelism than Task/Teams paths.
+
+---
+
+## Step 4: Collect and Aggregate
+
+After all agents complete (Task path) or API responds:
+
+1. Assign unique output IDs (`C001`, `C002`, ...)
+2. Deduplicate near-identical outputs (keep highest severity)
+3. Calculate overall verdict (if task_type is review or analysis)
+
+### Verdict Logic (review/analysis only)
 
 ```yaml
-CRITICAL: Security vulnerabilities, data loss risks, system-breaking issues
-HIGH:     Significant quality issues, performance blockers, important gaps
-MEDIUM:   Moderate issues, best practice violations, maintainability concerns
-LOW:      Minor improvements, style issues, nice-to-have changes
-INFO:     Observations, context, non-actionable notes
+FAIL:     Any CRITICAL output
+CONCERNS: 1+ HIGH outputs, or 3+ MEDIUM outputs
+PASS:     No CRITICAL/HIGH, only MEDIUM/LOW/INFO
 ```
+
+For other task types (`planning`, `implementation`, `research`), verdict is `null`.
+
+---
 
 ## Output Format
 
@@ -154,38 +299,37 @@ INFO:     Observations, context, non-actionable notes
 {
   "bridge": "claude",
   "model_family": "anthropic/claude",
-  "review_id": "...",
+  "connection_used": "agent-teams | task-tool | claude-cli | api",
+  "session_id": "...",
+  "status": "COMPLETED | SKIPPED",
+  "skip_reason": "...",
+  "task_type": "review | planning | implementation | analysis | research",
   "domains_covered": ["domain1", "domain2", "cross-domain", "integration"],
-  "findings": [
+  "outputs": [
     {
-      "id": "F001",
+      "id": "C001",
+      "type": "finding | recommendation | plan-item | implementation-note | observation",
       "severity": "CRITICAL | HIGH | MEDIUM | LOW | INFO",
       "title": "...",
       "description": "...",
       "evidence": "...",
-      "remediation": "...",
+      "action": "...",
       "domain": "...",
-      "reviewer": "..."
+      "agent": "..."
     }
   ],
-  "verdict": "PASS | FAIL | CONCERNS",
+  "verdict": "PASS | FAIL | CONCERNS | null",
   "agents_spawned": 4,
-  "confidence": "high"
+  "confidence": "high | medium | low"
 }
 ```
 
-### Verdict Logic
-
-```yaml
-FAIL:     Any CRITICAL finding
-CONCERNS: 1+ HIGH findings, or 3+ MEDIUM findings
-PASS:     No CRITICAL/HIGH, only MEDIUM/LOW/INFO
-```
+---
 
 ## Notes
 
-- Claude bridge is always available — no CLI check needed
-- Uses Task tool for sub-agent dispatch (not Bash)
-- All sub-agents read files directly with Read tool
-- Parallel execution for all domain experts + DA + Integration Checker
-- Bridge is never blocking — always returns a report
+- **Not always available** — check Task tool access or `ANTHROPIC_API_KEY` before using
+- **SKIPPED is non-blocking** — if unavailable, other bridges continue
+- **Task tool path is preferred** — richer parallel dispatch when running in Claude Code
+- **API path works from any executor** — fallback for non-Claude orchestrators
+- **Task type drives framing** — the same bridge handles review, planning, research, etc.

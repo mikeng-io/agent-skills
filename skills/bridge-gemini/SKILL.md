@@ -45,8 +45,10 @@ Never fail or block — SKIPPED is a valid bridge outcome.
 ```json
 {
   "bridge_input": {
-    "review_id": "...",
-    "review_scope": "Files and/or description of what to review",
+    "session_id": "...",
+    "scope": "Files and/or description of what to work on",
+    "task_description": "What the agent should do (review, plan, implement, analyze, etc.)",
+    "task_type": "review | planning | implementation | analysis | research",
     "domains": ["domain1", "domain2"],
     "context_summary": "What the conversation/task is about",
     "intensity": "quick | standard | thorough"
@@ -81,32 +83,31 @@ Final timeout = `base_timeout * intensity_multiplier`
 
 ## Prompt Construction
 
-Build the Gemini review prompt from bridge_input:
+Build the Gemini prompt from bridge_input. Adapt based on `task_type`:
 
 ```
-You are reviewing the following for potential issues:
+You are a multi-domain expert. Your task: {task_description}
 
-SCOPE: {review_scope}
-
+SCOPE: {scope}
 CONTEXT: {context_summary}
-
-DOMAINS TO CHECK: {domains joined with ", "}
-
+TASK TYPE: {task_type}
+DOMAINS: {domains joined with ", "}
 INTENSITY: {intensity}
 
-Please analyze for issues in each domain. For each finding, provide:
-- severity: CRITICAL | HIGH | MEDIUM | LOW | INFO
-- title: Short finding title
+For each domain, act as the corresponding domain expert. For each output item, provide:
+- type: finding | recommendation | plan-item | implementation-note | observation
+- severity: CRITICAL | HIGH | MEDIUM | LOW | INFO  (for review/analysis types)
+- title: Short title
 - description: Detailed description
 - evidence: Specific reference
-- remediation: How to fix
+- action: Recommended action
 - domain: Which domain this belongs to
 
-Return your findings as a JSON array in this format:
+Return as JSON:
 {
-  "findings": [...],
-  "overall_assessment": "...",
-  "verdict": "PASS | FAIL | CONCERNS"
+  "outputs": [...],
+  "summary": "...",
+  "verdict": "PASS | FAIL | CONCERNS | null"
 }
 ```
 
@@ -133,18 +134,21 @@ Error handling:
 {
   "bridge": "gemini",
   "model_family": "google/gemini",
-  "review_id": "...",
+  "session_id": "...",
+  "task_type": "review | planning | implementation | analysis | research",
   "status": "COMPLETED | SKIPPED",
   "skip_reason": "...",
+  "subagent_mode": true,
   "domains_covered": [],
-  "findings": [
+  "outputs": [
     {
-      "id": "GF001",
+      "id": "G001",
+      "type": "finding | recommendation | plan-item | implementation-note | observation",
       "severity": "CRITICAL | HIGH | MEDIUM | LOW | INFO",
       "title": "...",
       "description": "...",
       "evidence": "...",
-      "remediation": "...",
+      "action": "...",
       "domain": "..."
     }
   ],
@@ -154,10 +158,25 @@ Error handling:
 }
 ```
 
+## Subagent Mode (Optional)
+
+Gemini CLI supports custom subagents for parallel domain dispatch when `experimental.enableAgents` is set in `.gemini/settings.json`.
+
+```bash
+# Check if subagents are enabled
+cat .gemini/settings.json 2>/dev/null | python3 -c \
+  "import sys,json; d=json.load(sys.stdin); print(d.get('experimental',{}).get('enableAgents', False))"
+```
+
+- If `true` → spawn one subagent per domain (see `cli-reference.md` for custom agent definition)
+- If `false` or missing → run standard single Gemini call covering all domains (valid fallback)
+
+Subagent mode is a progressive enhancement. Record `subagent_mode: true/false` in output.
+
 ## Notes
 
 - Always check availability first — never assume gemini is installed
 - Use non-interactive mode only (`--approval-mode plan`)
 - JSON output flag `-o json` for structured parsing
-- Timeout is ESTIMATED not hardcoded — recalculate per scope
+- Timeout is estimated from scope, not hardcoded — recalculate per review
 - SKIPPED is a valid, non-error outcome

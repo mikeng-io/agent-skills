@@ -937,7 +937,6 @@ Save to `.outputs/exploration/{YYYYMMDD-HHMMSS}-exploration-{slug}.md` with YAML
 ```yaml
 ---
 skill: deep-explorer
-version: 2.0
 timestamp: {ISO-8601}
 artifact_type: exploration
 domains: [{domain1}, {domain2}]

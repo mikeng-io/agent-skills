@@ -1,6 +1,6 @@
 # Deep Context
 
-Artifact classifier and smart router for the Deep Skills Suite v2. Analyzes conversation context to detect domains and determine optimal review routing.
+Artifact classifier and smart router for the Deep Skills Suite. Analyzes conversation context to detect domains and determine optimal review routing.
 
 ## What it does
 

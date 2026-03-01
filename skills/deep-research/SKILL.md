@@ -948,7 +948,6 @@ Save to `.outputs/research/{YYYYMMDD-HHMMSS}-research-{slug}.md` with YAML front
 ```yaml
 ---
 skill: deep-research
-version: 2.0
 timestamp: {ISO-8601}
 artifact_type: research
 domains: [{domain1}, {domain2}]

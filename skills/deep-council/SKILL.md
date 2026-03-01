@@ -59,6 +59,73 @@ Read: [skills-root]/domain-registry/domains/creative.md
 
 ---
 
+## Step 1B: Model Discovery & Settings
+
+Before dispatching bridges, discover what models and providers are configured and confirm with the user. This step runs once per project — results are cached in `.bridge-settings.json`.
+
+### Load or Discover
+
+```bash
+# Check for existing settings
+cat .bridge-settings.json 2>/dev/null
+```
+
+If `.bridge-settings.json` exists and is current → **load settings and proceed to Step 2** (skip user prompt unless user passes `--reconfigure`).
+
+If not found or `--reconfigure` → run discovery:
+
+```bash
+# Codex: list available models
+codex models list 2>/dev/null
+
+# OpenCode: list authenticated providers
+opencode auth list 2>/dev/null
+
+# Gemini: check availability
+which gemini 2>/dev/null && echo "available"
+```
+
+### Present to User
+
+Show discovered configuration:
+
+```
+Available bridges for this review:
+
+  [claude]     ✓ Always available (Task sub-agents)
+  [gemini]     ✓ CLI found           Model: {gemini default}
+  [codex]      ✓ MCP configured      Models: {from codex models list}
+  [opencode]   ✓ Providers: {list}   Default: {provider/model}
+
+Reasoning level (applies to Codex):  medium / high / xhigh  [medium]
+
+Enable/disable bridges, select models, or press Enter to accept defaults.
+```
+
+Wait for user input. Accept `Enter` to use defaults.
+
+### Save Settings
+
+```json
+// .bridge-settings.json
+{
+  "bridges": {
+    "claude":    { "enabled": true },
+    "gemini":    { "enabled": true },
+    "codex":     { "enabled": true,  "model": null },
+    "opencode":  { "enabled": true,  "model": null }
+  },
+  "reasoning_level": "medium",
+  "updated": "{ISO-8601}"
+}
+```
+
+`model: null` means use the bridge's runtime-detected latest model.
+
+Apply these settings when dispatching bridges in Step 4.
+
+---
+
 ## Step 2: Read Bridge Reference Docs
 
 Use the Read tool to load each bridge's reference document:
@@ -286,7 +353,6 @@ Save to `.outputs/council/{YYYYMMDD-HHMMSS}-council-{review_id}.md` with YAML fr
 ```yaml
 ---
 skill: deep-council
-version: 2.0
 timestamp: {ISO-8601}
 artifact_type: council
 domains: [{domain1}, {domain2}]
