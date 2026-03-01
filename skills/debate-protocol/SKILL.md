@@ -14,6 +14,73 @@ allowed-tools:
 
 Execute this skill to run a structured adversarial analysis among domain experts and structural challengers, producing high-confidence findings through iterative challenge and synthesis.
 
+---
+
+## What Debate Is For
+
+Debate is NOT brainstorming and NOT round-table discussion. Debate is **adversarial validation** — the structured attempt to disprove each finding before accepting it as real.
+
+**The core problem debate solves:** Domain experts find what they're looking for. A security expert finds security issues. A database expert finds schema problems. Left unchallenged, findings accumulate without any filter for whether they're actually real, actually severe, or actually the root cause. Debate applies that filter.
+
+**What debate produces that solo analysis cannot:**
+- Findings that survived an attack (higher confidence than ones that weren't challenged)
+- Downgraded findings where the initial severity was an assumption, not evidence
+- Withdrawn findings that were patterns, not problems
+- New findings that only appear when you combine two domain experts' views
+
+### What "Debate" Means Per Task Context
+
+The same 5-phase structure applies to every context. What changes is *what each participant is looking for* and *what counts as a valid challenge*:
+
+**Code / Technical Review:**
+- Domain experts analyze: correctness, safety, performance, maintainability
+- DA challenges: "Is this finding a real bug or just a style preference? What production scenario triggers it? Has the codebase already handled it somewhere else?"
+- IC checks: "If this bug exists in module A, does module B's error handling assume it can't happen?"
+- Valid challenge: "This SQL injection claim assumes the ORM doesn't sanitize inputs — it does at the call site in auth_middleware.go"
+
+**Security Audit:**
+- Domain experts analyze: threat vectors, attack surface, data exposure, access controls
+- DA challenges: "Is this exploitable in practice given the deployment context? Does the attacker need prior access that narrows the risk?"
+- IC checks: "Does this authentication gap in the API also affect the admin panel that shares the same session store?"
+- Valid challenge: "CRITICAL classification assumes external attacker access — this endpoint is only reachable from the private VPC"
+
+**Architecture / Planning:**
+- Domain experts analyze: feasibility, scalability assumptions, dependency risks, sequencing
+- DA challenges: "What assumption does this plan depend on that hasn't been validated? What's the failure mode if the third-party API changes its contract?"
+- IC checks: "Does the proposed event-sourcing approach in service A create a schema coupling problem with service B's projection?"
+- Valid challenge: "This plan assumes linear traffic growth — if traffic spikes 10x on launch day, step 3 blocks everything"
+
+**Research Synthesis:**
+- Domain experts analyze: source credibility, evidence quality, conclusion validity
+- DA challenges: "Does this conclusion follow from the cited sources, or is there a logical gap? Are the sources independent, or do they all cite the same original study?"
+- IC checks: "Does finding X from the technology domain contradict finding Y from the business domain in a way neither domain's report acknowledged?"
+- Valid challenge: "The cited study had n=47 and no control group — the confidence should be LOW, not STRONG"
+
+**Creative / UX / Content:**
+- Domain experts analyze: clarity, consistency, user task completion, brand alignment
+- DA challenges: "Does this UX issue reflect the actual user population or just power users? Would the proposed fix create a different problem for a different segment?"
+- IC checks: "Does the navigation change proposed by the UX expert break the content structure the content expert assumed?"
+- Valid challenge: "The 'confusing label' finding is based on one user test — the current label tests well with users who read the tooltip"
+
+---
+
+## What Makes a Valid Challenge vs Invalid
+
+**A valid challenge MUST do ONE of:**
+1. **Identify a missing assumption** — "This finding assumes X. X is not true because Y."
+2. **Propose an alternative explanation** — "The symptom you found has a different cause: Z. If Z is the cause, the severity changes."
+3. **Surface a non-applicability scenario** — "This finding doesn't apply when condition W is true. W is true in this codebase/plan/system because..."
+
+**An invalid challenge:**
+- "I don't think this is a big deal" — no mechanism identified
+- "This might not be an issue" — no reason given
+- "Other systems handle this fine" — comparison without applicable context
+- Restating the finding differently without attacking it
+
+**The key test for DA:** If your challenge doesn't include a specific reason the finding is wrong, weaker than stated, or inapplicable — it's not a challenge, it's an opinion.
+
+---
+
 ## Execution Instructions
 
 When invoked, accept the following input (from conversation context or caller):
@@ -68,6 +135,8 @@ security-elevated:
 
 ## Phase 1: Independent Investigation (Parallel)
 
+**Rationale:** Isolation prevents anchoring bias. If experts see each other's findings first, they pattern-match and corroborate rather than independently discover. Phase 1 ensures each participant forms their view from the evidence alone — not from social agreement with the first finding published.
+
 Spawn all participants in parallel using Task tool. Each receives the same `scope` and `context_summary` but NO communication with other participants.
 
 ### Participant Roster
@@ -121,6 +190,8 @@ For Devil's Advocate and Integration Checker: apply the role-specific instructio
 
 ## Phase 2: Finding Publication
 
+**Rationale:** DA cannot challenge what it hasn't seen. Publishing all findings at once (rather than letting DA see them one-by-one) lets DA identify cross-domain patterns and spot findings that look independent but share the same root assumption. Publication is read-only — no responses yet, no anchoring on first reactions.
+
 Collect all Phase 1 findings. As coordinator:
 
 1. Assign unique IDs to all findings (F001, F002, ...)
@@ -140,6 +211,8 @@ all_findings:
 ---
 
 ## Phase 3: Challenge Round (standard + thorough only)
+
+**Rationale:** Domain experts are motivated to defend their findings — they found them, they believe them. DA's adversarial role exists precisely because no expert naturally looks for reasons their own finding is wrong. The challenge round is the mechanism that separates real findings (survive attack) from inflated or pattern-matched ones (fail under scrutiny). Multi-round structure catches second-order effects: a DA challenge may spawn a discovery, which then needs its own challenge.
 
 Run challenge rounds up to `max_rounds`. Each round:
 
@@ -185,6 +258,8 @@ Repeat for up to `max_rounds` rounds:
 
 ## Phase 4: Synthesis (standard + thorough only)
 
+**Rationale:** Multiple domain experts often find the same root issue from different angles (a missing input validation shows up in security, API, and testing domains independently). Without synthesis, the final report over-counts the same problem. Merging also reveals when "two issues" are actually one issue that's been inflated by being described separately — or genuinely different issues that need separate remediation.
+
 Identify merge opportunities:
 - Findings with >70% description overlap → propose merge
 - Merged findings inherit highest severity
@@ -200,6 +275,8 @@ Update finding states:
 ---
 
 ## Phase 5: Final Verdict
+
+**Rationale:** Requiring all participants to submit a final position catches dissent that didn't surface during challenge rounds. A participant who was challenged and defended their finding may still have a different severity than others. Final positions reveal whether the session reached genuine consensus or just an uneasy truce. Dissent recorded here becomes the `disputed_findings` that callers can inspect.
 
 All participants submit final positions.
 

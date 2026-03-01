@@ -38,7 +38,7 @@ When invoked, you will:
 
 0. **Discover available research tools** using ToolSearch:
    - Find all available web search MCP tools
-   - Discover browser automation tools (Playwright, browser-tools)
+   - Discover browser automation tools (agent-browser skill, Playwright MCP, browser-tools)
    - Identify documentation query tools
    - Build tool inventory for research execution
 
@@ -60,7 +60,9 @@ When invoked, you will:
    - Spawn domain researchers in parallel
    - Use web search for general information
    - Use browser automation for interactive sites, paywalls, or dynamic content
-   - Use `mcp__playwright__*` tools directly for complex web interactions (multi-step flows, form submission, navigation). If Playwright MCP is not available, use `Bash` with `curl`/`wget` for simpler web requests.
+   - Use `agent-browser` skill for complex web interactions (multi-step flows, form submission, navigation) — install only, no MCP config needed
+   - Fall back to `mcp__playwright__*` tools if agent-browser is not installed (requires Playwright MCP configured)
+   - Fall back to `Bash` with `curl`/`wget` for simpler static requests
    - Collect and validate findings from each source
 
 4. **Synthesize findings** across domains:
@@ -87,9 +89,9 @@ Use ToolSearch to find available research tools:
 ToolSearch: "web search"
   → Returns: brave-search, web-search-prime, etc.
 
-# Search for browser automation tools
-ToolSearch: "playwright browser"
-  → Returns: playwright navigation, screenshot, interaction tools
+# Search for browser automation tools (agent-browser preferred, playwright as fallback)
+ToolSearch: "browser automation"
+  → Returns: agent-browser skill, playwright navigation, screenshot, interaction tools
 
 # Search for content extraction tools
 ToolSearch: "web reader content"
@@ -113,21 +115,21 @@ tool_inventory:
   web_reading:
     - mcp__web-reader__webReader
 
-  browser_automation:
-    - mcp__playwright__browser_navigate
+  browser_automation_primary:
+    - agent-browser    # Preferred: skill-based, install only — no MCP config needed
+
+  browser_automation_fallback:
+    - mcp__playwright__browser_navigate     # Fallback: requires Playwright MCP configured
     - mcp__playwright__browser_snapshot
     - mcp__playwright__browser_click
     - mcp__playwright__browser_fill_form
     - mcp__playwright__browser_evaluate
-    - mcp__browser-tools__takeScreenshot
+    - mcp__browser-tools__takeScreenshot    # Visual capture supplement
     - mcp__browser-tools__getConsoleLogs
 
   documentation:
     - mcp__context7__query-docs
     - mcp__zread__search_doc
-
-  skills:
-    - mcp__playwright__* (if available)
 ```
 
 ### Tool Selection Strategy
@@ -140,32 +142,32 @@ Choose tools based on research requirements:
 - Fallback gracefully if tools unavailable
 
 **Dynamic/Interactive Content:**
-- Use `browser_automation` (Playwright) for:
-  - JavaScript-heavy sites
-  - Sites requiring interaction (forms, buttons)
-  - Dynamic content that loads on scroll
-  - Paywalled content (with proper authorization)
+- Use `agent-browser` skill (preferred — install only, no MCP config required):
+  - Invoke via: `Skill("agent-browser")`
+  - Handles: JavaScript-heavy sites, interactive forms, dynamic content, paywalls
+- If `agent-browser` not installed → fall back to `mcp__playwright__*` (requires Playwright MCP configured)
+- If neither available → fall back to `Bash` with `curl`/`wget` for simpler static requests
 
 **Complex Interactions:**
-- Use `mcp__playwright__*` tools directly for:
+- Use `agent-browser` skill first for:
   - Multi-step workflows (login → navigate → extract)
   - Complex form filling
   - Sites requiring human-like interaction
   - Screenshot capture with analysis
-- If Playwright MCP is not available, use `Bash` with `curl`/`wget` for simpler web requests.
+- If `agent-browser` not installed, use `mcp__playwright__*` tools (requires MCP config)
+- If neither available, use `Bash` with `curl`/`wget`
 
 ### Tool Availability Handling
 
 **If preferred tools unavailable:**
 1. Log missing tools
-2. Use available alternatives
+2. Use available alternatives in fallback order
 3. Adjust research strategy accordingly
 4. Note limitations in final report
 
-**Example fallback chain:**
+**Fallback chain:**
 ```
-Preferred: mcp__playwright__* → mcp__browser-tools
-Fallback: web-reader → basic web-search → Bash with curl/wget
+agent-browser → mcp__playwright__* → mcp__browser-tools → web-reader → Bash curl/wget
 ```
 
 ---
@@ -312,14 +314,14 @@ core_tools:
 
 # Browser automation (for dynamic/interactive content)
 browser_tools:
-  - playwright_navigate           # Navigate to URLs
-  - playwright_snapshot           # Capture page state
-  - playwright_click              # Interact with elements
-  - playwright_fill_form          # Fill out forms
-  - playwright_evaluate           # Execute JavaScript
-  - browser_screenshot            # Visual capture
+  - agent-browser                 # PRIMARY: skill-based, install only — no MCP config needed
+  - playwright_navigate           # FALLBACK: requires Playwright MCP configured
+  - playwright_snapshot
+  - playwright_click
+  - playwright_fill_form
+  - playwright_evaluate
+  - browser_screenshot            # Visual capture supplement
   - browser_console_logs          # Debug info
-  # agent-browser skill removed — use mcp__playwright__* tools directly for complex interactions
 
 # Specialized tools (optional)
 specialized_tools:
@@ -379,7 +381,7 @@ You are a {DOMAIN} RESEARCHER. Your role is to gather comprehensive information 
 2. Read promising sources using appropriate method:
    - Static content: web-reader
    - Dynamic content: browser automation (Playwright)
-   - Interactive content: mcp__playwright__* tools directly (browser automation)
+   - Interactive content: agent-browser skill (fallback: mcp__playwright__* if agent-browser not installed)
 3. Extract key findings, evidence, and sources with URLs
 4. Assess source credibility (HIGH/MEDIUM/LOW)
 5. Identify consensus vs. debate in the field
@@ -392,19 +394,22 @@ You are a {DOMAIN} RESEARCHER. Your role is to gather comprehensive information 
 - Use documentation queries for technical topics
 
 **For Dynamic/Interactive Sites:**
-- Use Playwright tools for:
+- Use `agent-browser` skill (preferred — install only):
+  - Invoke: `Skill("agent-browser")` with instructions for the specific interaction
+  - Handles navigation, snapshots, screenshots, JavaScript execution
+- If `agent-browser` not installed, fall back to Playwright MCP tools:
   - Navigating: `mcp__playwright__browser_navigate`
   - Capturing state: `mcp__playwright__browser_snapshot`
   - Screenshots: `mcp__playwright__browser_take_screenshot`
   - JavaScript execution: `mcp__playwright__browser_evaluate`
 
 **For Complex Interactions:**
-- Use `mcp__playwright__*` tools directly when:
-  - Multi-step workflows required
-  - Forms need to be filled
-  - Login/authentication needed (if authorized)
-  - Human-like interaction necessary
-- If Playwright MCP is not available, use `Bash` with `curl`/`wget` for simpler requests.
+- Use `agent-browser` skill first — no MCP config needed, handles:
+  - Multi-step workflows (login → navigate → extract)
+  - Complex form filling
+  - Human-like interaction
+- If `agent-browser` not installed, use `mcp__playwright__*` tools (requires Playwright MCP configured)
+- If neither available, use `Bash` with `curl`/`wget` for simpler static requests
 
 **URL Requirements:**
 - ALWAYS capture source URLs
@@ -524,22 +529,26 @@ For paginated results:
 5. Aggregate all findings
 ```
 
-#### Complex Interaction via Playwright MCP
+#### Complex Interaction via agent-browser (with Playwright MCP fallback)
 
-For complex multi-step workflows, use `mcp__playwright__*` tools directly. Browser automation requires Playwright MCP to be configured — if it is not available, fall back to `Bash` with `curl`/`wget`.
+For complex multi-step workflows, use `agent-browser` skill (preferred — install only, no MCP config needed). If `agent-browser` is not installed, fall back to `mcp__playwright__*` tools (requires Playwright MCP configured). If neither is available, use `Bash` with `curl`/`wget`.
 
+**Preference order:**
 ```
-Use mcp__playwright__* tools for:
-- Login flows (if authorized)
-- Multi-step forms
-- Complex navigation patterns
-- Sites requiring human-like timing
-- Screenshot capture with analysis
+agent-browser → mcp__playwright__* → Bash curl/wget
 ```
 
-**Example Playwright workflow:**
+**Example agent-browser workflow:**
 ```
-Use mcp__playwright__* to:
+Invoke Skill("agent-browser") with instructions:
+- Go to {research_site}
+- Search for: {query}
+- Extract top results: title, URL, summary, date
+- Return as structured JSON
+```
+
+**Fallback — Playwright MCP (if agent-browser not installed):**
+```
 1. mcp__playwright__browser_navigate(url="{research_site}")
 2. mcp__playwright__browser_fill_form(selector="input[name=q]", value="{query}")
 3. mcp__playwright__browser_click(selector="button[type=submit]")

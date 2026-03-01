@@ -152,7 +152,7 @@ For each bridge, determine availability:
 
 ```yaml
 bridge_claude:
-  status: always_available   # Task tool dispatch, no CLI needed
+  status: available_via_task_tool   # Available when Task tool is accessible (default in Claude Code; may be unavailable in other executors)
 
 bridge_gemini:
   check: "which gemini"
@@ -226,7 +226,7 @@ report JSON as your final output.
 
 Spawn ALL available bridge Task agents simultaneously:
 ```
-Task: bridge-claude executor (always launched)
+Task: bridge-claude executor (if available — Task tool accessible)
 Task: bridge-gemini executor (if gemini available)
 Task: bridge-codex executor (if codex available)
 Task: bridge-opencode executor (if opencode available)
@@ -262,35 +262,128 @@ HALTED does not block the council — it is surfaced and handled, then the counc
 
 ## Step 6: Cross-Bridge Synthesis
 
-Apply debate-protocol logic inline (do not invoke debate-protocol as a separate skill — embed its synthesis logic directly):
+Cross-bridge synthesis runs in two stages: mechanical deduplication first, then adversarial debate.
 
-### Finding Classification
+### Stage A: Mechanical Deduplication
 
-For each unique finding across all bridges:
+Collect all findings from all bridge reports. Apply these rules:
 
 ```yaml
-multi_model_confirmed:
-  condition: "Finding confirmed by 2+ bridge reports"
-  note: "Highest confidence — multiple model families agree"
-  action: "Elevate to multi-model-confirmed status"
+multi_model_confirmed_preliminary:
+  condition: "Finding confirmed by 2+ bridge reports (>70% description overlap)"
+  action: "Merge into single finding — inherit highest severity, list all contributing bridges"
 
-single_source:
+single_source_preliminary:
   condition: "Finding from exactly 1 bridge"
-  note: "Medium confidence — single model family"
   action: "Retain with bridge attribution"
 
-disputed:
+disputed_preliminary:
   condition: "Finding present in 1+ bridges but explicitly contradicted by another"
-  note: "Low confidence — model families disagree"
-  action: "Flag as disputed with both positions"
+  action: "Flag as disputed with both positions recorded"
 ```
 
-### Synthesis Rules
+**Severity escalation rule:** If 2+ bridges independently rate the same issue CRITICAL or HIGH → escalate to the higher rating.
 
-1. **Deduplication**: Findings with >70% description overlap across bridges → merge into single finding (inherit highest severity, list all contributing bridges)
-2. **Severity escalation**: If 2+ bridges independently rate the same issue as HIGH or CRITICAL → escalate to top severity
-3. **Devil's Advocate application**: Apply DA weight across cross-bridge perspective (a finding challenged by one bridge's DA but confirmed by another's domain expert = disputed)
-4. **Confidence calculation**: `multi-model-confirmed` > `single-source (claude)` > `single-source (other bridge)` > `disputed`
+After Stage A, you have a `preliminary_findings` list with initial classification. This is NOT the final output — proceed to Stage B.
+
+---
+
+### Stage B: Debate — Adversarial Validation
+
+Spawn a **Debate Coordinator** Task agent to challenge the preliminary findings. Do NOT skip this stage — mechanical deduplication catches overlaps but does not validate them. The debate catches:
+- Findings that look confirmed but rest on a shared wrong assumption across bridges
+- Severity assessments that are inflated or deflated uniformly
+- Cross-bridge integration issues no single bridge found
+
+**Debate Coordinator Task Prompt:**
+
+```
+You are a DEBATE COORDINATOR for cross-bridge synthesis. Your job is NOT to summarize findings — it is to challenge them adversarially and surface issues the mechanical deduplication missed.
+
+## Context
+{council_context.context_summary}
+Scope: {council_context.review_scope}
+Intensity: {council_context.intensity}
+Domains covered: {council_context.domains}
+
+## Preliminary Findings (from {N} bridges)
+{preliminary_findings JSON — include all multi-model-confirmed, single-source, and disputed findings}
+
+## Your Obligations
+
+### Role 1: Devil's Advocate
+
+MUST challenge every multi-model-confirmed CRITICAL or HIGH finding. A finding that "all bridges agree on" is exactly the finding most in need of adversarial review — agreement can reflect shared bias, shared prompting, or shared blindspot.
+
+For each CRITICAL/HIGH preliminary finding, ask:
+1. What assumption does every bridge share that could be wrong?
+2. What scenario makes this finding not apply? Is that scenario plausible?
+3. Is the severity calibrated to impact (actual harm, actual likelihood), or is it inherited from the first bridge's framing?
+
+SHOULD challenge MEDIUM findings when you detect a pattern (e.g., 3 MEDIUM findings all assume X — challenge X itself).
+
+**A valid challenge MUST do one of:**
+- (a) Identify a missing assumption that, if corrected, reduces severity
+- (b) Propose an alternative explanation that is at least as plausible as the finding's stated cause
+- (c) Surface a scenario where the finding demonstrably does not apply, and assess how likely that scenario is
+
+**An invalid challenge** is: "I don't think this is serious", "This might not matter", or any claim without an identified mechanism.
+
+### Role 2: Integration Checker
+
+Review all surviving findings (after DA challenge rounds) for cross-component implications:
+
+- **Interface mismatches**: does finding A in component X assume something about Y that Y doesn't guarantee?
+- **Error propagation gaps**: if finding B causes a failure, which callers of that component don't handle it?
+- **Shared assumption failures**: if finding C's root cause is true, does it also make finding D worse than either bridge stated?
+- **New findings from combination**: two MEDIUM findings that together imply a CRITICAL scenario neither bridge named
+
+Surface integration findings under domain: "integration".
+
+## Debate Rounds
+
+Run 2 rounds (standard intensity) or 3 rounds (thorough intensity):
+
+**Round 1** — DA challenges multi-model-confirmed CRITICALs and HIGHs. For each:
+- If challenge succeeds → downgrade or mark DISPUTED with rationale
+- If challenge fails (finding holds) → mark CONFIRMED with "DA-challenged" annotation
+
+**Round 2** — Integration Checker reviews all Round 1 survivors. Surfaces integration findings.
+
+**Round 3 (thorough only)** — DA challenges any newly added integration findings.
+
+## Output Format (JSON)
+
+Return:
+{
+  "debate_rounds": 2,  // or 3 for thorough
+  "confirmed_findings": [...],         // survived all challenges (include DA-challenged annotation)
+  "downgraded_findings": [...],        // severity reduced by DA (include rationale)
+  "disputed_findings": [...],          // challenged but not resolved
+  "withdrawn_findings": [...],         // DA challenge revealed finding was invalid
+  "integration_findings": [...],       // new findings from Integration Checker
+  "challenge_notes": [                 // record of each challenge outcome
+    {
+      "finding_id": "...",
+      "challenge": "...",
+      "response": "...",
+      "outcome": "confirmed | downgraded | disputed | withdrawn"
+    }
+  ]
+}
+```
+
+### Stage B Output → Final Classification
+
+Replace preliminary classification with debate output:
+
+```yaml
+multi_model_confirmed:   # Debate-confirmed multi-bridge findings
+single_source_findings:  # Surviving single-source findings (debate-unchallenged)
+disputed_findings:       # Debate-disputed (from both preliminary + debate rounds)
+integration_findings:    # New findings from Integration Checker
+withdrawn_findings:      # Findings invalidated by DA challenge
+```
 
 ### Cross-Bridge Verdict
 
@@ -303,7 +396,7 @@ debate than others) by requiring multi-model agreement before escalating to FAIL
 ```yaml
 FAIL:
   - Any multi-model-confirmed CRITICAL finding
-  - Any single-source CRITICAL finding (from claude bridge — always available)
+  - Any single-source CRITICAL finding (from a high-depth bridge — claude with Agent Teams or Task Tool)
   - 3+ multi-model-confirmed HIGH findings
 
 CONCERNS:
@@ -428,7 +521,7 @@ qmd update 2>/dev/null || true
 
 If invoked with `--fallback-mode` (e.g., from deep-verify as a second pass):
 
-- Use only bridge-claude (always available)
+- Use only bridge-claude (if available — Task tool accessible in current executor)
 - Apply debate-protocol logic with single-bridge findings
 - Mark report `"fallback": true`
 - Merge findings with calling skill's existing report
