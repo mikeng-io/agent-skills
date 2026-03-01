@@ -106,18 +106,19 @@ All bridges accept this standard input:
 
 ## Agent Prompt Template
 
-Construct agent prompts from `bridge_input`. Adapt framing based on `task_type`:
+Construct agent prompts from `bridge_input`. All `{expert_role}`, `{focus_areas}`, and `{standards}` values are read from domain-registry at runtime — never hardcoded. Adapt framing based on `task_type`:
 
 ```
-You are a {expert_role}.
+You are a {expert_role}.   ← from domain-registry[domain].expert_role
 
 SCOPE: {scope}
 TASK: {task_description}
 CONTEXT: {context_summary}
 INTENSITY: {intensity}
-DOMAINS: {domains}
+DOMAIN: {domain}           ← domain name from bridge_input.domains
 
-{domain-specific focus areas from domain-registry}
+Focus areas: {focus_areas} ← from domain-registry[domain].focus_areas
+Standards:   {standards}   ← from domain-registry[domain].standards
 
 Return your output as JSON:
 {
@@ -252,13 +253,23 @@ For Claude with Agent Teams, this entire section is superseded by the full `deba
 
 ### Roles
 
-All bridges dispatch these roles in parallel at the start of each round:
+Before dispatching, determine which Domain Expert roles to spawn. Two methods:
 
-| Role | Count | Purpose |
-|------|-------|---------|
-| **Domain Expert** | One per domain | Subject-matter analysis; defends and revises findings across rounds |
-| **Challenger** | 1 (always) | Cross-domain challenge — Devil's Advocate equivalent; escalates or withdraws challenges each round |
-| **Integration Checker** | 1 (always) | Surfaces cross-component issues; adds new findings as debates reveal interface gaps |
+**Method A — Caller-provided domains (preferred):** `bridge_input.domains` is already populated by `deep-context` or the orchestrating skill, which selected domains from domain-registry based on context signals. Use this list directly.
+
+**Method B — Inline lookup (when domains not provided):** Read `domain-registry/domains/*.md` and match trigger signals against the current scope. Select all domains with matching signals. Minimum 1 domain; no upper limit.
+
+Once domains are known, spawn these roles in parallel at the start of each round:
+
+| Role | Count | Source | Purpose |
+|------|-------|--------|---------|
+| **Domain Expert** | One per domain in `bridge_input.domains` | domain-registry — expert role, focus areas, and standards per domain | Subject-matter analysis; defends and revises findings across rounds |
+| **Challenger** | 1 (always) | Fixed role — no domain-registry lookup | Cross-domain challenge — Devil's Advocate equivalent; escalates or withdraws challenges each round |
+| **Integration Checker** | 1 (always) | Fixed role — no domain-registry lookup | Surfaces cross-component issues; adds new findings as debates reveal interface gaps |
+
+The total number of parallel agents per round = `len(domains) + 2`. A context with security + database + API domains spawns 5 agents per round (3 experts + Challenger + Integration Checker).
+
+**No hardcoding.** Domain expert names, roles, focus areas, and standards are always read from domain-registry at runtime. Bridge files must never contain literal domain names such as "Security Expert", "Database Analyst", "API Designer", "SEO Specialist", or any other domain-specific title. Use `{expert_role}` and `{focus_areas}` placeholders, resolved from domain-registry when the bridge executes.
 
 ---
 
