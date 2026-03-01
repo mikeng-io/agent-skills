@@ -61,11 +61,20 @@ Spawn reviewer sub-agents in parallel using the Task tool.
 ### Reviewer Distribution
 
 ```yaml
-spawn_in_parallel:
-  - Best Practices Expert (35% weight)
-  - Code Quality Reviewer (30% weight)
-  - Alternative Approaches Expert (20% weight)
-  - Performance Optimizer (15% weight)
+reviewer_selection:
+  always_spawn:
+    - Best Practices Expert (weight varies by domain)
+    - Alternative Approaches Expert
+
+  domain_driven_spawn:
+    - Read domain-registry to select domain experts matching conversation signals
+    - Each selected domain adds one domain expert reviewer
+    - Replace Code Quality Reviewer with domain-appropriate quality reviewer
+      (e.g., financial → Financial Accuracy Reviewer, design → Visual Quality Reviewer)
+
+  fallback_if_no_domain_match:
+    - Code Quality Reviewer (30% weight)
+    - Performance Optimizer (15% weight)
 
 execution:
   mode: parallel
@@ -471,33 +480,41 @@ Generate a markdown report with this structure:
 
 ## Step 5: Save Report
 
-Save the review report and update symlink:
+## Artifact Output
 
+Save to `.outputs/review/{YYYYMMDD-HHMMSS}-review-{slug}.md` with YAML frontmatter:
+
+```yaml
+---
+skill: deep-review
+version: 2.0
+timestamp: {ISO-8601}
+artifact_type: review
+domains: [{domain1}, {domain2}]
+verdict: PASS | FAIL | CONCERNS        # if applicable
+context_summary: "{brief description of what was reviewed}"
+session_id: "{unique id}"
+---
+```
+
+Also save JSON companion: `{timestamp}-review-{slug}.json`
+
+**No symlinks.** To find the latest artifact:
 ```bash
-# Create output directory
-mkdir -p .outputs/review
+ls -t .outputs/review/ | head -1
+```
 
-# Generate timestamp
-TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
-
-# Save markdown report
-REPORT_FILE=".outputs/review/${TIMESTAMP}-review-report.md"
-
-# Save JSON version
-JSON_FILE=".outputs/review/${TIMESTAMP}-review-report.json"
-
-# Update symlinks
-ln -sf "${TIMESTAMP}-review-report.md" .outputs/review/latest-review.md
-ln -sf "${TIMESTAMP}-review-report.json" .outputs/review/latest-review.json
+**QMD Integration (optional, progressive enhancement):**
+```bash
+qmd collection add .outputs/review/ --name "deep-review-artifacts" --mask "**/*.md" 2>/dev/null || true
+qmd update 2>/dev/null || true
 ```
 
 **Output Structure:**
 ```
 .outputs/review/
 ├── 20260130-143000-review-report.md
-├── 20260130-143000-review-report.json
-├── latest-review.md → (symlink)
-└── latest-review.json → (symlink)
+└── 20260130-143000-review-report.json
 ```
 
 ---
@@ -542,3 +559,5 @@ export DEEP_REVIEW_INCLUDE_EXAMPLES="true"
 - **Conversation-Driven:** Extracts context from what was discussed
 - **Domain-Agnostic:** Works for any domain (code, design, content, etc.)
 - **Parallel Execution:** All reviewers run simultaneously for speed
+- **Multi-Model**: For cross-model review confidence, see `deep-council`
+- **Domain-Aware**: Reviewer distribution adapts to detected domains via domain-registry
