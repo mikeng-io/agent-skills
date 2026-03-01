@@ -52,6 +52,18 @@ council_context:
 - Topics, concerns, intent → `context_summary`
 - Domain signals → match against domain-registry trigger_signals
 
+**Optional: enrich with DeepWiki (if configured)**
+
+If the review involves a GitHub repository and `mcp__devin__*` tools are available, invoke the `deepwiki` skill to supplement `context_summary` with architectural intent before dispatching bridges. Bridges with richer context produce better-targeted findings.
+
+```
+Skill("deepwiki")
+→ ask_question: "What are the primary architectural concerns and component relationships relevant to: {review_scope}?"
+→ Append answer to context_summary before Step 4 bridge dispatch
+```
+
+Falls back gracefully if DeepWiki is not configured. Non-blocking.
+
 Read domain-registry to confirm domain selection:
 ```
 Read: [skills-root]/domain-registry/domains/technical.md

@@ -4,11 +4,14 @@ description: Analyze conversation context to classify what is being discussed, d
 location: managed
 context: fork
 allowed-tools:
+  - ToolSearch
   - Read
   - Glob
   - Grep
   - Bash(ls *)
+  - Bash(git remote -v)
   - Task
+  - Skill
   - Write
   - Bash(mkdir *)
 ---
@@ -83,6 +86,32 @@ Artifact type selection:
 1. If signals from 2+ types → `mixed`
 2. If dominant signals clearly point to one type → that type
 3. Default → `code` (most common)
+
+---
+
+## Step 2.5: Enrich Context with DeepWiki (Optional)
+
+If the artifact type is `code` or `mixed` and a GitHub repository can be identified, optionally invoke the `deepwiki` skill to get architectural context before domain selection. This enriches domain detection beyond what file names and conversation signals alone can provide.
+
+**When to invoke:**
+- Artifact type is `code` or `mixed`
+- Minimal conversation context (low-confidence signals from Step 1)
+- User asks about architectural intent, not just file contents
+- Repository is large or unfamiliar — conversation signals may not surface all relevant domains
+
+**Invocation:**
+```
+Skill("deepwiki")
+```
+
+Pass the question: `"What are the primary technical domains and architectural concerns of this codebase? What systems, components, or subsystems are involved?"`
+
+**Use the returned answer to:**
+- Supplement `explicit_domains` before running domain-registry matching
+- Confirm or expand `artifact_type` if the codebase is more complex than conversation signals suggested
+- Add technical terms from the answer to the conversation signals for better domain trigger matching
+
+If `deepwiki` returns `availability: "unavailable"` → skip and proceed to Step 3 with signals from Step 1 only. Non-blocking.
 
 ---
 

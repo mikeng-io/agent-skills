@@ -100,6 +100,12 @@ ToolSearch: "web reader content"
 # Search for documentation query tools
 ToolSearch: "documentation query"
   → Returns: context7, zread tools
+
+# Search for DeepWiki codebase intelligence (optional)
+ToolSearch: "devin"
+  → Returns: mcp__devin__read_wiki_structure, mcp__devin__read_wiki_contents, mcp__devin__ask_question
+  → If found: DeepWiki available — use for codebase-grounded research
+  → If not found: fall back to local Glob/Grep/Read
 ```
 
 ### Build Tool Inventory
@@ -130,6 +136,13 @@ tool_inventory:
   documentation:
     - mcp__context7__query-docs
     - mcp__zread__search_doc
+
+  codebase_intelligence:
+    - mcp__devin__ask_question          # DeepWiki: AI-grounded Q&A about indexed GitHub repos
+    - mcp__devin__read_wiki_structure   # DeepWiki: list documentation topics for a repo
+    - mcp__devin__read_wiki_contents    # DeepWiki: read specific topic documentation
+    # Optional — requires Devin API key. Falls back to Glob/Grep/Read if unavailable.
+    # See: deepwiki/SKILL.md for setup and usage patterns.
 ```
 
 ### Tool Selection Strategy
@@ -335,6 +348,13 @@ fallback: "Use available tools, gracefully degrade, note limitations"
 ### Research Methodology Selection
 
 Choose methodology based on source types:
+
+**Codebase-Grounded Research (use DeepWiki if available):**
+- Questions about how an existing system works before researching alternatives
+- Architecture intent and design decisions behind code you're analyzing
+- Cross-component relationships and implicit contracts in a repository
+- Use `mcp__devin__ask_question` for synthesis; `mcp__devin__read_wiki_contents` for specific topics
+- Falls back to Glob/Grep/Read if DeepWiki not configured
 
 **Static Content (use web_search + web_reader):**
 - News articles
