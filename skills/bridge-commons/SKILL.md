@@ -106,19 +106,19 @@ All bridges accept this standard input:
 
 ## Agent Prompt Template
 
-Construct agent prompts from `bridge_input`. All `{expert_role}`, `{focus_areas}`, and `{standards}` values are read from domain-registry at runtime — never hardcoded. Adapt framing based on `task_type`:
+Construct one prompt per domain in `bridge_input.domains`. Resolve `{expert_role}`, `{focus_areas}`, and `{standards}` from domain-registry for each domain. Adapt framing based on `task_type`:
 
 ```
-You are a {expert_role}.   ← from domain-registry[domain].expert_role
+You are a {expert_role}.
 
 SCOPE: {scope}
 TASK: {task_description}
 CONTEXT: {context_summary}
 INTENSITY: {intensity}
-DOMAIN: {domain}           ← domain name from bridge_input.domains
+DOMAIN: {domain}
 
-Focus areas: {focus_areas} ← from domain-registry[domain].focus_areas
-Standards:   {standards}   ← from domain-registry[domain].standards
+Focus areas: {focus_areas}
+Standards:   {standards}
 
 Return your output as JSON:
 {
@@ -135,9 +135,17 @@ Return your output as JSON:
       "action": "Recommended action"
     }
   ],
+  "cross_domain_signals": [
+    {
+      "domain": "name of another domain that should examine this finding",
+      "reason": "why this domain needs to weigh in"
+    }
+  ],
   "summary": "Brief summary",
   "confidence": "high | medium | low"
 }
+
+`cross_domain_signals` is optional. Use it when your findings have implications that fall outside your domain and require a different domain expert's perspective. Leave empty (`[]`) if no cross-domain expansion is needed.
 ```
 
 ---
@@ -267,9 +275,9 @@ Once domains are known, spawn these roles in parallel at the start of each round
 | **Challenger** | 1 (always) | Fixed role — no domain-registry lookup | Cross-domain challenge — Devil's Advocate equivalent; escalates or withdraws challenges each round |
 | **Integration Checker** | 1 (always) | Fixed role — no domain-registry lookup | Surfaces cross-component issues; adds new findings as debates reveal interface gaps |
 
-The total number of parallel agents per round = `len(domains) + 2`. A context with security + database + API domains spawns 5 agents per round (3 experts + Challenger + Integration Checker).
+The total number of parallel agents per round = `len(active_domains) + 2` (one expert per domain, plus Challenger and Integration Checker).
 
-**No hardcoding.** Domain expert names, roles, focus areas, and standards are always read from domain-registry at runtime. Bridge files must never contain literal domain names such as "Security Expert", "Database Analyst", "API Designer", "SEO Specialist", or any other domain-specific title. Use `{expert_role}` and `{focus_areas}` placeholders, resolved from domain-registry when the bridge executes.
+The initial domain list is not fixed for the lifetime of a session. During each round, domain experts and the Integration Checker may signal that additional domains need to examine a finding. The orchestrator adds those domains to the active list before the next round, spawning fresh experts for them. See Between Rounds — Orchestrator Synthesis below.
 
 ---
 
@@ -285,41 +293,53 @@ The orchestrator (bridge dispatcher or deep-council) collects all Round 1 output
 
 The orchestrator reviews all outputs from the previous round and builds a **context packet** for the next round:
 
-1. Identify open challenges from the Challenger that weren't responded to
-2. Identify conflicts between Domain Experts (same issue, different conclusions)
-3. Identify gaps (cross-cutting concerns not addressed by any single domain)
-4. Group challenges by target domain so experts receive only what's directed at them
+1. Collect `cross_domain_signals` from all outputs — identify domains not yet in the active domain list
+2. Add any new domains to the active domain list; these experts will be spawned fresh in the next round
+3. Identify open challenges from the Challenger that weren't responded to
+4. Identify conflicts between Domain Experts (same issue, different conclusions)
+5. Identify gaps (cross-cutting concerns not addressed by any active domain)
+6. Group challenges by target domain so experts receive only what's directed at them
+
+**Domain expansion rule:** A domain in `cross_domain_signals` that is already active → assign challenges to that existing expert. A domain not yet active → spawn a new expert for it in the next round, providing the relevant finding as their starting context.
 
 **Context packet format:**
 
 ```json
 {
   "round": 2,
+  "active_domains": ["...current domain list including any newly added..."],
+  "newly_added_domains": [
+    {
+      "domain": "name of newly added domain",
+      "trigger_finding_id": "X001",
+      "reason": "why this domain was added"
+    }
+  ],
   "previous_findings": ["...all outputs from previous round..."],
   "open_challenges": [
     {
       "challenge_id": "CH001",
       "target_finding_id": "X001",
       "challenge_text": "This finding assumes X but the evidence shows Y instead",
-      "directed_at_domain": "security"
+      "directed_at_domain": "domain name"
     }
   ],
-  "synthesis": "Round 1: 5 findings. 2 challenged (X001, X003). Gap: no coverage of API contract changes."
+  "synthesis": "Round 1: 5 findings. 2 challenged. 1 new domain added. Gap: coverage expanded."
 }
 ```
 
-If no open challenges and no conflicts → stop early (convergence). Do not run additional rounds.
+If no open challenges, no conflicts, and no new domains to add → stop early (convergence). Do not run additional rounds.
 
 ---
 
 ### Round N — Challenge & Response
 
-Same roles re-run with the context packet injected into their prompts. Each role receives only the parts of the context relevant to them:
+Existing domain experts, Challenger, and Integration Checker re-run with the context packet. Newly added domain experts run for the first time with a focused prompt scoped to their trigger finding.
 
-**Domain expert prompt addition:**
+**Existing domain expert prompt addition:**
 ```
 Previous findings from your domain:
-{their_round_1_outputs}
+{their_previous_round_outputs}
 
 Challenges directed at your findings:
 {challenges_targeting_this_domain}
@@ -328,6 +348,26 @@ For each challenge:
 - If you agree: withdraw or revise the finding (update severity or description)
 - If you disagree: provide evidence-backed defense
 - Mark each output with status: confirmed | revised | withdrawn
+- If you identify additional domains that should examine your findings, include cross_domain_signals
+```
+
+**Newly added domain expert prompt (first appearance in Round N):**
+```
+You are a {expert_role}.
+
+SCOPE: {scope}
+CONTEXT: {context_summary}
+
+You have been brought in because a finding in another domain has implications for yours.
+
+Trigger finding:
+{the finding that produced the cross_domain_signal for this domain}
+
+Reason you were added:
+{cross_domain_signal.reason}
+
+Analyze this finding from your domain's perspective. Produce your own findings.
+Include cross_domain_signals if you identify further domain expansion needed.
 ```
 
 **Challenger prompt addition:**
@@ -341,16 +381,18 @@ Your previous challenges and expert responses:
 For each challenge:
 - If the expert defended convincingly: withdraw your challenge
 - If the defense is insufficient: escalate (raise severity, add evidence)
+- Challenge findings from any newly added domain experts
 - Add new challenges for findings you haven't challenged yet
 ```
 
 **Integration Checker prompt addition:**
 ```
-All findings and challenges from previous round:
+All findings and challenges from previous round, including newly added domain experts:
 {all_previous_findings_and_challenges}
 
 Add new cross-component findings that emerge from the ongoing debate.
-Focus on: interface gaps revealed by challenges, cascading impacts of revised findings.
+Focus on: interface gaps revealed by challenges, cascading impacts of revised findings,
+and cross-cutting issues that span the newly added domains.
 ```
 
 ---
@@ -426,12 +468,12 @@ Path: `.outputs/bridges/{bridge}-{YYYYMMDD-HHMMSS}-{session_id}.jsonl`
 Write events as they occur — one JSON object per line:
 
 ```jsonl
-{"event": "bridge_start", "bridge": "gemini", "session_id": "abc123", "timestamp": "2026-03-01T08:00:00Z"}
-{"event": "preflight", "step": "availability_check", "result": "found", "path": "/usr/local/bin/gemini"}
-{"event": "preflight", "step": "timeout_estimate", "value_seconds": 180}
-{"event": "dispatch", "mode": "single-agent", "domains": ["security", "api"]}
-{"event": "output", "id": "G001", "severity": "HIGH", "title": "Missing input validation"}
-{"event": "bridge_complete", "status": "COMPLETED", "verdict": "CONCERNS", "output_count": 3, "timestamp": "2026-03-01T08:03:22Z"}
+{"event": "bridge_start", "bridge": "{bridge}", "session_id": "{session_id}", "timestamp": "{ISO-8601}"}
+{"event": "preflight", "step": "availability_check", "result": "found", "path": "{path}"}
+{"event": "preflight", "step": "timeout_estimate", "value_seconds": "{n}"}
+{"event": "dispatch", "mode": "multi-agent", "domains": ["{domain1}", "{domain2}"]}
+{"event": "output", "id": "{id}", "severity": "{severity}", "title": "{title}"}
+{"event": "bridge_complete", "status": "COMPLETED", "verdict": "{verdict}", "output_count": "{n}", "timestamp": "{ISO-8601}"}
 ```
 
 ### Markdown summary
@@ -442,13 +484,13 @@ YAML frontmatter + human-readable summary:
 
 ```yaml
 ---
-bridge: gemini
-session_id: abc123
-timestamp: 2026-03-01T08:00:00Z
-task_type: review
-domains: [security, api]
-verdict: CONCERNS
-status: COMPLETED
+bridge: {bridge}
+session_id: {session_id}
+timestamp: {ISO-8601}
+task_type: {task_type}
+domains: [{domain1}, {domain2}]
+verdict: {verdict}
+status: {status}
 ---
 ```
 
