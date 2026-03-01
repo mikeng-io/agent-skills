@@ -192,11 +192,13 @@ Apply only when `task_type` is `review` or `analysis`. Set `null` for all other 
   "halt_reason": "...",
   "halt_message": "Advisory text to surface to the user",
   "domains_covered": ["domain1", "domain2"],
+  "debate_rounds": 2,
   "outputs": [
     {
       "id": "X001",
       "type": "finding | recommendation | plan-item | implementation-note | observation",
       "severity": "CRITICAL | HIGH | MEDIUM | LOW | INFO | null",
+      "status": "confirmed | revised | discovered | null",
       "title": "Short title",
       "description": "Detailed description",
       "evidence": "Specific reference — file, line, quote",
@@ -205,12 +207,21 @@ Apply only when `task_type` is `review` or `analysis`. Set `null` for all other 
       "agent": "Which agent or reviewer produced this"
     }
   ],
+  "withdrawn_outputs": [...],
+  "disputed_outputs": [
+    {
+      "output": {...},
+      "unresolved_challenge": "Challenge text that was not resolved"
+    }
+  ],
   "verdict": "PASS | FAIL | CONCERNS | null",
   "confidence": "high | medium | low"
 }
 ```
 
 **Output ID prefixes:** `C` (claude), `G` (gemini), `X` (codex), `O` (opencode).
+
+`debate_rounds`: number of rounds completed (0 for quick/consolidation-only, 1+ for debate mode). `null` when status is not COMPLETED.
 
 ---
 
@@ -225,28 +236,171 @@ When multiple agents within a bridge produce similar outputs:
 
 ---
 
-## Consolidation Pass
+## Post-Analysis Protocol
 
-After all sub-agents or domain analyses complete, every bridge runs a consolidation pass before returning results. This is a lightweight cross-domain review — not a full debate, but essential for catching cross-cutting issues that single-domain agents miss.
+After the initial parallel analysis, every bridge runs a post-analysis protocol before returning results. Two approaches are available — select based on intensity:
 
-### What to do
+| Intensity | Approach | Rounds after initial analysis |
+|-----------|----------|-------------------------------|
+| `quick` | Consolidation pass | 1 (single cross-domain review) |
+| `standard` | Two-round debate | 1 challenge + 1 response round |
+| `thorough` | Continuous debate | Up to N rounds until convergence or max |
 
-1. **Scan for overlaps** — find outputs from different domains addressing the same underlying issue
-2. **Resolve conflicts** — if two domains produce contradictory findings, keep the higher-severity version; note the conflict in the description
-3. **Surface gaps** — identify cross-cutting concerns not caught by any single domain (e.g., a security finding that also has API contract impact)
-4. **Add cross-domain outputs** — new outputs from consolidation use `domain: "cross-domain"` and `agent: "consolidation"`
+For Claude with Agent Teams, this entire section is superseded by the full `debate-protocol` skill, which provides the same structure with async SendMessage between teammates.
 
-### How each bridge implements it
+---
 
-| Bridge | Consolidation mechanism |
-|--------|------------------------|
-| Claude (Task tool) | Parent agent runs consolidation inline after all sub-agents report |
-| Claude (Agent Teams) | Superseded by full debate-protocol (Integration Checker + Devil's Advocate) |
-| Gemini | Follow-up prompt in same session: "Review findings above. Identify conflicts, gaps, cross-domain issues." |
-| Codex | `codex-reply` call: "Consolidate and cross-check all domain findings. Add cross-domain issues." |
-| OpenCode | Second message in session: "Review and consolidate the findings above." |
+### Roles
 
-When debate-protocol is available (Claude Agent Teams), it replaces the consolidation pass entirely — it is the richer version of the same concept.
+All bridges dispatch these roles in parallel at the start of each round:
+
+| Role | Count | Purpose |
+|------|-------|---------|
+| **Domain Expert** | One per domain | Subject-matter analysis; defends and revises findings across rounds |
+| **Challenger** | 1 (always) | Cross-domain challenge — Devil's Advocate equivalent; escalates or withdraws challenges each round |
+| **Integration Checker** | 1 (always) | Surfaces cross-component issues; adds new findings as debates reveal interface gaps |
+
+---
+
+### Round 1 — Initial Analysis (always runs, parallel)
+
+All roles run simultaneously with no inter-agent communication. Each produces independent findings using the Agent Prompt Template above.
+
+The orchestrator (bridge dispatcher or deep-council) collects all Round 1 outputs and moves to the between-rounds step.
+
+---
+
+### Between Rounds — Orchestrator Synthesis
+
+The orchestrator reviews all outputs from the previous round and builds a **context packet** for the next round:
+
+1. Identify open challenges from the Challenger that weren't responded to
+2. Identify conflicts between Domain Experts (same issue, different conclusions)
+3. Identify gaps (cross-cutting concerns not addressed by any single domain)
+4. Group challenges by target domain so experts receive only what's directed at them
+
+**Context packet format:**
+
+```json
+{
+  "round": 2,
+  "previous_findings": ["...all outputs from previous round..."],
+  "open_challenges": [
+    {
+      "challenge_id": "CH001",
+      "target_finding_id": "X001",
+      "challenge_text": "This finding assumes X but the evidence shows Y instead",
+      "directed_at_domain": "security"
+    }
+  ],
+  "synthesis": "Round 1: 5 findings. 2 challenged (X001, X003). Gap: no coverage of API contract changes."
+}
+```
+
+If no open challenges and no conflicts → stop early (convergence). Do not run additional rounds.
+
+---
+
+### Round N — Challenge & Response
+
+Same roles re-run with the context packet injected into their prompts. Each role receives only the parts of the context relevant to them:
+
+**Domain expert prompt addition:**
+```
+Previous findings from your domain:
+{their_round_1_outputs}
+
+Challenges directed at your findings:
+{challenges_targeting_this_domain}
+
+For each challenge:
+- If you agree: withdraw or revise the finding (update severity or description)
+- If you disagree: provide evidence-backed defense
+- Mark each output with status: confirmed | revised | withdrawn
+```
+
+**Challenger prompt addition:**
+```
+All domain expert findings from previous round:
+{all_previous_findings}
+
+Your previous challenges and expert responses:
+{challenge_history}
+
+For each challenge:
+- If the expert defended convincingly: withdraw your challenge
+- If the defense is insufficient: escalate (raise severity, add evidence)
+- Add new challenges for findings you haven't challenged yet
+```
+
+**Integration Checker prompt addition:**
+```
+All findings and challenges from previous round:
+{all_previous_findings_and_challenges}
+
+Add new cross-component findings that emerge from the ongoing debate.
+Focus on: interface gaps revealed by challenges, cascading impacts of revised findings.
+```
+
+---
+
+### Termination Conditions
+
+Stop running rounds when **any** of these is true:
+
+| Condition | Description |
+|-----------|-------------|
+| Max rounds reached | `quick`: 0 rounds after initial; `standard`: 1; `thorough`: 3 |
+| Convergence | No new findings or revisions compared to previous round |
+| All challenges resolved | Every challenge is either withdrawn or defended (no `disputed` status) |
+
+---
+
+### Finding States
+
+After debate completes, tag each output with a `status` field:
+
+| Status | Meaning |
+|--------|---------|
+| `confirmed` | Survived at least one challenge round without revision |
+| `revised` | Expert updated the finding in response to a challenge |
+| `withdrawn` | Expert retracted (challenged and couldn't defend) |
+| `disputed` | Unresolved — Challenger maintains challenge, expert maintains finding |
+| `discovered` | New finding surfaced during a challenge round (not in Round 1) |
+
+Withdrawn findings are excluded from the final `outputs` array but recorded in `withdrawn_outputs`.
+
+---
+
+### Context Passing Between Rounds
+
+Since non-Claude bridges lack async messaging, context flows **explicitly** — the orchestrator embeds the full context packet in each Round N prompt:
+
+| Bridge | Session continuity | Context injection |
+|--------|-------------------|-------------------|
+| OpenCode (HTTP API) | Session remembers Round 1 automatically | Send context packet as next message in same session |
+| OpenCode (CLI) | No session state | Embed full Round 1 outputs + context packet in Round 2 prompt |
+| Codex (MCP) | `threadId` maintains history | `codex-reply` with context packet as prompt |
+| Codex (CLI) | No session state | New `codex exec` with embedded context |
+| Gemini (subagents) | No cross-call state | New `gemini -p` call with embedded context |
+| Claude (Task tool) | Parent agent holds all state | Spawn Round 2 sub-agents with context from parent |
+| Claude (Agent Teams) | Teammates use SendMessage | Superseded by debate-protocol |
+
+For bridges with session continuity (OpenCode HTTP, Codex MCP), the Round 2 prompt only needs to include the context packet — the session already has Round 1 history. For stateless bridges, embed the full previous-round findings in the prompt.
+
+---
+
+### Consolidation (after final round)
+
+After debate terminates, the orchestrator runs a final consolidation:
+
+1. Collect all `confirmed`, `revised`, and `discovered` outputs — these form the final `outputs` array
+2. Collect `withdrawn` outputs into `withdrawn_outputs`
+3. Collect `disputed` outputs into `disputed_outputs` with the unresolved challenge noted
+4. Apply verdict logic from the Verdict Logic section above
+5. Add any remaining cross-domain outputs (`domain: "cross-domain"`, `agent: "consolidation"`)
+
+For `quick` intensity, the consolidation is the entire protocol — skip all debate rounds and go directly here after Round 1.
 
 ---
 

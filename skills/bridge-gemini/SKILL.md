@@ -88,7 +88,19 @@ Error handling:
 - Other exit codes → return SKIPPED with reason `gemini CLI error: {stderr}`
 - Invalid JSON output → attempt to extract structured content, else SKIPPED
 
-After execution, run the bridge-commons consolidation pass (follow-up `gemini -p` prompt in same session if supported, or inline consolidation of parsed outputs).
+After execution, run the bridge-commons Post-Analysis Protocol. Gemini uses **stateless context passing** between rounds — embed the full previous-round outputs and context packet in each subsequent `gemini -p` call. There is no session continuity between separate CLI invocations.
+
+For `standard` and `thorough` intensity, construct the Round 2 prompt as:
+
+```
+{Agent Prompt Template for this role}
+
+--- ROUND 2 CONTEXT ---
+Previous round findings:
+{JSON of all Round 1 outputs}
+
+{context packet: open_challenges directed at this domain, synthesis}
+```
 
 **Never block the calling orchestrator** — always return a report (even if SKIPPED).
 

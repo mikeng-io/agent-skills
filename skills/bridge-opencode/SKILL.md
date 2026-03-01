@@ -176,14 +176,25 @@ curl -s -X POST http://localhost:4096/session/$SESSION/message \
   }'
 ```
 
-After the initial response, send the consolidation pass as a second message:
+For the bridge-commons Post-Analysis Protocol, use the same session for each round — the HTTP session maintains full conversation history, so Round 2+ only needs the context packet injected. Run each role as a separate message (or separate session per role for parallelism):
 
 ```bash
+# Round 2 message — session already has Round 1 history
 curl -s -X POST http://localhost:4096/session/$SESSION/message \
   -H "Content-Type: application/json" \
   -d '{
-    "content": [{"type": "text", "text": "Review and consolidate the findings above. Identify conflicts, gaps, and cross-domain issues. Add any new findings with domain: cross-domain."}]
+    "content": [{"type": "text", "text": "{role-specific Round N prompt from bridge-commons context packet}"}]
   }'
+```
+
+For true parallel role execution within a round, create one session per role — embed the previous-round outputs explicitly since sessions don't share state:
+
+```bash
+# Parallel round execution — one session per role, context embedded in each
+CHALLENGER_SESSION=$(curl -s -X POST http://localhost:4096/session \
+  -H "Content-Type: application/json" \
+  -d '{"title": "challenger-round-2-{session_id}"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+# ... then send challenger Round 2 prompt with embedded context
 ```
 
 ### Model format
@@ -238,6 +249,8 @@ timeout {final_timeout} opencode run "{constructed_prompt}" \
 ```
 
 **Important:** `opencode` (bare) opens the interactive TUI. Always use `opencode run "..."` for programmatic use.
+
+For the Post-Analysis Protocol via CLI, use separate `opencode run` calls per round — no session continuity. Embed the full previous-round outputs and context packet in each Round N prompt (stateless context passing, same pattern as Gemini CLI).
 
 ### CLI Error Handling
 

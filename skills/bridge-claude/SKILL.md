@@ -161,7 +161,7 @@ Task N:   Devil's Advocate — challenge assumptions, find failure modes (domain
 Task N+1: Integration Checker — cross-component impacts, implicit contracts (domain: "integration")
 ```
 
-All tasks run in parallel. After all complete, run the bridge-commons consolidation pass.
+All tasks run in parallel. After all complete, run the bridge-commons Post-Analysis Protocol. For subsequent rounds, spawn new Task sub-agents with the context packet embedded in their prompts — the parent agent holds all state between rounds and manages the orchestrator synthesis step.
 
 ---
 

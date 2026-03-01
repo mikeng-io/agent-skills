@@ -321,7 +321,16 @@ Parameters:
   threadId: {threadId from previous call}
 ```
 
-The `codex-reply` call serves as the bridge-commons consolidation pass for the MCP path.
+The `codex-reply` call implements the bridge-commons Post-Analysis Protocol for the MCP path. Use `codex-reply` for each subsequent round — the thread maintains full Round 1 history, so only inject the context packet:
+
+```
+Call: mcp__codex__codex-reply
+Parameters:
+  prompt:   "{role-specific Round N prompt from bridge-commons context packet}"
+  threadId: {threadId from Round 1}
+```
+
+Run one `codex` + N `codex-reply` calls per role, one role at a time or in parallel sessions.
 
 ---
 
@@ -342,6 +351,8 @@ timeout {final_timeout} codex exec "{constructed_prompt}" \
   $MODEL_FLAG \
   --config reasoning-effort={medium|high|xhigh}
 ```
+
+For the Post-Analysis Protocol via CLI, use separate `codex exec` calls per round — no session continuity. Embed the full previous-round context in each Round N prompt (same stateless pattern as Gemini CLI).
 
 ### CLI Error Handling
 
