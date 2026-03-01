@@ -276,14 +276,13 @@ Use the `codex` MCP tool directly. The MCP server runs `codex mcp-server` and ex
 Before calling either MCP or CLI, determine the current latest Codex model:
 
 ```bash
-# Via CLI
-codex models list 2>/dev/null | head -5
+# Via CLI — lists available models
+codex prompt --models 2>/dev/null | head -5
 
-# Or check MCP server capabilities via OpenCode spec
 # If unavailable, omit model field to use server default
 ```
 
-Do NOT hardcode a model name. If `codex models list` is unavailable, omit the `model` parameter and let the server select its default.
+Do NOT hardcode a model name. If model discovery fails, omit the `model` parameter and let the server select its default.
 
 ### Tool: `codex` — Start a session
 
@@ -316,7 +315,7 @@ See `cli-reference.md` for complete MCP parameter reference.
 
 ```bash
 # Detect latest model first (if CLI supports it)
-CODEX_MODEL=$(codex models list 2>/dev/null | awk 'NR==1{print $1}')
+CODEX_MODEL=$(codex prompt --models 2>/dev/null | awk 'NR==1{print $1}')
 MODEL_FLAG=${CODEX_MODEL:+--model $CODEX_MODEL}   # omit flag if empty
 
 timeout {final_timeout} codex exec "{constructed_prompt}" \

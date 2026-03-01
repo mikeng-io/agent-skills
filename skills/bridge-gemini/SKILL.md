@@ -117,7 +117,7 @@ Return as JSON:
 TIMEOUT={calculated_timeout}
 PROMPT="{constructed_prompt}"
 
-timeout $TIMEOUT gemini -p "$PROMPT" --approval-mode plan -o json
+timeout $TIMEOUT gemini -p "$PROMPT" --approval-mode auto_edit --output-format json
 ```
 
 Error handling:
