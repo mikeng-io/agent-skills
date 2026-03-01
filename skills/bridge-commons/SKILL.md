@@ -261,13 +261,9 @@ For Claude with Agent Teams, this entire section is superseded by the full `deba
 
 ### Roles
 
-Before dispatching, determine which Domain Expert roles to spawn. Two methods:
+Domain experts are determined by the orchestrating skill (deep-council, deep-review, etc.) before the bridge is called — the bridge receives them via `bridge_input.domains` and executes. Bridges do not perform domain selection.
 
-**Method A — Caller-provided domains (preferred):** `bridge_input.domains` is already populated by `deep-context` or the orchestrating skill, which selected domains from domain-registry based on context signals. Use this list directly.
-
-**Method B — Inline lookup (when domains not provided):** Read `domain-registry/domains/*.md` and match trigger signals against the current scope. Select all domains with matching signals. Minimum 1 domain; no upper limit.
-
-Once domains are known, spawn these roles in parallel at the start of each round:
+Spawn these roles in parallel at the start of each round:
 
 | Role | Count | Source | Purpose |
 |------|-------|--------|---------|

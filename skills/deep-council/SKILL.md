@@ -306,7 +306,7 @@ PASS:
     "codex": "CLI not found, MCP not configured",
     "opencode": "CLI not found, MCP not configured"
   },
-  "domains_covered": ["security", "api", "testing"],
+  "domains_covered": ["{domain1}", "{domain2}"],
   "intensity": "standard",
   "multi_model_confirmed": [
     {
@@ -316,8 +316,8 @@ PASS:
       "description": "...",
       "evidence": "...",
       "remediation": "...",
-      "confirmed_by": ["claude", "gemini"],
-      "domains": ["security"]
+      "confirmed_by": ["{bridge1}", "{bridge2}"],
+      "domains": ["{domain}"]
     }
   ],
   "single_source_findings": [
@@ -326,8 +326,8 @@ PASS:
       "severity": "MEDIUM",
       "title": "...",
       "description": "...",
-      "source_bridge": "claude",
-      "domains": ["testing"]
+      "source_bridge": "{bridge}",
+      "domains": ["{domain}"]
     }
   ],
   "disputed_findings": [
