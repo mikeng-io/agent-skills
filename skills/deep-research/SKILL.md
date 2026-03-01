@@ -196,6 +196,11 @@ Infer from contextual cues:
 - Concerns expressed (performance, security, UX)
 - Artifacts referenced (code, designs, documents)
 
+**Domain-registry integration:**
+Read domain-registry/domains/*.md to supplement inferred domains.
+Research domains include: technical, financial, marketing, creative, legal, strategy.
+Select all domains matching the research topic signals.
+
 ### Domain Inference Examples
 
 ```
@@ -936,23 +941,44 @@ Would you like to regenerate the report with corrections?
 
 ## Step 8: Save Report
 
-Save the validated report to:
+## Artifact Output
 
-1. Create directory: `.outputs/research/`
-2. Save with timestamp: `YYYYMMDD-HHMMSS-research-{topic-slug}.md`
-3. Save JSON version: `YYYYMMDD-HHMMSS-research-{topic-slug}.json`
-4. Update symlink: `latest-research.md` → most recent report (only if validation passed)
+Save to `.outputs/research/{YYYYMMDD-HHMMSS}-research-{slug}.md` with YAML frontmatter:
 
-**Note:** Only update the "latest" symlink for reports that pass validation.
+```yaml
+---
+skill: deep-research
+version: 2.0
+timestamp: {ISO-8601}
+artifact_type: research
+domains: [{domain1}, {domain2}]
+verdict: PASS | FAIL | CONCERNS        # if applicable
+context_summary: "{brief description of what was reviewed}"
+session_id: "{unique id}"
+---
+```
 
+Also save JSON companion: `{timestamp}-research-{slug}.json`
+
+**No symlinks.** To find the latest artifact:
 ```bash
-# Output directory structure
+ls -t .outputs/research/ | head -1
+```
+
+**QMD Integration (optional, progressive enhancement):**
+```bash
+qmd collection add .outputs/research/ --name "deep-research-artifacts" --mask "**/*.md" 2>/dev/null || true
+qmd update 2>/dev/null || true
+```
+
+**Note:** Only save reports that pass validation.
+
+```
 .outputs/research/
 ├── 20250115-143022-research-event-sourcing-kafka.md
 ├── 20250115-143022-research-event-sourcing-kafka.json
 ├── 20250116-091545-research-ai-regulation-business.md
-├── 20250116-091545-research-ai-regulation-business.json
-└── latest-research.md → (symlink to most recent)
+└── 20250116-091545-research-ai-regulation-business.json
 ```
 
 ---
@@ -1020,3 +1046,5 @@ export DEEP_RESEARCH_OUTPUT_FORMAT="markdown"
 - **Tool-agnostic**: Gracefully handles unavailable tools with fallbacks
 - **Evidence-based**: All findings tied to sources with credibility assessment
 - **Cross-domain**: Identifies insights that emerge from domain intersections
+- **Multi-Model**: For cross-model research synthesis, see `deep-council`
+- **Domain-Aware**: Research agents adapt to domain context via domain-registry
