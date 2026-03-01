@@ -4,7 +4,7 @@ Reference adapter for Codex CLI/MCP. Part of the Deep Skills Suite v2 bridge lay
 
 ## What is this?
 
-A **reference document** read by `deep-council` via the `Read` tool. Instructions are embedded into Task agent prompts for bridge execution.
+A **reference document** read by any orchestrating skill via the `Read` tool. Instructions are embedded into Task agent prompts for bridge execution.
 
 ## Connection Methods (Fallback Chain)
 
@@ -27,4 +27,4 @@ Returns `status: SKIPPED` on any unavailability. Never blocks.
 ## Part of
 
 - Deep Skills Suite v2
-- Consumed by: `deep-council`
+- Consumed by: any orchestrating skill (e.g., `deep-council`, `deep-review`, `deep-audit`, or custom skills)

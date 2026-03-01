@@ -4,7 +4,7 @@ Reference adapter for OpenCode — multi-model bridge. Part of the Deep Skills S
 
 ## What is this?
 
-A **reference document** read by `deep-council` via the `Read` tool. Instructions are embedded into Task agent prompts for bridge execution.
+A **reference document** read by any orchestrating skill via the `Read` tool. Instructions are embedded into Task agent prompts for bridge execution.
 
 ## Why OpenCode is special
 
@@ -26,7 +26,7 @@ Always higher than other bridges due to multi-model overhead.
 
 ## Model Attribution
 
-When OpenCode returns model-attributed findings (which model surfaced which finding), the bridge preserves that attribution in the output JSON. This enables richer cross-model analysis by `deep-council`.
+When OpenCode returns model-attributed findings (which model surfaced which finding), the bridge preserves that attribution in the output JSON. This enables richer cross-model analysis by any calling skill.
 
 ## Fallback
 
@@ -35,4 +35,4 @@ Returns `status: SKIPPED` on any unavailability. Never blocks.
 ## Part of
 
 - Deep Skills Suite v2
-- Consumed by: `deep-council`
+- Consumed by: any orchestrating skill (e.g., `deep-council`, `deep-review`, `deep-audit`, or custom skills)

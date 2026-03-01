@@ -4,15 +4,15 @@ Reference adapter for Claude Code sub-agent dispatch. Part of the Deep Skills Su
 
 ## What is this?
 
-This is a **reference document**, not a runnable skill. `deep-council` reads `SKILL.md` via the `Read` tool and embeds its instructions into Task agent prompts. The bridge defines how to spawn Claude sub-agents as internal reviewers.
+This is a **reference document**, not a runnable skill. Any orchestrating skill reads `SKILL.md` via the `Read` tool and embeds its instructions into Task agent prompts. The bridge defines how to spawn Claude sub-agents as internal reviewers.
 
 ## How it works
 
-1. `deep-council` reads `bridge-claude/SKILL.md`
+1. An orchestrating skill reads `bridge-claude/SKILL.md`
 2. Spawns a Task agent (the "bridge executor") with these instructions embedded
 3. Bridge executor spawns parallel domain expert sub-agents + DA + Integration Checker
 4. Bridge executor collects findings and returns a `bridge_claude_report`
-5. `deep-council` receives the report for cross-bridge synthesis
+5. The calling skill receives the report for synthesis
 
 ## Why context: reference?
 
@@ -29,5 +29,5 @@ Returns a `bridge_claude_report` JSON with findings, verdict, and confidence lev
 ## Part of
 
 - Deep Skills Suite v2
-- Consumed by: `deep-council`
+- Consumed by: any orchestrating skill (e.g., `deep-council`, `deep-review`, `deep-audit`, or custom skills)
 - Depends on: `domain-registry` (for expert role selection)

@@ -1,13 +1,13 @@
 ---
 name: bridge-gemini
-description: Reference adapter for Gemini CLI. Read by deep-council via Read tool. Defines how to invoke Gemini CLI in non-interactive mode, timeout estimation, fallback behavior. NOT invocable standalone — context: reference.
+description: Reference adapter for Gemini CLI. Read by any orchestrating skill via the Read tool. Defines how to invoke Gemini CLI in non-interactive mode, timeout estimation, and fallback behavior. Usable by deep-council, deep-review, deep-audit, or any future skill that needs Gemini-based review.
 location: managed
 context: reference
 ---
 
 # Bridge: Gemini CLI Adapter
 
-This file is a REFERENCE DOCUMENT. It is read by `deep-council` via the `Read` tool and its instructions are embedded directly into Task agent prompts. Do not invoke it as a standalone skill.
+This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for Gemini CLI dispatch.
 
 ## Bridge Identity
 

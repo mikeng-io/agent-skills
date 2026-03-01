@@ -1,13 +1,13 @@
 ---
 name: bridge-codex
-description: Reference adapter for Codex CLI. Read by deep-council via Read tool. Defines MCP→CLI fallback chain, timeout estimation, read-only enforcement. NOT invocable standalone — context: reference.
+description: Reference adapter for Codex CLI. Read by any orchestrating skill via the Read tool. Defines MCP→CLI fallback chain, timeout estimation, and read-only enforcement. Usable by deep-council, deep-review, deep-audit, or any future skill that needs Codex-based review.
 location: managed
 context: reference
 ---
 
 # Bridge: Codex Adapter
 
-This file is a REFERENCE DOCUMENT. It is read by `deep-council` via the `Read` tool and its instructions are embedded directly into Task agent prompts.
+This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for Codex dispatch with MCP→CLI fallback.
 
 ## Bridge Identity
 

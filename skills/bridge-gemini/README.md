@@ -4,7 +4,7 @@ Reference adapter for Gemini CLI. Part of the Deep Skills Suite v2 bridge layer.
 
 ## What is this?
 
-A **reference document** read by `deep-council` via the `Read` tool. Instructions are embedded into Task agent prompts for bridge execution.
+A **reference document** read by any orchestrating skill via the `Read` tool. Instructions are embedded into Task agent prompts for bridge execution.
 
 ## Connection Method
 
@@ -44,4 +44,4 @@ Never blocks or throws — always returns a report.
 ## Part of
 
 - Deep Skills Suite v2
-- Consumed by: `deep-council`
+- Consumed by: any orchestrating skill (e.g., `deep-council`, `deep-review`, `deep-audit`, or custom skills)

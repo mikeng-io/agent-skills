@@ -1,13 +1,13 @@
 ---
 name: bridge-opencode
-description: Reference adapter for OpenCode — model-agnostic multi-model bridge. Read by deep-council via Read tool. Defines MCP/API→CLI fallback, multi-model configuration, timeout estimation (1.5× multiplier). NOT invocable standalone — context: reference.
+description: Reference adapter for OpenCode — model-agnostic multi-model bridge. Read by any orchestrating skill via the Read tool. Defines MCP/API→CLI fallback, multi-model configuration, and timeout estimation (1.5× multiplier). Usable by deep-council, deep-review, deep-audit, or any future skill that needs multi-model review.
 location: managed
 context: reference
 ---
 
 # Bridge: OpenCode Multi-Model Adapter
 
-This file is a REFERENCE DOCUMENT. It is read by `deep-council` via the `Read` tool and its instructions are embedded directly into Task agent prompts.
+This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for OpenCode multi-model dispatch.
 
 ## Bridge Identity
 
