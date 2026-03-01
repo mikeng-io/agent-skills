@@ -24,22 +24,22 @@ Browse and install skills from the registry at [skillsmp.com](https://skillsmp.c
 
 ```bash
 # Install individual skills
-skills install deep-review
-skills install deep-audit
-skills install deep-verify
-skills install deep-research
-skills install deep-explorer
-skills install deep-council
+npx skills add mikeng-io/agent-skills --skill deep-review
+npx skills add mikeng-io/agent-skills --skill deep-audit
+npx skills add mikeng-io/agent-skills --skill deep-verify
+npx skills add mikeng-io/agent-skills --skill deep-research
+npx skills add mikeng-io/agent-skills --skill deep-explorer
+npx skills add mikeng-io/agent-skills --skill deep-council
 
 # Install the full suite at once
-skills install deep-skills-suite
+npx skills add mikeng-io/agent-skills --all
 ```
 
 ### Manual Installation
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-org/agent-skills
+git clone https://github.com/mikeng-io/agent-skills
 cd agent-skills
 
 # Symlink skills for local development
@@ -93,6 +93,9 @@ ln -s $(pwd)/skills/debate-protocol ~/.claude/skills/debate-protocol
 
 #### [`context`](./skills/context/)
 Classifies the current conversation artifact (code, financial, marketing, etc.), selects domains from the domain registry, and recommends routing (parallel-workflow, debate-protocol, or deep-council). Invokable standalone to inspect how the suite reads your current conversation.
+
+#### [`preflight`](./skills/preflight/)
+Lightweight scope clarifier. Invoked by deep-* skills when conversation context is too sparse to determine what to analyze. Asks 1–3 targeted questions one at a time (one per message, multiple-choice preferred), then returns a structured `scope_clarification` block for the calling skill. Skipped automatically when scope is already clear. Adapted from the [superpowers `brainstorming` skill](https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md) — same principle of asking before acting, scoped to analysis intent rather than feature design.
 
 #### [`debate-protocol`](./skills/debate-protocol/)
 5-phase structured adversarial debate. Domain experts analyze independently, a Devil's Advocate challenges every CRITICAL/HIGH finding, an Integration Checker surfaces cross-component gaps, findings are confirmed/withdrawn/disputed/merged. Used by deep-council and deep-verify.

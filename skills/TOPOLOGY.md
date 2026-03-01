@@ -16,7 +16,8 @@ This document describes the relationship between all skills, how they depend on 
 │  └── debate-protocol     5-phase structured review debate           │
 │                                                                     │
 │  Context Intelligence                                               │
-│  └── context        Classify artifact, select domains, route   │
+│  ├── context        Classify artifact, select domains, route   │
+│  └── preflight           Ask 1–3 clarifying questions when scope is fuzzy │
 │                                                                     │
 │  Bridge Adapters (reference — not invocable standalone)            │
 │  ├── bridge-claude       Task tool → claude CLI → Anthropic API     │
@@ -223,6 +224,7 @@ Skills with **no `context` field** run **inline** in the invoking agent — full
 | `bridge-opencode` | reference | n/a | No |
 | `debate-protocol` | *(inline)* | **Yes** | Yes |
 | `context` | *(inline)* | **Yes** | Yes |
+| `preflight` | *(inline)* | **Yes** | Yes |
 | `parallel-workflow` | *(inline)* | **Yes** | Yes |
 | `deep-council` | *(inline)* | **Yes** | Yes |
 | `deep-explorer` | *(inline)* | **Yes** | Yes |
