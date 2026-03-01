@@ -184,7 +184,7 @@ Apply only when `task_type` is `review` or `analysis`. Set `null` for all other 
 {
   "bridge": "claude | gemini | codex | opencode",
   "model_family": "anthropic/claude | google/gemini | openai/codex | multi-provider",
-  "connection_used": "task-tool | agent-teams | claude-cli | api | cli | http-api | mcp",
+  "connection_used": "native-dispatch | cli | api | http-api | mcp",
   "session_id": "...",
   "task_type": "review | planning | implementation | analysis | research",
   "status": "COMPLETED | SKIPPED | HALTED | ABORTED",
@@ -222,6 +222,31 @@ When multiple agents within a bridge produce similar outputs:
 2. Identify near-identical outputs (same `domain`, similar `title` and `description`)
 3. Keep the highest-severity version; discard the duplicate
 4. Record the merge in the JSONL event log
+
+---
+
+## Consolidation Pass
+
+After all sub-agents or domain analyses complete, every bridge runs a consolidation pass before returning results. This is a lightweight cross-domain review — not a full debate, but essential for catching cross-cutting issues that single-domain agents miss.
+
+### What to do
+
+1. **Scan for overlaps** — find outputs from different domains addressing the same underlying issue
+2. **Resolve conflicts** — if two domains produce contradictory findings, keep the higher-severity version; note the conflict in the description
+3. **Surface gaps** — identify cross-cutting concerns not caught by any single domain (e.g., a security finding that also has API contract impact)
+4. **Add cross-domain outputs** — new outputs from consolidation use `domain: "cross-domain"` and `agent: "consolidation"`
+
+### How each bridge implements it
+
+| Bridge | Consolidation mechanism |
+|--------|------------------------|
+| Claude (Task tool) | Parent agent runs consolidation inline after all sub-agents report |
+| Claude (Agent Teams) | Superseded by full debate-protocol (Integration Checker + Devil's Advocate) |
+| Gemini | Follow-up prompt in same session: "Review findings above. Identify conflicts, gaps, cross-domain issues." |
+| Codex | `codex-reply` call: "Consolidate and cross-check all domain findings. Add cross-domain issues." |
+| OpenCode | Second message in session: "Review and consolidate the findings above." |
+
+When debate-protocol is available (Claude Agent Teams), it replaces the consolidation pass entirely — it is the richer version of the same concept.
 
 ---
 

@@ -9,6 +9,8 @@ context: reference
 
 This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for OpenCode dispatch.
 
+**Input schema, agent prompt template, output schema, verdict logic, artifact format, and status semantics are defined in `bridge-commons/SKILL.md`. This file covers OpenCode-specific connection detection, timeout multiplier, and execution paths.**
+
 ## Bridge Identity
 
 ```yaml
@@ -137,76 +139,17 @@ Return `status: HALTED` with the full advisory in `halt_message`. Never silently
 
 ---
 
-## Step 3: Input Format
+## Timeout Estimation
 
-```json
-{
-  "bridge_input": {
-    "session_id": "...",
-    "scope": "Files and/or description of what to work on",
-    "task_description": "What the agent should do (review, plan, implement, analyze, etc.)",
-    "task_type": "review | planning | implementation | analysis | research",
-    "domains": ["domain1", "domain2"],
-    "context_summary": "What the conversation/task is about",
-    "intensity": "quick | standard | thorough"
-  }
-}
-```
-
----
-
-## Step 4: Build Prompt
-
-```
-You are a multi-domain reviewer. Analyze the following for issues across
-the specified domains. For each domain, act as the corresponding domain expert.
-
-Review scope: {review_scope}
-Context: {context_summary}
-Intensity: {intensity}
-
-Domains to review:
-{for each domain:
-  "- {domain_name}: {focus areas from domain-registry}"}
-
-Return findings as JSON:
-{
-  "domains_analyzed": [...],
-  "findings": [
-    {
-      "severity": "CRITICAL | HIGH | MEDIUM | LOW | INFO",
-      "title": "...",
-      "description": "...",
-      "evidence": "...",
-      "remediation": "...",
-      "domain": "..."
-    }
-  ],
-  "verdict": "PASS | FAIL | CONCERNS"
-}
-```
-
----
-
-## Step 5: Timeout Estimation
-
-OpenCode routes through its provider layer — apply 1.5× multiplier:
+Use bridge-commons base timeout table and intensity multiplier, then apply the OpenCode-specific multiplier:
 
 ```yaml
-scope_under_5_files_or_500_loc:    base_timeout: 60
-scope_5_to_20_files_or_2000_loc:   base_timeout: 180
-scope_20_to_50_files_or_10k_loc:   base_timeout: 300
-scope_50_plus_files_or_10k_plus:   base_timeout: 600
-
 opencode_multiplier: 1.5   # Always applied — provider routing overhead
 
-intensity_multiplier:
-  quick: 0.5
-  standard: 1.0
-  thorough: 1.5
-
-final_timeout: base_timeout * 1.5 * intensity_multiplier   # seconds
+final_timeout: base_timeout × intensity_multiplier × 1.5   # seconds
 ```
+
+OpenCode internally dispatches to one or more providers — each provider call adds latency.
 
 ---
 
@@ -224,12 +167,22 @@ SESSION=$(curl -s -X POST http://localhost:4096/session \
   -H "Content-Type: application/json" \
   -d '{"title": "bridge-review-{review_id}"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 
-# Send prompt
+# Send prompt — use bridge-commons Agent Prompt Template for the constructed_prompt
 curl -s -X POST http://localhost:4096/session/$SESSION/message \
   -H "Content-Type: application/json" \
   -d '{
     "content": [{"type": "text", "text": "{constructed_prompt}"}],
     "model": "{provider/model}"
+  }'
+```
+
+After the initial response, send the consolidation pass as a second message:
+
+```bash
+curl -s -X POST http://localhost:4096/session/$SESSION/message \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": [{"type": "text", "text": "Review and consolidate the findings above. Identify conflicts, gaps, and cross-domain issues. Add any new findings with domain: cross-domain."}]
   }'
 ```
 
@@ -276,13 +229,13 @@ Built-in agents:
 
 ## Step 3B: Execute via CLI (Fallback)
 
+Build the prompt using the bridge-commons Agent Prompt Template.
+
 ```bash
 timeout {final_timeout} opencode run "{constructed_prompt}" \
   --format json \
   --model {provider/model}
 ```
-
-See `cli-reference.md` for complete flag reference.
 
 **Important:** `opencode` (bare) opens the interactive TUI. Always use `opencode run "..."` for programmatic use.
 
@@ -296,47 +249,20 @@ See `cli-reference.md` for complete flag reference.
 
 ---
 
-## Step 6: Output Format
+## Output
+
+See bridge-commons Output Schema. Bridge-specific fields:
 
 ```json
 {
   "bridge": "opencode",
   "model_family": "multi-provider",
-  "model_used": "provider/model or null",
   "connection_used": "native-dispatch | http-api | cli",
-  "session_id": "...",
-  "task_type": "review | planning | implementation | analysis | research",
-  "status": "COMPLETED | SKIPPED | HALTED | ABORTED",
-  "halt_reason": "cli_not_found | no_provider_configured | null",
-  "halt_message": "Advisory text for caller to surface to user",
-  "skip_reason": "...",
-  "domains_covered": [],
-  "outputs": [
-    {
-      "id": "O001",
-      "type": "finding | recommendation | plan-item | implementation-note | observation",
-      "severity": "CRITICAL | HIGH | MEDIUM | LOW | INFO",
-      "title": "...",
-      "description": "...",
-      "evidence": "...",
-      "action": "...",
-      "domain": "..."
-    }
-  ],
-  "verdict": "PASS | FAIL | CONCERNS | null",
-  "timeout_used": 270,
-  "confidence": "high | medium | low"
+  "model_used": "provider/model or null"
 }
 ```
 
-### Status Semantics (orchestrators must handle all four):
-
-| Status | Meaning | Orchestrator action |
-|--------|---------|---------------------|
-| `COMPLETED` | Review ran, findings returned | Include in synthesis |
-| `SKIPPED` | Non-fatal error (timeout, parse failure) | Note in report, continue |
-| `HALTED` | Pre-flight failed — needs user input | Surface `halt_message`, wait |
-| `ABORTED` | User chose to abort | Stop the orchestrator |
+Output ID prefix: `O` (e.g., `O001`, `O002`).
 
 ---
 

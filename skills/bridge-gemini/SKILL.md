@@ -9,6 +9,8 @@ context: reference
 
 This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for Gemini CLI dispatch.
 
+**Input schema, agent prompt template, output schema, verdict logic, timeout formula, artifact format, and status semantics are defined in `bridge-commons/SKILL.md`. This file covers only Gemini-specific connection detection and execution.**
+
 ## Bridge Identity
 
 ```yaml
@@ -20,6 +22,8 @@ connection_preference:
   2: cli              # Any other executor — gemini -p
   3: skip             # Neither — return SKIPPED (non-blocking)
 ```
+
+---
 
 ## Pre-Flight — Connection Detection
 
@@ -65,78 +69,11 @@ If not found → return immediately:
 
 Never fail or block — SKIPPED is a valid bridge outcome.
 
-## Input Format
-
-```json
-{
-  "bridge_input": {
-    "session_id": "...",
-    "scope": "Files and/or description of what to work on",
-    "task_description": "What the agent should do (review, plan, implement, analyze, etc.)",
-    "task_type": "review | planning | implementation | analysis | research",
-    "domains": ["domain1", "domain2"],
-    "context_summary": "What the conversation/task is about",
-    "intensity": "quick | standard | thorough"
-  }
-}
-```
-
-## Timeout Estimation
-
-**IMPORTANT: Do NOT use hardcoded timeouts.** Estimate based on review scope:
-
-```yaml
-scope_under_5_files_or_500_loc:
-  base_timeout: 60   # seconds
-
-scope_5_to_20_files_or_2000_loc:
-  base_timeout: 180
-
-scope_20_to_50_files_or_10k_loc:
-  base_timeout: 300
-
-scope_50_plus_files_or_10k_plus_loc:
-  base_timeout: 600
-
-intensity_multiplier:
-  quick: 0.5        # Faster, less depth
-  standard: 1.0     # Baseline
-  thorough: 1.5     # More depth = more time
-```
-
-Final timeout = `base_timeout * intensity_multiplier`
-
-## Prompt Construction
-
-Build the Gemini prompt from bridge_input. Adapt based on `task_type`:
-
-```
-You are a multi-domain expert. Your task: {task_description}
-
-SCOPE: {scope}
-CONTEXT: {context_summary}
-TASK TYPE: {task_type}
-DOMAINS: {domains joined with ", "}
-INTENSITY: {intensity}
-
-For each domain, act as the corresponding domain expert. For each output item, provide:
-- type: finding | recommendation | plan-item | implementation-note | observation
-- severity: CRITICAL | HIGH | MEDIUM | LOW | INFO  (for review/analysis types)
-- title: Short title
-- description: Detailed description
-- evidence: Specific reference
-- action: Recommended action
-- domain: Which domain this belongs to
-
-Return as JSON:
-{
-  "outputs": [...],
-  "summary": "...",
-  "verdict": "PASS | FAIL | CONCERNS | null"
-}
-```
+---
 
 ## Execution
+
+Build the prompt using the Agent Prompt Template from bridge-commons, adapting to `task_type`. Calculate timeout using bridge-commons formula (no bridge-specific multiplier for Gemini).
 
 ```bash
 TIMEOUT={calculated_timeout}
@@ -147,62 +84,54 @@ timeout $TIMEOUT gemini -p "$PROMPT" --approval-mode auto_edit --output-format j
 
 Error handling:
 - Exit code 0 with JSON → parse and return findings
-- Exit code 124 (timeout) → return SKIPPED with reason "timeout after {n}s"
-- Other exit codes → return SKIPPED with reason "gemini CLI error: {stderr}"
+- Exit code 124 (timeout) → return SKIPPED with reason `timeout_after_{n}s`
+- Other exit codes → return SKIPPED with reason `gemini CLI error: {stderr}`
 - Invalid JSON output → attempt to extract structured content, else SKIPPED
+
+After execution, run the bridge-commons consolidation pass (follow-up `gemini -p` prompt in same session if supported, or inline consolidation of parsed outputs).
 
 **Never block the calling orchestrator** — always return a report (even if SKIPPED).
 
-## Output Format
+---
+
+## Subagent Mode
+
+Gemini CLI supports custom subagents for parallel domain dispatch when `experimental.enableAgents` is set in `.gemini/settings.json`.
+
+```bash
+# Confirm subagents are enabled
+cat .gemini/settings.json 2>/dev/null | python3 -c \
+  "import sys,json; d=json.load(sys.stdin); print(d.get('experimental',{}).get('enableAgents', False))"
+```
+
+- If `true` → spawn one subagent per domain; run consolidation pass after all complete
+- If `false` or missing → run standard single Gemini call covering all domains (valid fallback)
+
+Subagent mode is a progressive enhancement. Record `subagent_mode: true/false` in output.
+
+---
+
+## Output
+
+See bridge-commons Output Schema. Bridge-specific fields:
 
 ```json
 {
   "bridge": "gemini",
   "model_family": "google/gemini",
   "connection_used": "native-dispatch | cli",
-  "session_id": "...",
-  "task_type": "review | planning | implementation | analysis | research",
-  "status": "COMPLETED | SKIPPED",
-  "skip_reason": "...",
-  "subagent_mode": true,
-  "domains_covered": [],
-  "outputs": [
-    {
-      "id": "G001",
-      "type": "finding | recommendation | plan-item | implementation-note | observation",
-      "severity": "CRITICAL | HIGH | MEDIUM | LOW | INFO",
-      "title": "...",
-      "description": "...",
-      "evidence": "...",
-      "action": "...",
-      "domain": "..."
-    }
-  ],
-  "verdict": "PASS | FAIL | CONCERNS | null",
-  "timeout_used": 180,
-  "confidence": "high | medium | low"
+  "subagent_mode": true
 }
 ```
 
-## Subagent Mode (Optional)
+Output ID prefix: `G` (e.g., `G001`, `G002`).
 
-Gemini CLI supports custom subagents for parallel domain dispatch when `experimental.enableAgents` is set in `.gemini/settings.json`.
-
-```bash
-# Check if subagents are enabled
-cat .gemini/settings.json 2>/dev/null | python3 -c \
-  "import sys,json; d=json.load(sys.stdin); print(d.get('experimental',{}).get('enableAgents', False))"
-```
-
-- If `true` → spawn one subagent per domain (see `cli-reference.md` for custom agent definition)
-- If `false` or missing → run standard single Gemini call covering all domains (valid fallback)
-
-Subagent mode is a progressive enhancement. Record `subagent_mode: true/false` in output.
+---
 
 ## Notes
 
 - Always check availability first — never assume gemini is installed
-- Use non-interactive mode only (`--approval-mode plan`)
-- JSON output flag `-o json` for structured parsing
-- Timeout is estimated from scope, not hardcoded — recalculate per review
+- Use non-interactive mode only (`--approval-mode auto_edit`; `plan` is experimental and unreliable)
+- Use `--output-format json` for structured parsing (not `-o json`)
+- Timeout is estimated from scope, not hardcoded — see bridge-commons formula
 - SKIPPED is a valid, non-error outcome

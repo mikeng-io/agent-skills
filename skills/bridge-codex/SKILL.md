@@ -9,6 +9,8 @@ context: reference
 
 This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for Codex review dispatch via MCP server or CLI.
 
+**Input schema, output schema, verdict logic, artifact format, and status semantics are defined in `bridge-commons/SKILL.md`. This file covers Codex-specific connection detection, reasoning level, prompt adaptation, and execution.**
+
 ## Bridge Identity
 
 ```yaml
@@ -182,8 +184,6 @@ If no interactive context is available, return `status: HALTED` with the full ad
 
 ---
 
----
-
 ## Reasoning Level Selection
 
 Evaluate the review context and select the Codex reasoning level **before** building the prompt. This applies to both MCP and CLI paths.
@@ -226,7 +226,7 @@ Store selected level in `reasoning_level` output field.
 
 ## Step 3: Build Domain Prompt
 
-Translate `bridge_input.domains` into a Codex multi-agent prompt that leverages Codex's native parallel agent spawning:
+Codex's multi-agent capability means the prompt is addressed to a **coordinator**, not a single domain expert. This differs from the bridge-commons Agent Prompt Template (which addresses one expert per call). Adapt as follows:
 
 ```
 You are a multi-agent code review coordinator. Spawn one agent per domain
@@ -241,47 +241,43 @@ Domains to analyze (spawn one agent per domain):
 {for each domain:
   "- {domain_name}: focus on {focus_areas from domain-registry}"}
 
-Each agent must return:
+Each agent must return outputs using the schema from bridge-commons:
 {
   "domain": "...",
-  "findings": [
+  "outputs": [
     {
       "severity": "CRITICAL | HIGH | MEDIUM | LOW | INFO",
       "title": "...",
       "description": "...",
       "evidence": "...",
-      "remediation": "..."
+      "action": "..."
     }
   ]
 }
 
-After all agents complete, consolidate all findings into:
+After all agents complete, consolidate all findings and return:
 {
   "domains_analyzed": [...],
-  "all_findings": [...],
+  "outputs": [...],
   "verdict": "PASS | FAIL | CONCERNS"
 }
 ```
 
+In single-agent mode, drop the coordinator framing and use the bridge-commons Agent Prompt Template directly, covering all domains in one prompt.
+
 ---
 
-## Step 4: Timeout Estimation
+## Timeout Estimation
 
-Multi-agent adds spawning overhead on top of base scope:
+Use bridge-commons base timeout table and intensity multiplier. Codex multi-agent adds sub-agent spawn overhead — apply a higher base when multi-agent is enabled:
 
 ```yaml
-scope_under_5_files_or_500_loc:    base_timeout: 90    # higher base for agent spawn overhead
-scope_5_to_20_files_or_2000_loc:   base_timeout: 240
-scope_20_to_50_files_or_10k_loc:   base_timeout: 450
-scope_50_plus_files_or_10k_plus:   base_timeout: 720
-
-intensity_multiplier:
-  quick: 0.5
-  standard: 1.0
-  thorough: 1.5
-
-final_timeout: base_timeout * intensity_multiplier   # seconds
+# When multi_agent_enabled: true — increase base by 50%
+# e.g., 5-20 files: 180s → 240s to account for agent spawn latency
+# When multi_agent_enabled: false — use bridge-commons base times directly
 ```
+
+No separate bridge multiplier otherwise.
 
 ---
 
@@ -325,7 +321,7 @@ Parameters:
   threadId: {threadId from previous call}
 ```
 
-See `cli-reference.md` for complete MCP parameter reference.
+The `codex-reply` call serves as the bridge-commons consolidation pass for the MCP path.
 
 ---
 
@@ -347,9 +343,7 @@ timeout {final_timeout} codex exec "{constructed_prompt}" \
   --config reasoning-effort={medium|high|xhigh}
 ```
 
-See `cli-reference.md` for complete flag reference.
-
-### CLI Error Handling:
+### CLI Error Handling
 
 | Exit code | Meaning | Action |
 |-----------|---------|--------|
@@ -360,48 +354,21 @@ See `cli-reference.md` for complete flag reference.
 
 ---
 
-## Step 5: Output Format
+## Output
+
+See bridge-commons Output Schema. Bridge-specific fields:
 
 ```json
 {
   "bridge": "codex",
   "model_family": "openai/codex",
   "connection_used": "native-dispatch | mcp | cli",
-  "session_id": "...",
-  "task_type": "review | planning | implementation | analysis | research",
-  "status": "COMPLETED | SKIPPED | HALTED | ABORTED",
-  "halt_reason": "cli_not_found | not_authenticated | mcp_setup_failed | null",
-  "halt_message": "Advisory text for caller to surface to user",
-  "skip_reason": "...",
-  "domains_covered": [],
-  "outputs": [
-    {
-      "id": "C001",
-      "type": "finding | recommendation | plan-item | implementation-note | observation",
-      "severity": "CRITICAL | HIGH | MEDIUM | LOW | INFO",
-      "title": "...",
-      "description": "...",
-      "evidence": "...",
-      "action": "...",
-      "domain": "..."
-    }
-  ],
-  "verdict": "PASS | FAIL | CONCERNS | null",
-  "timeout_used": 240,
   "multi_agent_enabled": true,
-  "reasoning_level": "medium | high | xhigh",
-  "confidence": "high | medium | low"
+  "reasoning_level": "medium | high | xhigh"
 }
 ```
 
-### Status Semantics (calling orchestrators must handle all four):
-
-| Status | Meaning | Orchestrator action |
-|--------|---------|---------------------|
-| `COMPLETED` | Review ran, findings returned | Include in synthesis |
-| `SKIPPED` | User chose skip, or non-fatal error | Note in report, continue |
-| `HALTED` | Pre-flight failed — needs user input | Surface `halt_message`, wait for user |
-| `ABORTED` | User chose to abort entire review | Stop the orchestrator |
+Output ID prefix: `X` (e.g., `X001`, `X002`).
 
 ---
 
@@ -412,7 +379,7 @@ See `cli-reference.md` for complete flag reference.
 - **`codex exec` ≠ `codex`** — bare `codex` opens an interactive session; always use `codex exec` for programmatic use
 - **`--sandbox read-only` + `--ask-for-approval never`** are required for analysis-only mode
 - **HALTED ≠ SKIPPED** — HALTED means the user must make a choice before the review can continue
-- **Model**: check latest via `codex models list` at runtime; omit to use server default — never hardcode a model name
+- **Model**: check latest via `codex prompt --models` at runtime; omit to use server default — never hardcode a model name
 - **X-high reasoning requires explicit user confirmation** before proceeding — never activate silently
 - **Reasoning level persists in output** (`reasoning_level` field) for caller transparency
-- Timeout accounts for multi-agent sub-agent spawn overhead
+- Timeout base increases when multi-agent is enabled (agent spawn overhead)
