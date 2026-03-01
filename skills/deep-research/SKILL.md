@@ -38,18 +38,61 @@ Execute this skill to perform comprehensive research on any topic using domain-a
 
 When invoked, you will:
 
-0. **Discover available research tools** using ToolSearch:
-   - Find all available web search MCP tools
-   - Discover browser automation tools (agent-browser skill, Playwright MCP, browser-tools)
-   - Identify documentation query tools
-   - Build tool inventory for research execution
-
-1. **Analyze the research intent** from the conversation to extract:
+0. **Resolve scope and context** — invoke context skill (always), then preflight if confidence is low
+1. **Discover available research tools** using ToolSearch
+2. **Analyze the research intent** from working_scope to extract:
    - Primary research topic/question
-   - Domains explicitly mentioned
-   - Domains inferred from context
+   - Confirmed domains (from working_scope)
    - Research depth and scope indicators
    - Research methodology requirements (web search, crawling, interactive)
+
+---
+
+## Step 0: Scope & Context Resolution
+
+**Context (always required):**
+
+Invoke `Skill("context")` first. It classifies the research topic, detects relevant domains, and assesses confidence:
+
+```yaml
+context_report:
+  artifact_type: ""  # code | financial | marketing | creative | research | mixed
+  domains: []        # matched domain names from domain-registry
+  routing: ""        # routing recommendation (informational for research)
+  confidence: ""     # high | medium | low
+```
+
+**Preflight (conditional — triggered by context confidence):**
+
+Invoke `Skill("preflight")` only if `context_report.confidence == "low"` OR one or more signals remain unresolved:
+- The research topic or question is not clearly stated
+- Research intent is ambiguous (background vs. deep dive vs. comparison?)
+- Domains cannot be inferred from available context
+
+Preflight fills exactly the gaps context could not resolve (max 3 questions, one at a time):
+
+```yaml
+scope_clarification:
+  artifact: ""       # primary research topic or question
+  intent: "research"
+  domains: []        # supplements context_report.domains
+  constraints: []    # explicit focus areas, excluded areas, depth preferences
+  confidence: ""     # high | medium
+```
+
+If `context_report.confidence == "high"` → skip preflight entirely.
+
+**Merge into working scope:**
+```yaml
+working_scope:
+  artifact: ""            # primary research topic or question
+  domains: []             # from context_report (authoritative), supplemented by preflight
+  constraints: []         # depth, focus, exclusion preferences
+  context_summary: ""     # combined description for researcher agent prompts
+  research_depth: ""      # BRIEF | STANDARD | COMPREHENSIVE (from constraints or defaults)
+```
+
+Use `working_scope` throughout this skill. Steps 1+ use it instead of re-extracting from conversation.
 
 2. **Create a research plan** with domain-aware effort allocation:
    - Primary domains get 70% of research effort

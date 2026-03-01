@@ -22,7 +22,8 @@ Execute this skill to run a multi-model review using all available bridge adapte
 
 When invoked, you will:
 
-1. Extract context and classify scope
+0. **Resolve scope and context** — invoke preflight (if sparse) + context skill in parallel
+1. Populate council context from working_scope
 2. Read and inventory available bridges
 3. Dispatch all available bridges in parallel via Task agents
 4. Synthesize findings across bridges using debate-protocol logic
@@ -30,26 +31,85 @@ When invoked, you will:
 
 ---
 
-## Step 1: Context Extraction
+## Step 0: Scope & Context Resolution
 
-Apply context analysis (inline — do not invoke as a separate skill):
+**Context (always required):**
+
+Invoke `Skill("context")` first. It classifies the artifact, detects domains from domain-registry, and determines routing confidence:
+
+```yaml
+context_report:
+  artifact_type: ""  # code | financial | marketing | creative | research | mixed
+  domains: []        # matched domain names from domain-registry
+  routing: ""        # parallel-workflow | debate-protocol | deep-council
+  confidence: ""     # high | medium | low
+```
+
+**Preflight (conditional — triggered by context confidence):**
+
+Invoke `Skill("preflight")` only if `context_report.confidence == "low"` OR one or more of these signals remains unresolved after context runs:
+- Artifact is not clearly identified
+- Intent is ambiguous (review vs. audit vs. verify vs. research)
+- Domains could not be detected
+- Scope is too broad to proceed
+
+Preflight asks at most 3 targeted questions (one at a time) to fill exactly the gaps context could not resolve:
+
+```yaml
+scope_clarification:
+  artifact: ""       # what to analyze
+  intent: ""         # review | audit | verify | research | explore
+  domains: []        # inferred domains (supplements context_report.domains)
+  constraints: []    # any explicit focus areas
+  confidence: ""     # high | medium
+```
+
+If `context_report.confidence == "high"` → skip preflight entirely.
+
+**Post-preflight validation** (only when preflight ran):
+
+```yaml
+if scope_clarification.confidence == "medium":
+  # Preflight completed but scope still contains assumptions
+  emit_warning: |
+    ⚠ Preflight returned confidence: medium — scope may contain unverified assumptions.
+    Assumptions made: {scope_clarification.assumptions}
+    Proceeding with available context. Findings may be scoped more narrowly than intended.
+  # Record warning in synthesis_notes of final report
+  # Do NOT block — proceed with the available working_scope
+```
+
+If `scope_clarification.confidence == "high"` after preflight → proceed normally.
+
+**Merge into working scope:**
+```yaml
+working_scope:
+  artifact: ""            # from context signals + scope_clarification if preflight ran
+  intent: ""              # from context or scope_clarification
+  domains: []             # from context_report (authoritative), supplemented by preflight
+  constraints: []         # from scope_clarification (empty if preflight skipped)
+  context_summary: ""     # combined description for agent prompts
+  intensity: ""           # from routing signals and any explicit user request
+```
+
+Use `working_scope` throughout this skill. Do not re-extract context from conversation after Step 0.
+
+---
+
+## Step 1: Populate Council Context
+
+Using `working_scope` from Step 0, populate the council context:
 
 ```yaml
 council_context:
-  review_scope: ""        # Files and/or description extracted from conversation
-  context_summary: ""     # What is being reviewed and why
-  artifact_type: ""       # code | financial | marketing | creative | research | mixed
-  domains: []             # Selected from domain-registry signals in conversation
-  intensity: "standard"   # quick | standard | thorough (from user request)
+  review_scope: ""        # from working_scope.artifact
+  context_summary: ""     # from working_scope.context_summary
+  artifact_type: ""       # from working_scope context_report.artifact_type
+  domains: []             # from working_scope.domains
+  intensity: "standard"   # from working_scope.intensity (quick | standard | thorough)
   review_id: ""           # Generate a unique ID: council-{YYYYMMDD-HHmmss}
-  task_type: "review"     # review | audit | research | planning | analysis | generic
-                          # Extracted from user intent — defaults to "review" for council runs
+  task_type: "review"     # from working_scope.intent — defaults to "review"
 ```
-
-**Extract from conversation:**
-- Files mentioned → `review_scope`
-- Topics, concerns, intent → `context_summary`
-- Domain signals → match against domain-registry trigger_signals
 
 **Optional: enrich with DeepWiki (if configured)**
 
@@ -309,6 +369,8 @@ disputed_preliminary:
 
 **Severity escalation rule:** If 2+ bridges independently rate the same issue CRITICAL or HIGH → escalate to the higher rating.
 
+**Stateless CLI path flag:** When two or more stateless CLI bridges (gemini CLI, codex CLI, opencode CLI) both confirm the same finding, add `"shared_cli_path": true` to the merged finding. These confirmations should be weighted as lower-confidence than genuine independent model-family agreement — stateless bridges embed prior-round context verbatim, and if both truncated to the same context window, "agreement" may reflect truncation-survivor correlation rather than independent discovery. The Debate Coordinator (Stage B) MUST apply additional scrutiny to findings marked `shared_cli_path: true`.
+
 After Stage A, you have a `preliminary_findings` list with initial classification. This is NOT the final output — proceed to Stage B.
 
 ---
@@ -449,6 +511,10 @@ PASS:
   "bridges_invoked": ["claude", "gemini", "codex", "opencode"],
   "bridges_available": ["claude", "gemini"],
   "bridges_skipped": ["codex", "opencode"],
+  "auto_skipped_halted_bridges": [
+    {"bridge": "{bridge}", "halt_reason": "{halt_reason}"}
+  ],
+  "partial_coverage": false,
   "skip_reasons": {
     "codex": "CLI not found, MCP not configured",
     "opencode": "CLI not found, MCP not configured"

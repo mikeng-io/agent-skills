@@ -22,7 +22,7 @@ Preflight resolves ambiguous scope before a deep-* skill runs its agents. It ask
 
 ## When to Invoke
 
-A calling skill should invoke preflight when **two or more** of the following are true:
+A calling skill should invoke preflight when **one or more** of the following are true:
 
 - No specific files, paths, or artifacts are mentioned in the conversation
 - The topic could span 3+ unrelated domains
@@ -36,7 +36,20 @@ If the calling skill can determine scope from context, **skip preflight** — do
 
 ## Execution Instructions
 
-### Step 1: Detect Missing Signals
+### Step 1: Determine Missing Signals
+
+Preflight is typically called by a deep-* skill after the `context` skill has already run. When that is the case, `context_report.missing_signals` is passed in — use it directly and skip re-detection:
+
+```yaml
+# If called with context_report.missing_signals (preferred):
+missing_signals: [from context_report]   # e.g. ["artifact", "intent"]
+# → Ask only about these. Skip questions for signals not in the list.
+
+# If called without context_report (standalone):
+# → Run signal detection below.
+```
+
+**Standalone signal detection** (only when context_report is not available):
 
 Analyze the conversation for these signals:
 
@@ -48,7 +61,7 @@ signal_check:
   scope_bounded: true | false          # is the scope narrow enough to proceed?
 ```
 
-If all four are `true` → **skip preflight entirely**, return the scope_clarification directly from context.
+If all four are `true` → **skip preflight entirely**, return scope_clarification directly from context.
 
 If any are `false` → ask about the missing signals, one question per message.
 

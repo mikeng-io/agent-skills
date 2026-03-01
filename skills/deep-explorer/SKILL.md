@@ -23,12 +23,60 @@ Execute this skill to explore and understand how a codebase works, using Git to 
 
 When invoked, you will:
 
-0. **Verify Git repository** - Ensure codebase is a Git repository
-1. **Determine exploration type** - Full (first run) or Delta (incremental)
-2. **Detect changes** - Use Git to find what changed since last exploration
-3. **Execute exploration** - Explore entire codebase (full) or changed areas (delta)
-4. **Generate report** - Comprehensive exploration or delta change report
-5. **Save baseline** - Store current commit reference for next exploration
+0. **Resolve scope and context** — invoke context skill (always), then preflight if confidence is low
+1. **Verify Git repository** - Ensure codebase is a Git repository
+2. **Determine exploration type** - Full (first run) or Delta (incremental)
+3. **Detect changes** - Use Git to find what changed since last exploration
+4. **Execute exploration** - Explore entire codebase (full) or changed areas (delta)
+5. **Generate report** - Comprehensive exploration or delta change report
+6. **Save baseline** - Store current commit reference for next exploration
+
+---
+
+## Step 0: Scope & Context Resolution
+
+**Context (always required):**
+
+Invoke `Skill("context")` first. It identifies what to explore, confirms artifact type, and establishes domain focus:
+
+```yaml
+context_report:
+  artifact_type: ""  # code | financial | marketing | creative | research | mixed
+  domains: []        # matched domain names from domain-registry
+  routing: ""        # routing recommendation (informational for explorer)
+  confidence: ""     # high | medium | low
+```
+
+**Preflight (conditional — triggered by context confidence):**
+
+Invoke `Skill("preflight")` only if `context_report.confidence == "low"` OR one or more signals remain unresolved:
+- The repository or directory to explore is not clearly identified
+- The exploration intent is ambiguous (full map vs. specific area?)
+- Domains or focus areas cannot be inferred
+
+Preflight fills exactly the gaps context could not resolve (max 3 questions, one at a time):
+
+```yaml
+scope_clarification:
+  artifact: ""       # repository or directory to explore
+  intent: "explore"
+  domains: []        # focus domains for exploration (supplements context_report.domains)
+  constraints: []    # specific areas to prioritize or exclude
+  confidence: ""     # high | medium
+```
+
+If `context_report.confidence == "high"` → skip preflight entirely.
+
+**Merge into working scope:**
+```yaml
+working_scope:
+  artifact: ""            # repository or directory to explore
+  domains: []             # from context_report, supplemented by preflight
+  constraints: []         # areas to prioritize or exclude
+  context_summary: ""     # combined description for explorer agent prompts
+```
+
+Use `working_scope` to focus exploration agents on relevant domains and files.
 
 ---
 

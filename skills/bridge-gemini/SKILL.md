@@ -53,7 +53,7 @@ If executor is not Gemini, or `enableAgents` is `false` or missing → proceed t
 which gemini
 ```
 
-If found → **use CLI path** (Execution section).
+If found → proceed to Check C.
 
 If not found → return immediately:
 
@@ -68,6 +68,32 @@ If not found → return immediately:
 ```
 
 Never fail or block — SKIPPED is a valid bridge outcome.
+
+---
+
+### Check C: Auth / Quota Probe
+
+A gemini CLI that is installed but has an expired token or exhausted quota passes Check B and then fails silently at execution time. Catch this at availability check instead:
+
+```bash
+# Lightweight probe — verifies auth without a full execution
+gemini --version 2>/dev/null
+# Or: a minimal non-interactive list/ping command if available
+```
+
+If the probe exits non-zero or returns an auth error → return:
+
+```json
+{
+  "bridge": "gemini",
+  "status": "SKIPPED",
+  "skip_reason": "gemini CLI auth probe failed: {stderr}",
+  "outputs": [],
+  "verdict": null
+}
+```
+
+If the probe succeeds → **use CLI path** (Execution section).
 
 ---
 

@@ -1,11 +1,27 @@
 {
-  "bridges": {
-    "claude":   { "enabled": true },
-    "gemini":   { "enabled": true },
-    "codex":    { "enabled": true, "model": null },
-    "opencode": { "enabled": true, "model": null, "models": [] }
-  },
-  "reasoning_level": "medium",
-  "updated": "2026-03-01T00:00:00Z",
-  "ttl_hours": 24
+	"_comment": "Suite-owned config — separate from any CLI tool's own config. Run deep-council with --reconfigure to update.",
+	"_ttl_note": "TTL check uses (current_time - updated) > ttl_hours in real time. Committed past timestamps self-expire on next run and trigger re-discovery.",
+	"_model_validation": "Model identifiers must be confirmed valid at runtime. Bridge availability checks will warn (not SKIP) if a model identifier cannot be resolved by the provider.",
+	"bridges": {
+		"claude": { "enabled": true },
+		"gemini": {
+			"enabled": true,
+			"model": null,
+			"_model_note": "Set to null to use Gemini's default model. To pin a version, verify identifier with: gemini --version or Gemini API docs."
+		},
+		"codex": {
+			"enabled": true,
+			"model": null,
+			"_model_note": "Set to null to use Codex server default. To pin a version, verify with: codex models list"
+		},
+		"opencode": {
+			"enabled": true,
+			"model": null,
+			"models": ["bailian-coding-plan/qwen3-max-2026-01-23", "bailian-coding-plan/MiniMax-M2.5", "bailian-coding-plan/kimi-k2.5", "bailian-coding-plan/glm-5"],
+			"_model_note": "Models must use provider/model format. Verify each identifier is valid for your OpenCode provider config before committing."
+		}
+	},
+	"reasoning_level": "high",
+	"updated": "2026-03-02T00:00:00Z",
+	"ttl_hours": 24
 }

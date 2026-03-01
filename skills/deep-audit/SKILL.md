@@ -23,7 +23,8 @@ Execute this skill to audit work against standards and compliance requirements w
 
 When invoked, you will:
 
-1. **Analyze the conversation context** to determine audit scope
+0. **Resolve scope and context** — invoke context skill (always), then preflight if confidence is low
+1. **Populate audit scope** from working_scope
 2. **Spawn auditor agents in parallel** for comprehensive checking
 3. **Aggregate violations** from all auditors
 4. **Generate audit report** with PASS/FAIL verdict
@@ -33,25 +34,74 @@ When invoked, you will:
 
 ---
 
-## Step 1: Analyze Conversation Context
+## Step 0: Scope & Context Resolution
 
-Analyze the recent conversation to extract audit scope:
+**Context (always required):**
+
+Invoke `Skill("context")` first. It classifies the artifact, detects domains from domain-registry, and determines routing confidence:
+
+```yaml
+context_report:
+  artifact_type: ""  # code | financial | marketing | creative | research | mixed
+  domains: []        # matched domain names from domain-registry
+  routing: ""        # parallel-workflow | debate-protocol | deep-council
+  confidence: ""     # high | medium | low
+```
+
+**Preflight (conditional — triggered by context confidence):**
+
+Invoke `Skill("preflight")` only if `context_report.confidence == "low"` OR one or more signals remain unresolved:
+- Artifact is not clearly identified
+- Standards or compliance requirements cannot be inferred
+- Domains could not be detected
+- Scope is too broad to audit meaningfully
+
+Preflight fills exactly the gaps context could not resolve (max 3 questions, one at a time):
+
+```yaml
+scope_clarification:
+  artifact: ""       # what to audit
+  intent: "audit"
+  domains: []        # supplements context_report.domains
+  constraints: []    # explicit standards, compliance requirements, focus areas
+  confidence: ""     # high | medium
+```
+
+If `context_report.confidence == "high"` → skip preflight entirely.
+
+**Merge into working scope:**
+```yaml
+working_scope:
+  artifact: ""            # files, topics, or description of what to audit
+  domains: []             # from context_report (authoritative), supplemented by preflight
+  standards: []           # inferred from domains, artifact type, and any explicit constraints
+  compliance: []          # inferred from context + scope_clarification
+  context_summary: ""     # combined description for auditor agent prompts
+```
+
+Use `working_scope` throughout this skill.
+
+---
+
+## Step 1: Populate Audit Scope
+
+Using `working_scope` from Step 0, populate the audit context:
 
 ```yaml
 audit_context:
-  files: []              # Files to audit
-  artifacts: []          # Other artifacts
-  topics: []             # Topics discussed
-  standards: []          # Standards mentioned (WCAG, OWASP, etc.)
-  compliance: []         # Compliance requirements (GDPR, HIPAA, etc.)
-  domain_inference: []   # Domains detected
+  files: []              # from working_scope.artifact
+  artifacts: []          # additional artifacts from working_scope
+  topics: []             # key topics from context_report
+  standards: []          # from working_scope.standards
+  compliance: []         # from working_scope.compliance
+  domain_inference: []   # from working_scope.domains
 ```
 
-**Infer audit requirements from:**
-- Explicit standards mentioned (e.g., "WCAG 2.1", "OWASP Top 10")
-- Compliance needs (e.g., "GDPR compliance", "SOC2")
-- Domain context (e.g., "healthcare app" → HIPAA)
-- File types (e.g., `.tsx` → accessibility, source files → language-specific style standards)
+**Infer audit requirements from working_scope:**
+- Explicit standards (e.g., "WCAG 2.1", "OWASP Top 10") → carry forward from constraints
+- Compliance needs (e.g., "GDPR compliance", "SOC2") → from compliance field
+- Domain context (e.g., "healthcare app" → HIPAA) → from domain-registry mapping
+- File types (e.g., `.tsx` → accessibility) → from artifact_type in context_report
 
 ---
 

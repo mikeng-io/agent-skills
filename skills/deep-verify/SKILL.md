@@ -24,19 +24,14 @@ Execute this skill to verify work through balanced expert analysis.
 
 When invoked, you will:
 
-1. **Analyze the conversation context** to extract:
-   - Files and artifacts mentioned
-   - Topics discussed
-   - Concerns raised
-   - User's intent
-
+0. **Resolve scope and context** — invoke context skill (always), then preflight if confidence is low
+1. **Populate verification scope** from working_scope
 2. **Generate expert agents** based on the extracted context:
    - Always spawn: Devil's Advocate, Integration Checker, Third-Party Reviewer
-   - Dynamically spawn domain experts based on what was discussed
+   - Dynamically spawn domain experts based on detected domains
 
    **Domain expert selection via domain-registry:**
-   Read domain-registry/domains/*.md to match conversation signals.
-   Replace hardcoded domain experts with domain-registry selections.
+   Read domain-registry/domains/*.md to match signals from working_scope.
    Minimum: 1 domain expert. No maximum.
 
 3. **Aggregate findings** from all experts with proper weighting
@@ -45,32 +40,67 @@ When invoked, you will:
 
 ---
 
-## Step 1: Analyze Conversation
+## Step 0: Scope & Context Resolution
 
-Analyze the recent conversation to extract:
+**Context (always required):**
+
+Invoke `Skill("context")` first. It classifies the artifact, detects domains from domain-registry, and determines routing confidence:
+
+```yaml
+context_report:
+  artifact_type: ""  # code | financial | marketing | creative | research | mixed
+  domains: []        # matched domain names from domain-registry
+  routing: ""        # parallel-workflow | debate-protocol | deep-council
+  confidence: ""     # high | medium | low
+```
+
+**Preflight (conditional — triggered by context confidence):**
+
+Invoke `Skill("preflight")` only if `context_report.confidence == "low"` OR one or more signals remain unresolved:
+- Artifact is not clearly identified
+- User's intent is unclear (what are we verifying?)
+- Domains could not be detected
+- Concerns or risks to verify are not stated
+
+Preflight fills exactly the gaps context could not resolve (max 3 questions, one at a time):
+
+```yaml
+scope_clarification:
+  artifact: ""       # what to verify
+  intent: "verify"
+  domains: []        # supplements context_report.domains
+  constraints: []    # explicit risks or concerns to focus on
+  confidence: ""     # high | medium
+```
+
+If `context_report.confidence == "high"` → skip preflight entirely.
+
+**Merge into working scope:**
+```yaml
+working_scope:
+  artifact: ""            # files, topics, or description of what to verify
+  domains: []             # from context_report (authoritative), supplemented by preflight
+  concerns: []            # from context signals and scope_clarification.constraints
+  context_summary: ""     # combined description for expert agent prompts
+```
+
+Use `working_scope` throughout this skill.
+
+---
+
+## Step 1: Populate Verification Scope
+
+Using `working_scope` from Step 0, extract the verification context:
 
 ```yaml
 conversation_analysis:
-  files: []        # File paths mentioned (e.g., "src/auth.go")
-  artifacts: []    # Other artifacts (e.g., "designs/mockup.fig")
-  topics: []       # Key topics discussed (e.g., "OAuth2", "authentication")
-  concerns: []     # What user is worried about (e.g., "token security")
-  intent: ""       # What user is doing (e.g., "implementation", "design")
-  domain_inference: []  # Domains detected from context
+  files: []        # from working_scope.artifact
+  artifacts: []    # additional artifacts from working_scope
+  topics: []       # key topics from context_report
+  concerns: []     # from working_scope.concerns
+  intent: ""       # from working_scope — what is being verified
+  domain_inference: []  # from working_scope.domains
 ```
-
-**Infer domains from:**
-- Topics mentioned (e.g., "authentication" → Security)
-- Artifacts referenced (e.g., "Figma" → Design)
-- Concerns expressed (e.g., "GDPR" → Compliance)
-- Language patterns used
-
-**Examples for domain inference (NOT exhaustive):**
-- Technical terms suggest technical domains
-- Creative language suggests design/marketing domains
-- Business language suggests business/finance domains
-- Legal language suggests compliance/legal domains
-- Any domain can be detected - analyze the conversation naturally
 
 ---
 

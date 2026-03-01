@@ -177,23 +177,35 @@ Routing priority: `deep-council` > `debate-protocol` > `parallel-workflow`
 
 ---
 
-## Step 5: Determine Confidence
+## Step 5: Determine Confidence and Surface Missing Signals
+
+Check each signal explicitly and record what could not be resolved:
+
+```yaml
+signal_resolution:
+  artifact_identified: true | false   # specific files/paths/topics clearly present?
+  intent_clear: true | false          # review? audit? verify? research? explore?
+  domains_detectable: true | false    # can domains be matched from domain-registry?
+  scope_bounded: true | false         # is scope narrow enough to proceed without clarification?
+```
+
+Build the `missing_signals` list from any signal that resolved to `false`:
+
+```yaml
+missing_signal_map:
+  artifact_identified: false  →  "artifact"
+  intent_clear: false         →  "intent"
+  domains_detectable: false   →  "domains"
+  scope_bounded: false        →  "scope"
+```
+
+Derive overall confidence from the resolved signals:
 
 ```yaml
 confidence_levels:
-  high:
-    - Explicit domain mentions in conversation
-    - Clear file types detected
-    - Unambiguous artifact type
-
-  medium:
-    - Inferred domains from technical terms
-    - Mixed signals with dominant pattern
-
-  low:
-    - Minimal conversation context
-    - Highly ambiguous signals
-    - New conversation with few messages
+  high:    all four signals true  →  preflight_needed: false
+  medium:  1 signal false         →  preflight_needed: true  (scope or domains)
+  low:     2+ signals false       →  preflight_needed: true  (artifact or intent unresolved)
 ```
 
 ---
@@ -212,12 +224,17 @@ context_report:
   routing: parallel-workflow | debate-protocol | deep-council
   debate_intensity: quick | standard | thorough   # Only if routing = debate-protocol
   confidence: high | medium | low
-  rationale: ""                 # Brief explanation of routing decision
+  preflight_needed: true | false   # true if any signal resolved to false in Step 5
+  missing_signals: []              # subset of ["artifact", "intent", "domains", "scope"]
+                                   # empty when preflight_needed: false
+  rationale: ""                    # Brief explanation of routing decision
   signals_detected:
     files: []
     topics: []
     explicit_mentions: []
 ```
+
+`missing_signals` is the direct handoff to preflight — it tells preflight exactly which questions to ask, so preflight skips questions for signals that context already resolved.
 
 Display this report to the user and/or return it to the calling skill.
 

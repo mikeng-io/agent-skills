@@ -1,0 +1,168 @@
+{
+  "type": "deep-council",
+  "review_id": "council-20260301-232500",
+  "verdict": "CONCERNS",
+  "timestamp": "2026-03-01T15:47:30Z",
+  "bridges_invoked": ["claude", "gemini", "codex", "opencode"],
+  "bridges_available": ["claude", "gemini", "codex", "opencode"],
+  "bridges_skipped": [],
+  "skip_reasons": {},
+  "domains_covered": ["api", "async-queue", "content", "operations"],
+  "intensity": "standard",
+  "debate_rounds": 2,
+  "auto_skipped_halted_bridges": [],
+  "partial_coverage": false,
+  "multi_model_confirmed": [
+    {
+      "id": "MMC001",
+      "severity": "HIGH",
+      "title": "HALTED/SKIPPED Semantics Contract Broken",
+      "description": "The HALTED vs SKIPPED status contract is inconsistently defined across TOPOLOGY, bridge-commons, and individual bridge files. bridge-commons defines HALTED as 'wait; do not continue', but deep-council silently auto-SKIPs HALTED bridges in non-interactive mode. The conversion policy exists only in deep-council prose and is absent from bridge-commons, TOPOLOGY, and council-report-schema.json.",
+      "evidence": "bridge-commons HALTED vs SKIPPED table; TOPOLOGY lines 25-26; bridge-codex Step 2; bridge-opencode Step 2; deep-council Step 5 non-interactive default; council-report-schema.json (no auto_skipped_halted_bridges field)",
+      "remediation": "Add HALTED→SKIPPED conversion policy to bridge-commons. Add auto_skipped_halted_bridges as a required field in council-report-schema.json and Step 7 template. Align TOPOLOGY.",
+      "confirmed_by": ["claude", "gemini", "codex", "opencode"],
+      "da_challenged": true,
+      "domains": ["api", "operations"]
+    },
+    {
+      "id": "MMC002",
+      "severity": "HIGH",
+      "title": "Stateless CLI Context Overflow",
+      "description": "CLI bridges (Gemini CLI, Codex CLI, OpenCode CLI) must embed all previous-round findings in Round N prompts. No size limit, summarization strategy, or file-based injection path exists. Silent truncation is indistinguishable from valid partial responses.",
+      "evidence": "bridge-commons Context Passing Between Rounds (stateless paths); bridge-gemini Execution; bridge-codex Step 3B; bridge-opencode Step 3B",
+      "remediation": "Add maximum context size constant to bridge-commons. Require stateless bridges to summarize prior-round findings above threshold before embedding.",
+      "confirmed_by": ["claude", "gemini"],
+      "da_challenged": true,
+      "domains": ["async-queue"]
+    },
+    {
+      "id": "MMC003",
+      "severity": "LOW",
+      "title": "Bridge Input Alias Fragmentation",
+      "description": "session_id/scope are canonical in bridge-commons but review_id/review_scope aliases persist in bridge templates without a centralized deprecation policy. The aliasing relationship is documented in deep-council Step 4 comment, but no deprecation timeline or removal path exists.",
+      "evidence": "deep-council Step 4 Bridge Input comment; bridge-commons Input Schema; bridge-codex SKILL.md templates",
+      "remediation": "Define deprecation timeline for review_id/review_scope aliases in bridge-commons.",
+      "confirmed_by": ["gemini", "codex"],
+      "da_challenged": true,
+      "domains": ["api"]
+    },
+    {
+      "id": "MMC004",
+      "severity": "LOW",
+      "title": "TTL Logic (self-correcting by design)",
+      "description": "TTL is checked at discovery phase only and uses a stored timestamp. DA challenge confirmed the mechanism is functional: (current_time - updated) > ttl_hours is a real-time comparison. Committed past timestamps self-expire on next run.",
+      "evidence": "deep-council Step 1B TTL check; .bridge-settings.json",
+      "remediation": "Add clarifying comment to .bridge-settings.json schema docs about TTL behavior.",
+      "confirmed_by": ["gemini", "opencode"],
+      "da_challenged": true,
+      "domains": ["operations"]
+    }
+  ],
+  "single_source_findings": [
+    {
+      "id": "SS002",
+      "severity": "MEDIUM",
+      "title": "Preflight Threshold Contradiction",
+      "description": "preflight/SKILL.md says 'two or more signals unresolved' triggers preflight. All calling skills say 'one or more signals unresolved'. Directly contradictory threshold definitions in co-authoritative documents.",
+      "source_bridge": "claude",
+      "domains": ["content"]
+    },
+    {
+      "id": "SS004",
+      "severity": "MEDIUM",
+      "title": "Missing 'audit' task_type in bridge-commons",
+      "description": "bridge-commons task_type enum excludes 'audit'. Audit-intent tasks default to 'review' framing with review verdict thresholds, miscalibrating compliance audit results.",
+      "source_bridge": "gemini",
+      "domains": ["api"]
+    },
+    {
+      "id": "SS007",
+      "severity": "MEDIUM",
+      "title": "Gemini Bridge Has No Auth Check",
+      "description": "bridge-gemini has no auth or quota probe beyond which gemini, while bridge-codex and bridge-opencode both perform explicit auth checks. A broken gemini installation produces SKIPPED at execution rather than surfacing the gap at availability check.",
+      "source_bridge": "codex",
+      "domains": ["operations"]
+    },
+    {
+      "id": "SS009",
+      "severity": "LOW",
+      "title": "Duplicate Step 2 in bridge-opencode",
+      "description": "bridge-opencode/SKILL.md has two sections labeled Step 2. Structural documentation defect.",
+      "source_bridge": "opencode",
+      "domains": ["content"]
+    },
+    {
+      "id": "SS010",
+      "severity": "MEDIUM",
+      "title": "Model Identifiers in .bridge-settings.json May Be Invalid",
+      "description": "Committed model identifiers (gemini-3.1-pro-preview, gpt-5.3-codex) are not confirmed valid. Per-model failures degrade coverage silently.",
+      "source_bridge": "opencode",
+      "domains": ["operations"]
+    }
+  ],
+  "integration_findings": [
+    {
+      "id": "INT001",
+      "severity": "HIGH",
+      "title": "auto_skipped_halted_bridges Missing from Output Schema",
+      "description": "deep-council Step 5 introduces auto_skipped_halted_bridges in prose but the field is absent from council-report-schema.json and the Step 7 JSON template. Council verdicts can silently reflect fewer bridges than the user expects with no machine-readable partial-coverage flag.",
+      "evidence": "deep-council Step 5 non-interactive default; council-report-schema.json required fields; Step 7 JSON template",
+      "remediation": "Add auto_skipped_halted_bridges and partial_coverage fields to council-report-schema.json and Step 7 template.",
+      "domains": ["integration"]
+    },
+    {
+      "id": "INT002",
+      "severity": "HIGH",
+      "title": "Context Truncation Inflates Multi-Model Confirmation Confidence",
+      "description": "Stateless CLI context overflow (MMC002) and Stage A 70% overlap threshold interact: two bridges that both truncate to the same recent context window can produce false multi-model agreement. Stage A treats truncation-survivor agreement as genuine independent convergence.",
+      "evidence": "bridge-commons Context Passing Between Rounds; deep-council Stage A deduplication threshold; bridge output schema (no truncation_detected field)",
+      "remediation": "Add shared_cli_path flag to Stage A. Require bridges to report approximate prompt size per round.",
+      "domains": ["integration"]
+    },
+    {
+      "id": "INT003",
+      "severity": "MEDIUM",
+      "title": "audit task_type Gap Miscalibrates Verdict Thresholds",
+      "description": "SS004 and bridge-commons Verdict Logic combine: audit-intent runs dispatched as task_type review use review verdict thresholds calibrated for findings, not compliance requirements. A MEDIUM compliance gap may warrant FAIL under audit framing but produces CONCERNS under review framing.",
+      "evidence": "bridge-commons task_type enum; bridge-commons Verdict Logic; deep-council Step 1 task_type default",
+      "remediation": "Add 'audit' task_type to bridge-commons with compliance-calibrated verdict logic.",
+      "domains": ["integration"]
+    },
+    {
+      "id": "INT004",
+      "severity": "MEDIUM",
+      "title": "Preflight Threshold Mismatch Propagates to All Bridge Task Prompts",
+      "description": "When deep-council triggers preflight under the 'one or more' threshold but preflight's spec would self-terminate at 'two or more', preflight runs in an under-determined state and may return assumption-filled scope. This underdetermined working_scope flows into bridge_input for all four bridge Task prompts simultaneously.",
+      "evidence": "preflight/SKILL.md When to Invoke; deep-council Step 0; bridge_input construction Step 4",
+      "remediation": "Align thresholds. Add scope_clarification.confidence validation in deep-council Step 0 post-preflight.",
+      "domains": ["integration"]
+    }
+  ],
+  "disputed_findings": [
+    {
+      "id": "SS001",
+      "title": "No Protocol Compliance Verification",
+      "severity": "MEDIUM",
+      "positions": [
+        {"bridge": "claude", "severity": "HIGH", "position": "MUST obligations in bridge-commons have no enforcement mechanism; weaker forms (schema validation, field presence checks) are implementable"},
+        {"da_challenge": "LLM compliance verification is a fundamental epistemic ceiling, not a fixable design gap; adding runtime checks would require a meta-agent subject to the same uncertainty"}
+      ]
+    },
+    {
+      "id": "SS005",
+      "title": "task_description/context_summary Conflation",
+      "severity": "LOW",
+      "positions": [
+        {"bridge": "gemini", "severity": "MEDIUM", "position": "Collapsing action-oriented instructions and background context into the same value weakens framing fidelity"},
+        {"da_challenge": "Redundancy is not destructive; agents receive the value in two labelled prompt slots (TASK: and CONTEXT:)"}
+      ]
+    }
+  ],
+  "withdrawn_findings": [
+    {"id": "SS003", "title": "No Session-Level Idempotency", "reason": "Timestamp-scoped filenames prevent file collision by design; premise was factually incorrect"},
+    {"id": "SS006", "title": "Debate Coordinator SPOF", "reason": "Every Task agent spawn carries equivalent SPOF risk; no architectural distinction"},
+    {"id": "SS011", "title": "Single Agent Performing Both DA and IC Roles", "reason": "All bridge SKILL.md files explicitly define separate DA and IC agents; finding had no textual support"},
+    {"id": "SS008", "title": "Bridge Control-Plane Cascade (standalone)", "reason": "Subsumed into INT001 which provides a more precise formulation with specific schema evidence"}
+  ],
+  "synthesis_notes": "All four bridges returned CONCERNS independently. No CRITICAL findings. Architecture is coherent; the two-layer debate design, bridge-commons contract, and domain-registry routing are sound. The HALTED/SKIPPED semantic inconsistency (MMC001, 4/4 bridges) is the primary structural gap. Context overflow risk (MMC002 + INT002) affects the reliability of multi-model confirmation itself. Three findings were withdrawn by DA challenge, demonstrating the suite's own debate protocol functioning correctly in this audit."
+}

@@ -139,7 +139,7 @@ Return `status: HALTED` with the full advisory in `halt_message`. Never silently
 
 ---
 
-## Step 2: Read Multi-Model Configuration
+## Step 3: Read Multi-Model Configuration
 
 Before estimating timeout, check bridge settings for a `models` array. This is a **suite-owned config file** — separate from OpenCode's own `~/.config/opencode/` config — that tells the bridge which models to use for multi-model dispatch.
 

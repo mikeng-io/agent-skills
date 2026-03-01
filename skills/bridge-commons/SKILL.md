@@ -41,9 +41,11 @@ If none of steps 1–3 succeed → return `status: SKIPPED` immediately. Never b
 | Status | Cause | Orchestrator action |
 |--------|-------|---------------------|
 | `SKIPPED` | Non-fatal unavailability — CLI missing, timeout, parse failure | Non-blocking — continue with other bridges |
-| `HALTED` | Requires user decision — no provider configured, explicit user abort | Surface `halt_message` and wait; do not continue |
+| `HALTED` | Requires user decision — no provider configured, explicit user abort | **Interactive:** Surface `halt_message` and wait for user input before proceeding. **Non-interactive / auto-mode:** Orchestrator converts to SKIPPED — record `{"bridge": "...", "halt_reason": "..."}` in the council report's `auto_skipped_halted_bridges` array and set `partial_coverage: true`. Never drop silently — the conversion must always be recorded. |
 | `ABORTED` | User chose to stop the entire operation | Stop the orchestrator |
 | `COMPLETED` | Task ran and outputs are available | Include in synthesis |
+
+**HALTED→SKIPPED conversion is an orchestrator responsibility.** Bridges return `HALTED` when user input is required; the orchestrator decides whether to wait (interactive) or convert to SKIPPED (non-interactive). This conversion policy must appear in the orchestrator's output — `auto_skipped_halted_bridges` is a required field on any council report that auto-converts HALTED bridges.
 
 ---
 
@@ -84,7 +86,7 @@ All bridges accept this standard input:
     "session_id": "unique identifier for this session",
     "scope": "files, topics, or description of what to work on",
     "task_description": "what the agent should do",
-    "task_type": "review | planning | implementation | analysis | research",
+    "task_type": "review | planning | implementation | analysis | research | audit",
     "domains": ["domain1", "domain2"],
     "context_summary": "brief description of context",
     "intensity": "quick | standard | thorough"
@@ -101,6 +103,7 @@ All bridges accept this standard input:
 | `planning` | `plan-item` | "What should be done and in what order?" |
 | `implementation` | `implementation-note` | "What is needed to build this correctly?" |
 | `research` | `observation`, `recommendation` | "What do we know? What are the options?" |
+| `audit` | `finding`, `compliance-gap` | "Does this meet the stated requirement?" — Compliance-calibrated: unmet MUST → HIGH; unmet SHOULD → MEDIUM; met requirements → INFO. |
 
 ---
 
@@ -177,13 +180,23 @@ Return your output as JSON:
 
 ## Verdict Logic
 
-Apply only when `task_type` is `review` or `analysis`. Set `null` for all other task types.
+Apply only when `task_type` is `review`, `analysis`, or `audit`. Set `null` for all other task types.
+
+**For `review` and `analysis`:**
 
 | Verdict | Condition |
 |---------|-----------|
 | `FAIL` | Any `CRITICAL` output |
 | `CONCERNS` | One or more `HIGH` outputs, or three or more `MEDIUM` outputs |
 | `PASS` | No `CRITICAL` or `HIGH`; only `MEDIUM`, `LOW`, or `INFO` |
+
+**For `audit`** (compliance-calibrated — unmet requirements warrant stricter verdicts):
+
+| Verdict | Condition |
+|---------|-----------|
+| `FAIL` | Any `CRITICAL` output, or two or more `HIGH` compliance-gaps |
+| `CONCERNS` | One `HIGH` compliance-gap, or three or more `MEDIUM` compliance-gaps |
+| `PASS` | No `CRITICAL` or `HIGH`; all requirements met or only `LOW`/`INFO` gaps |
 
 ---
 
@@ -224,7 +237,10 @@ Apply only when `task_type` is `review` or `analysis`. Set `null` for all other 
     }
   ],
   "verdict": "PASS | FAIL | CONCERNS | null",
-  "confidence": "high | medium | low"
+  "confidence": "high | medium | low",
+  "prompt_size_chars_r1": null,
+  "prompt_size_chars_r2": null,
+  "model_validation_warnings": []
 }
 ```
 
@@ -451,6 +467,19 @@ Since non-Claude bridges lack async messaging, context flows **explicitly** — 
 
 For bridges with session continuity (OpenCode HTTP, Codex MCP), the Round 2 prompt only needs to include the context packet — the session already has Round 1 history. For stateless bridges, embed the full previous-round findings in the prompt.
 
+### Stateless Context Size Limit
+
+**Maximum embedded context for stateless Round N prompts: 32,000 characters** (combined previous-round findings + context packet).
+
+When previous-round outputs would exceed this limit:
+
+1. Summarize each finding to: `id`, `title`, `severity`, `description` only (drop `evidence`, `action`, `agent`)
+2. If still over limit: retain CRITICAL and HIGH findings verbatim; reduce MEDIUM/LOW to one-line summaries (`"id: title (severity)"`)
+3. Annotate the Round N prompt with: `"NOTE: Prior round context summarized due to size (>32k chars). Full outputs in .outputs/bridges/ artifact."`
+4. Record approximate prompt size per round in the bridge output as `prompt_size_chars_r{n}` (e.g., `prompt_size_chars_r2: 28500`)
+
+**Bridges MUST NOT silently truncate.** Silent truncation produces Round N responses that are indistinguishable from valid full-context responses and corrupts multi-model confirmation reliability.
+
 ---
 
 ### Consolidation (after final round)
@@ -604,6 +633,13 @@ Models must use `provider/model` format as required by OpenCode (e.g., `glm/glm-
 
 `model` (singular): legacy single-model override — ignored when `models` array has entries.
 
+**Model identifier validation:** During bridge availability checks, if a model identifier is specified in `.bridge-settings.json`, bridges SHOULD perform a lightweight validation probe (e.g., `codex models list`, `opencode auth list`) to confirm the identifier is resolvable. If a model cannot be resolved:
+- Emit a **warning** in the bridge output (not SKIPPED — the bridge itself may still work with the provider's default model)
+- Record: `"model_validation_warnings": [{"model": "...", "reason": "not found in provider model list"}]`
+- Continue execution with the provider's default model if the specified model is invalid
+
+This prevents silent capability reduction when committed model identifiers become stale.
+
 ---
 
 ## Notes
@@ -611,5 +647,16 @@ Models must use `provider/model` format as required by OpenCode (e.g., `glm/glm-
 - Bridges do not modify source files unless `task_type` is `implementation`
 - Bridges do not make external network calls beyond what their connected runtime provides
 - `SKIPPED` is always non-blocking — orchestrators must handle it gracefully
-- `HALTED` requires explicit user input before the bridge can continue or be skipped
+- `HALTED` requires explicit user input (interactive) or orchestrator conversion to SKIPPED (non-interactive) — never silently dropped
 - All fields in the output schema are required; use `null` where not applicable
+
+### Input Field Aliases (Deprecated)
+
+`session_id` and `scope` are the canonical bridge-commons field names. The following aliases exist in deep-council Step 4 for backward compatibility and will be removed in a future version:
+
+| Alias | Canonical name | Removal target |
+|-------|---------------|----------------|
+| `review_id` | `session_id` | v3.0 |
+| `review_scope` | `scope` | v3.0 |
+
+Bridges MUST accept both forms. New orchestrators SHOULD use canonical names only.

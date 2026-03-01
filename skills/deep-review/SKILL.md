@@ -23,7 +23,8 @@ Execute this skill to get constructive feedback and improvement suggestions thro
 
 When invoked, you will:
 
-1. **Analyze the conversation context** to extract what needs review
+0. **Resolve scope and context** — invoke context skill (always), then preflight if confidence is low
+1. **Populate review scope** from working_scope
 2. **Spawn reviewer agents in parallel** for comprehensive feedback
 3. **Aggregate suggestions** from all reviewers with proper weighting
 4. **Generate improvement report** with actionable recommendations
@@ -33,25 +34,67 @@ When invoked, you will:
 
 ---
 
-## Step 1: Analyze Conversation Context
+## Step 0: Scope & Context Resolution
 
-Analyze the recent conversation to extract review scope:
+**Context (always required):**
+
+Invoke `Skill("context")` first. It classifies the artifact, detects domains from domain-registry, and determines routing confidence:
+
+```yaml
+context_report:
+  artifact_type: ""  # code | financial | marketing | creative | research | mixed
+  domains: []        # matched domain names from domain-registry
+  routing: ""        # parallel-workflow | debate-protocol | deep-council
+  confidence: ""     # high | medium | low
+```
+
+**Preflight (conditional — triggered by context confidence):**
+
+Invoke `Skill("preflight")` only if `context_report.confidence == "low"` OR one or more signals remain unresolved:
+- Artifact is not clearly identified
+- Intent is ambiguous (what aspect to improve?)
+- Domains could not be detected
+- Scope is too broad
+
+Preflight fills exactly the gaps context could not resolve (max 3 questions, one at a time):
+
+```yaml
+scope_clarification:
+  artifact: ""       # what to review
+  intent: "review"
+  domains: []        # supplements context_report.domains
+  constraints: []    # explicit areas to focus on (e.g., "performance", "security")
+  confidence: ""     # high | medium
+```
+
+If `context_report.confidence == "high"` → skip preflight entirely.
+
+**Merge into working scope:**
+```yaml
+working_scope:
+  artifact: ""            # files, topics, or description of what to review
+  domains: []             # from context_report (authoritative), supplemented by preflight
+  concerns: []            # from context signals and scope_clarification.constraints
+  context_summary: ""     # combined description for reviewer agent prompts
+```
+
+Use `working_scope` throughout this skill.
+
+---
+
+## Step 1: Populate Review Scope
+
+Using `working_scope` from Step 0, populate the review context:
 
 ```yaml
 review_context:
-  files: []              # Files mentioned (e.g., "src/auth.go")
-  artifacts: []          # Other artifacts (e.g., "designs/mockup.fig")
-  topics: []             # Topics discussed (e.g., "authentication", "performance")
-  concerns: []           # What user is concerned about
-  intent: ""             # What user wants to improve
-  domain_inference: []   # Domains detected from context
+  files: []              # from working_scope.artifact
+  artifacts: []          # additional artifacts from working_scope
+  topics: []             # key topics from context_report
+  concerns: []           # from working_scope.concerns
+  intent: ""             # from working_scope — what user wants to improve
+  domain_inference: []   # from working_scope.domains
 ```
-
-**Infer domains from:**
-- Topics mentioned (e.g., "authentication" → Security)
-- Artifacts referenced (e.g., "Figma" → Design)
-- Concerns expressed (e.g., "slow queries" → Performance)
-- Language patterns used
 
 ---
 
