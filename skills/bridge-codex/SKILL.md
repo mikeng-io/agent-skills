@@ -21,15 +21,67 @@ bridge: codex
 model_family: openai/codex
 availability: conditional
 connection_preference:
-  1: native-dispatch  # Executor is Codex — multi-agent dispatch (experimental)
-  2: mcp              # Any executor with MCP access — mcp__codex__codex server
-  3: cli              # Any other executor — codex exec
-  4: halt             # None available — surface advisory, offer setup
+  1: native-dispatch # Executor is Codex — use internal multi-agent capability
+  2: mcp # Any executor with MCP access — mcp__codex__codex server
+  3: cli # Fallback — codex exec
+  4: halt # None available — surface advisory, offer setup
+
+native_dispatch:
+  detection: "CODEX_SESSION_ID set AND codex features list shows multi_agent enabled"
+  reliability: "MEDIUM — env var check + feature verification"
+  multi_agent: true # Codex can spawn parallel domain experts internally
 ```
 
 ---
 
 ## Step 1: Pre-Flight — Connection Detection
+
+**MUST read `bridge-commons/tool-discovery.md` first** to understand the discovery protocol.
+
+### Step 1.0: Discover Execution Context
+
+Before checking connection paths, discover what dispatch methods are available in the CURRENT execution context.
+
+**Primary detection: Native Codex execution**
+
+```yaml
+codex_native:
+  signal_1: "CODEX_SESSION_ID environment variable is set"
+  signal_2: "codex features list shows multi_agent enabled"
+  check: |
+    if [ -n "$CODEX_SESSION_ID" ]; then
+      codex features list 2>/dev/null | grep -q "multi_agent.*enabled"
+    fi
+  reliability: MEDIUM (requires both env var AND feature check)
+
+mcp_available:
+  signal: "mcp__codex__codex tool is accessible"
+  check: "Attempt to list MCP tools or check .mcp.json for codex server"
+  reliability: HIGH (actual tool availability)
+```
+
+**If running INSIDE Codex with multi-agent enabled**:
+
+```json
+{
+  "executor_type": "codex",
+  "native_dispatch": {
+    "available": true,
+    "multi_agent": true,
+    "session_continuity": true
+  },
+  "mcp_tools": {
+    "available": false
+  },
+  "recommended_dispatch": "native"
+}
+```
+
+→ **Use native dispatch** (Step 3N). This allows Codex to spawn parallel domain experts internally.
+
+**If NOT running inside Codex**, proceed to Check A.
+
+---
 
 ### Check A: Native Dispatch?
 
@@ -43,7 +95,7 @@ echo ${CODEX_SESSION_ID:+found}
 codex features list 2>/dev/null | grep -q "multi_agent" && echo "enabled"
 ```
 
-If in a Codex session AND multi-agent is enabled → **use native dispatch** (multi-agent path).
+If in a Codex session AND multi-agent is enabled → **use native dispatch** (Step 3N).
 
 This is an experimental feature. If multi-agent is not enabled, or the executor is not Codex → proceed to Check B.
 
@@ -193,13 +245,14 @@ Evaluate the review context and select the Codex reasoning level **before** buil
 
 ### Decision Signals
 
-| Signal | Reasoning Level |
-|--------|----------------|
-| Security audit, cryptographic review, financial compliance | `xhigh` |
-| Multi-component architecture, 3+ CRITICAL findings expected, complex dependency chains | `high` |
-| Standard code review, single-domain analysis, routine audit | `medium` |
+| Signal                                                                                 | Reasoning Level |
+| -------------------------------------------------------------------------------------- | --------------- |
+| Security audit, cryptographic review, financial compliance                             | `xhigh`         |
+| Multi-component architecture, 3+ CRITICAL findings expected, complex dependency chains | `high`          |
+| Standard code review, single-domain analysis, routine audit                            | `medium`        |
 
 **Evaluate in this order:**
+
 1. If request explicitly mentions "critical", "security", "cryptographic", "financial", "compliance" → `xhigh`
 2. If scope covers 20+ files OR 3+ domains with HIGH risk signals → `high`
 3. Otherwise → `medium`
@@ -359,12 +412,12 @@ For the Post-Analysis Protocol via CLI, use separate `codex exec` calls per roun
 
 ### CLI Error Handling
 
-| Exit code | Meaning | Action |
-|-----------|---------|--------|
-| 0 | Success | Parse `--output-last-message` file for findings |
-| 124 | Timeout (shell) | Return SKIPPED, `skip_reason: timeout_after_{n}s` |
-| Other | CLI error | Capture stderr, return SKIPPED with error detail |
-| Valid exit, invalid JSON | Parse error | Attempt partial extraction; else SKIPPED |
+| Exit code                | Meaning         | Action                                            |
+| ------------------------ | --------------- | ------------------------------------------------- |
+| 0                        | Success         | Parse `--output-last-message` file for findings   |
+| 124                      | Timeout (shell) | Return SKIPPED, `skip_reason: timeout_after_{n}s` |
+| Other                    | CLI error       | Capture stderr, return SKIPPED with error detail  |
+| Valid exit, invalid JSON | Parse error     | Attempt partial extraction; else SKIPPED          |
 
 ---
 

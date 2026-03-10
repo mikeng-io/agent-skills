@@ -42,7 +42,14 @@ npx skills add mikeng-io/agent-skills --all
 git clone https://github.com/mikeng-io/agent-skills
 cd agent-skills
 
-# Symlink skills for local development
+# Required foundation (deep-* skills depend on these)
+ln -s $(pwd)/skills/domain-registry ~/.claude/skills/domain-registry
+ln -s $(pwd)/skills/context ~/.claude/skills/context
+ln -s $(pwd)/skills/preflight ~/.claude/skills/preflight
+ln -s $(pwd)/skills/parallel-workflow ~/.claude/skills/parallel-workflow
+ln -s $(pwd)/skills/debate-protocol ~/.claude/skills/debate-protocol
+
+# Deep skills
 ln -s $(pwd)/skills/deep-explorer ~/.claude/skills/deep-explorer
 ln -s $(pwd)/skills/deep-review ~/.claude/skills/deep-review
 ln -s $(pwd)/skills/deep-audit ~/.claude/skills/deep-audit
@@ -50,9 +57,12 @@ ln -s $(pwd)/skills/deep-verify ~/.claude/skills/deep-verify
 ln -s $(pwd)/skills/deep-research ~/.claude/skills/deep-research
 ln -s $(pwd)/skills/deep-council ~/.claude/skills/deep-council
 
-# Optional — also install foundation components
-ln -s $(pwd)/skills/context ~/.claude/skills/context
-ln -s $(pwd)/skills/debate-protocol ~/.claude/skills/debate-protocol
+# Optional — multi-model council bridges
+ln -s $(pwd)/skills/bridge-commons ~/.claude/skills/bridge-commons
+ln -s $(pwd)/skills/bridge-claude ~/.claude/skills/bridge-claude
+ln -s $(pwd)/skills/bridge-gemini ~/.claude/skills/bridge-gemini
+ln -s $(pwd)/skills/bridge-codex ~/.claude/skills/bridge-codex
+ln -s $(pwd)/skills/bridge-opencode ~/.claude/skills/bridge-opencode
 ```
 
 ---

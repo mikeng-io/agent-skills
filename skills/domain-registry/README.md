@@ -1,139 +1,209 @@
 # Domain Registry
 
-A reference library of domain knowledge used by deep-* skills to select appropriate expert agents.
+Reference library of domain definitions used by deep-\* skills to select appropriate expert agents for a given artifact type.
 
-## What is this?
-
-Domain Registry is NOT a runnable skill. It is a structured reference library. Skills like `deep-verify`, `deep-audit`, `deep-review`, `deep-explorer`, `deep-research`, and `deep-council` read files from this directory using the `Read` tool to determine which domain experts to spawn for a given review.
-
-## How skills use it
-
-1. Skill analyzes conversation context for signals (file types, topics, concerns)
-2. Skill reads `domains/technical.md`, `domains/business.md`, or `domains/creative.md`
-3. Skill matches detected signals against each domain's `trigger_signals`
-4. Skill selects all matching domains (minimum 1, no maximum)
-5. Skill resolves each domain to an expert using the **Lookup Protocol** below
-6. Skill spawns expert agents with the resolved role, focus areas, and standards
+**This is a REFERENCE LIBRARY.** Skills read it via the `Read` tool to determine which domain experts to spawn. It is never invoked directly.
 
 ---
 
-## Lookup Protocol
+## Overview
 
-The registry is a starting library, not an exhaustive catalog. When resolving a domain signal to an expert, apply this three-tier protocol in order.
+The Domain Registry enables intelligent selection of domain-specific expert roles for code review, analysis, and verification tasks. It domain has:
 
-### Tier 1 — Exact Match
+- **Trigger signals** — keywords that indicate this domain is relevant
+- **Focus areas** — what the expert looks for
+- **Standards** — what standards/best practices apply
+- **Expert role framing** — title, lens, and prompt template for agent councils
 
-The detected domain matches a registry entry by name or trigger signals, and the entry's `focus_areas` substantially cover the actual concern.
+---
 
-→ Use `expert_role`, `focus_areas`, and `standards` directly from the entry.
+## Available Domains
 
-### Tier 2 — Adapted Match
+| File                   | Categories                                                                                                                                                                       |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `domains/technical.md` | Security, Database, API, Async-Queue, Performance, Infrastructure, Crypt, Code Quality, Architecture, Testing, Error Handling, Concurrency, TypeScript, Frontend, Data Integrity |
+| `domains/business.md`  | Finance, Product, Marketing, Operations, Compliance, Analytics                                                                                                                   |
+| `domains/creative.md`  | UX Design, Visual Design, Copywriting                                                                                                                                            |
 
-A registry entry is related but not precise. The entry covers the broader domain but not the specific sub-domain or intersection needed.
+---
 
-**Criteria:** The candidate entry's `focus_areas` overlap with the actual need, but the expert role title would be misleading. For example: registry has "Database Architect" for a "database security" concern — the role knows the domain but the focus is wrong.
+## Domain Selection Protocol
 
-→ Adapt the entry:
-1. Use the registry entry as a base — take only the focus areas that are relevant
-2. Supplement with focus areas specific to the actual concern (not in the base entry)
-3. Add standards appropriate to the specific need
-4. Rename the expert role to reflect the actual task (not the base registry title)
+### Tier 1: Exact Match
 
-The adapted expert is session-scoped. It is not saved to the registry.
+1. Extract trigger signals from context
+2. Match against domain `trigger_signals`
+3. If exact match found → use domain `expert_role`
 
-### Tier 3 — Virtual Expert Synthesis
+**Example:**
 
-No registry entry provides adequate focus coverage for the specific domain. Using the nearest entry would produce an expert who analyzes the wrong things.
+- Context mentions "authentication" → matches `security` domain
+- Context mentions "subscription pricing" → matches `finance` domain
+- Context mentions "wireframe usability" → matches `ux-design` domain
 
-→ Synthesize a session-based virtual expert:
+### Tier 2: Adapted Match
+
+When no exact match, find the closest related domain and adapt the framing:
+
+```yaml
+adapted_expert:
+  base_domain: "{closest-match}"
+  adapted_focus: ["{scope-specific concerns}"]
+  adapted_title: "{Role} for {context}"
+```
+
+**Example:**
+
+- Context mentions "real-time data processing" (no exact match)
+- Closest match: `async-queue` domain
+- Adapted focus: ["stream processing latency", "backpressure handling"]
+
+### Tier 3: Virtual Expert Synthesis
+
+When no domain matches, synthesize a session-based virtual expert from related domains:
 
 ```yaml
 virtual_expert:
-  name: "{Specific Role Title}"                          # e.g., "Database Security Specialist"
-  synthesized_from: ["{registry-domain-1}", ...]         # contributing registry entries, may be empty
-  focus_areas:
-    - "{area specifically relevant to the actual concern}"
-    - ...
-  standards:
-    - "{standard relevant to this specific domain}"
-    - ...
-  scope: session   # ephemeral — not persisted to registry
+  name: "{Specific Role Title}"
+  synthesized_from: ["{registry-domain-1}", "{registry-domain-2}"]
+  focus_areas: ["{area specifically relevant}"]
+  standards: ["{standard relevant}"]
+  scope: session # ephemeral
 ```
 
-Construction steps:
-1. Identify contributing registry entries (0, 1, or more)
-2. Extract only the focus areas relevant to the specific concern from each contributor
-3. Add focus areas not present in any registry entry but required for the specific domain
-4. Select standards appropriate to the specific concern
-5. Name the role for the specific task, not the contributing base roles
+**Example:**
 
-**The key test:** Would an expert with this title, these focus areas, and these standards naturally investigate the actual concern? If not — refine until yes.
-
-### Tier 3 Failure Path
-
-If virtual expert synthesis itself fails (model unavailable, synthesis timeout, invalid output):
-
-1. Return `status: DOMAIN_UNAVAILABLE` for that domain slot
-2. Log which domain was attempted and why synthesis failed
-3. Continue with remaining domain experts — do not halt the session
-4. The Devil's Advocate and Integration Checker cover cross-cutting concerns regardless
-
-This is the **GENERALIST_FALLBACK** mode: proceed with reduced domain coverage rather than
-blocking. Note the missing domain in the output's `domains_unavailable` field.
-
-### Never substitute a mismatched expert
-
-Do not use a registry entry whose focus areas don't substantially cover the actual need just because it is the closest available option. "Close enough" misses the point:
-
-- A Database Architect reviewing database security will find schema problems, not threat vectors
-- A Marketing Strategist reviewing GDPR compliance will find messaging issues, not data-processing violations
-- A UX Designer reviewing payment flow security will find usability issues, not PCI scope gaps
-
-When focus is wrong, the findings are wrong. Synthesize rather than misfire.
-
-### When to promote virtual experts to the registry
-
-If a synthesized virtual expert appears in 3 or more sessions for the same domain concern → consider adding it as a permanent entry in the appropriate `domains/*.md` file.
+- Context mentions "blockchain smart contract audit" (no exact match)
+- Synthesize from: `security` + `architecture` + `code-quality`
+- Virtual expert: "Smart Contract Auditor" with focus on cryptographic correctness, gas optimization, security patterns
 
 ---
 
-## Domain Entry Format
+## Expert Role Format
 
-Each domain entry in the domain files follows this structure:
+Each domain includes enhanced framing for agent councils:
 
 ```yaml
-- name: domain-name
-  trigger_signals:
-    - keyword or concept that triggers this domain
-    - another keyword
-  expert_role: "Title of the expert agent to spawn"
-  focus_areas:
-    - What the expert focuses on
-    - Another focus area
-  standards:
-    - Relevant standard or framework (e.g., OWASP, WCAG, GAAP)
-    - Another standard
+expert_role:
+  title: "Role Title"
+  lens: "One-sentence perspective that guides all analysis"
+  prompt_template: |
+    You are a {title} reviewing: {scope}
+
+    ## Your Lens
+    {lens}
+
+    ## Context
+    {context_summary}
+
+    ## Your Focus Areas
+    {focus_areas}
+
+    ## Standards to Apply
+    {standards}
+
+    ## Output Format
+    Return findings as json with severity, affected areas, 
+    impact, remediation, and confidence level.
 ```
+
+### Using Expert Roles
+
+Skills using domain-registry should:
+
+1. Read the appropriate `domains/*.md` file(s)
+2. Match context signals against domain `trigger_signals`
+3. Extract the `expert_role` for matched domains
+4. Inject the `prompt_template` into agent prompts, replacing placeholders:
+   - `{scope}` — the artifact being reviewed
+   - `{context_summary}` — the context description
+   - `{focus_areas}` — from domain definition
+   - `{standards}` — from domain definition
+
+---
+
+## Skills Using Domain Registry
+
+| Skill           | Usage                                        |
+| --------------- | -------------------------------------------- |
+| `agent-council` | Select expert roles for single-model council |
+| `deep-council`  | Select expert roles for multi-model council  |
+| `deep-review`   | Select domain experts for deep review        |
+| `deep-audit`    | Select domain experts for audit              |
+| `deep-verify`   | Select domain experts for verification       |
+| `deep-research` | Select domain experts for research           |
+| `context`       | Domain detection for context building        |
+
+---
 
 ## Adding New Domains
 
-1. Identify which category fits: `technical`, `business`, or `creative`
-2. Add a new entry to the appropriate file in `domains/`
-3. Follow the domain entry format above
-4. Include at least 3 trigger_signals, 3 focus_areas, and 2 standards
+To add a new domain:
 
-## Domain Categories
+1. Choose the appropriate file (`technical.md`, `business.md`, or `creative.md`)
+2. Add domain entry following the schema:
 
-- **technical.md** — Software engineering, infrastructure, security, testing
-- **business.md** — Finance, legal, product, strategy, marketing, operations
-- **creative.md** — Design, UX, content, brand
+````yaml
+### {domain-name}
 
-## No Execution Needed
+```yaml
+name: {domain-name}
+trigger_signals:
+  - signal1
+  - signal2
+  - signal3
+expert_role:
+  title: "Expert Title"
+  lens: "One-sentence lens"
+  prompt_template: |
+    You are a {title} reviewing: {scope}
 
-This registry requires no execution. Skills read it directly using the Read tool:
+    ## Your Lens
+    {lens}
+
+    ## Context
+    {context_summary}
+
+    ## Your Focus Areas
+    - focus_area_1
+    - focus_area_2
+
+    ## Standards to Apply
+    - standard 1
+    - standard 2
+
+    ## Output Format
+    Return findings as json with severity, affected areas,
+    impact, remediation, and confidence level.
+focus_areas:
+  - focus_area_1
+  - focus_area_2
+standards:
+  - standard 1
+  - standard 2
+````
+
+3. Ensure `trigger_signals` are lowercase and distinctive
+4. Ensure `expert_role` has all required fields
+
+---
+
+## Files
 
 ```
-Read: skills/domain-registry/domains/technical.md
-Read: skills/domain-registry/domains/business.md
-Read: skills/domain-registry/domains/creative.md
+domain-registry/
+├── SKILL.md              # Skill definition
+├── README.md              # This file
+└── domains/
+    ├── technical.md       # Technical domains
+    ├── business.md        # Business domains
+    └── creative.md        # Creative domains
 ```
+
+---
+
+## Notes
+
+- Domains are **read-only** — skills read them, never invoke directly
+- Virtual expert synthesis allows handling project-specific issues without bloating the registry
+- The `lens` field should be distinctive and memorable — it guides the expert's entire analysis

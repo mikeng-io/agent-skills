@@ -20,27 +20,85 @@ This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Rea
 ```yaml
 bridge: claude
 model_family: anthropic/claude
-availability: conditional   # Depends on executor — not always available
+availability: conditional # Depends on executor — not always available
 connection_preference:
-  1: native-dispatch  # Executor is Claude Code — Task tool / Agent Teams
-  2: cli              # Any other executor — invoke `claude -p` CLI
-  3: api              # Last resort — Anthropic HTTP API via ANTHROPIC_API_KEY
-  4: skip             # None available — return SKIPPED (non-blocking)
+  1: native-dispatch # Executor is Claude Code — Task tool / Agent Teams
+  2: cli # Any other executor — invoke `claude -p` CLI
+  3: api # Last resort — Anthropic HTTP API via ANTHROPIC_API_KEY
+  4: skip # None available — return SKIPPED (non-blocking)
+
+native_dispatch:
+  detection: "Task tool is accessible with subagent_type parameter"
+  reliability: "HIGH — actual capability check, not env var"
+  subagent_types: ["explore", "librarian", "oracle", "metis", "momus"]
 ```
 
 ---
 
 ## Step 1: Pre-Flight — Connection Detection
 
-### Check A: Task Tool Available?
+**MUST read `bridge-commons/tool-discovery.md` first** to understand the discovery protocol.
 
-If the executor is Claude Code (or any agent with native Task tool access), this is the preferred path. No external process needed.
+### Step 1.0: Discover Execution Context
 
-If Task tool available → **use native-dispatch path** (Steps 3A + 3B).
+Before checking connection paths, discover what dispatch methods are available in the CURRENT execution context. This bridge runs inside multiple executors (Claude Code, OpenCode, Codex CLI, Gemini CLI, others).
+
+**Primary detection: Tool availability** (most reliable)
+
+```yaml
+# Check if running INSIDE Claude Code (native dispatch)
+claude_native:
+  signal: "Task tool (uppercase) is accessible with subagent_type parameter"
+  check: "Can invoke Task() with subagent_type='explore' or 'oracle'"
+  reliability: HIGH
+
+# Environment variables (backup signals, less reliable)
+claude_env:
+  signal: "CLAUDE_CODE_SESSION is set"
+  check: "echo ${CLAUDE_CODE_SESSION:-}"
+  reliability: LOW (may not be set in all contexts)
+```
+
+**Discovery logic:**
+
+```yaml
+# Step 1: Check if Task tool is accessible
+# If you're reading this from inside a Claude Code session, you have access to Task tool
+# The key signal is: can you invoke Task with subagent_type parameter?
+
+# Step 2: Determine native dispatch type
+native_dispatch_type:
+  agent_teams:
+    condition: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 AND (domains >= 3 OR intensity = thorough)"
+    description: "Teammates share a task list and communicate directly"
+
+  task_tool:
+    condition: "Default — always available as fallback"
+    description: "Sub-agents report results to parent only"
+```
+
+**If Claude native dispatch is available**:
+
+```json
+{
+  "executor_type": "claude-code",
+  "native_dispatch": {
+    "available": true,
+    "tool_name": "Task",
+    "subagent_types": ["explore", "librarian", "oracle", "metis", "momus"],
+    "session_continuity": true
+  },
+  "recommended_dispatch": "native"
+}
+```
+
+→ **Use native-dispatch path** (Steps 3A + 3B). This is the preferred path.
+
+**If NOT running inside Claude Code**, proceed to Check A.
 
 ---
 
-### Check B: Claude Code CLI Installed?
+### Check A: Claude Code CLI Installed?
 
 ```bash
 which claude
@@ -48,9 +106,11 @@ which claude
 
 If found → **use CLI path** (Step 3C). Any external executor (OpenCode, Codex, Gemini, custom agents) can invoke `claude -p` to get Claude's analysis without API keys.
 
+If not found → proceed to Check B.
+
 ---
 
-### Check C: Anthropic API Accessible?
+### Check B: Anthropic API Accessible?
 
 ```bash
 echo ${ANTHROPIC_API_KEY:+found}
@@ -85,8 +145,9 @@ dispatch_mode:
     condition: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 AND (domains >= 3 OR intensity = thorough)"
     description: "Teammates share a task list and communicate directly — best for complex multi-domain work"
     preferred: true
-    caveat: "Env var is necessary but not sufficient — TeamCreate may still fail if this bridge
-             is executing as a nested sub-agent (Task → Task). Always guard with a fallback."
+    caveat:
+      "Env var is necessary but not sufficient — TeamCreate may still fail if this bridge
+      is executing as a nested sub-agent (Task → Task). Always guard with a fallback."
 
   task_tool:
     condition: "Default — always available as fallback"
@@ -96,12 +157,12 @@ dispatch_mode:
 
 **Agent Teams vs Task Tool:**
 
-| | Task Tool | Agent Teams |
-|---|-----------|------------|
-| Communication | Sub-agents report to parent only | Teammates message each other directly |
-| Coordination | Parent manages all | Shared task list, self-coordinating |
-| Best for | Quick focused tasks | Multi-domain debate, complex analysis |
-| Availability | Always | Requires env var AND top-level execution context |
+|               | Task Tool                        | Agent Teams                                      |
+| ------------- | -------------------------------- | ------------------------------------------------ |
+| Communication | Sub-agents report to parent only | Teammates message each other directly            |
+| Coordination  | Parent manages all               | Shared task list, self-coordinating              |
+| Best for      | Quick focused tasks              | Multi-domain debate, complex analysis            |
+| Availability  | Always                           | Requires env var AND top-level execution context |
 
 **Depth note:** Claude sub-agents can spawn their own Task sub-agents (Task → Task works). Agent Teams (`TeamCreate`) in a nested sub-agent is not guaranteed — the experimental feature may not be available at depth 2+. If this bridge is already running inside a Task agent dispatched by deep-council or another orchestrator, attempt Agent Teams but be prepared to fall back.
 
@@ -139,6 +200,7 @@ Teammates communicate findings and challenges directly without routing through t
 ### Teammate prompts
 
 **Domain expert:**
+
 ```
 You are a {expert_role}. Your task: {task_description}
 Scope: {scope} | Context: {context_summary} | Intensity: {intensity}
@@ -147,6 +209,7 @@ Return your output as the JSON structure defined in bridge-commons Agent Prompt 
 ```
 
 **Devil's Advocate:**
+
 ```
 You are a Devil's Advocate for this analysis session.
 Scope: {scope} | Context: {context_summary} | Intensity: {intensity}
@@ -165,6 +228,7 @@ Return outputs JSON with domain: "cross-domain". Include both challenge outcomes
 ```
 
 **Integration Checker:**
+
 ```
 You are an Integration Checker for this analysis session.
 Scope: {scope} | Context: {context_summary} | Intensity: {intensity}
@@ -212,13 +276,13 @@ timeout {final_timeout} claude -p "{constructed_prompt}" \
 
 **Key flags:**
 
-| Flag | Purpose |
-|------|---------|
-| `-p "prompt"` | Prompt string — non-interactive mode |
-| `--output-format json` | Structured JSON output for parsing |
-| `--output-format stream-json` | Streaming JSON for real-time processing |
-| `--allowedTools` | Restrict what Claude can do (read-only for analysis) |
-| `--continue` | Resume the most recent session |
+| Flag                          | Purpose                                              |
+| ----------------------------- | ---------------------------------------------------- |
+| `-p "prompt"`                 | Prompt string — non-interactive mode                 |
+| `--output-format json`        | Structured JSON output for parsing                   |
+| `--output-format stream-json` | Streaming JSON for real-time processing              |
+| `--allowedTools`              | Restrict what Claude can do (read-only for analysis) |
+| `--continue`                  | Resume the most recent session                       |
 
 For read-only analysis, scope tools to `Read,Grep,Glob,Bash(ls *)`. For implementation tasks, use the full tool set.
 

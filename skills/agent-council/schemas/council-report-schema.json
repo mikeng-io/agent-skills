@@ -1,0 +1,247 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent Council Report",
+  "description": "Output schema for agent-council skill - single-model expert council report",
+  "type": "object",
+  "required": [
+    "type",
+    "review_id",
+    "verdict",
+    "timestamp",
+    "expert_roles",
+    "debate_rounds"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "agent-council",
+      "description": "Report type identifier"
+    },
+    "review_id": {
+      "type": "string",
+      "pattern": "^agent-council-\\d{8}-\\d{6}$",
+      "description": "Unique review identifier"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "FAIL", "CONCERNS"],
+      "description": "Overall council verdict"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp"
+    },
+    "model_used": {
+      "type": "string",
+      "const": "single-model",
+      "description": "Indicates this was a single-model council"
+    },
+    "expert_roles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "primary-reviewer",
+          "devils-advocate",
+          "integration-checker",
+          "synthesis-lead"
+        ]
+      },
+      "minItems": 3,
+      "description": "Expert roles that participated"
+    },
+    "domains_covered": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Domains reviewed"
+    },
+    "intensity": {
+      "type": "string",
+      "enum": ["quick", "standard", "thorough"],
+      "default": "standard"
+    },
+    "debate_rounds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3,
+      "description": "Number of debate rounds executed"
+    },
+    "multi_expert_confirmed": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/finding"
+      },
+      "description": "Findings confirmed by 2+ experts"
+    },
+    "single_expert_findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/finding"
+      },
+      "description": "Findings from single expert, survived challenge"
+    },
+    "disputed_findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/disputed_finding"
+      },
+      "description": "Findings with unresolved dispute"
+    },
+    "integration_findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/integration_finding"
+      },
+      "description": "Cross-component integration findings"
+    },
+    "withdrawn_findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/withdrawn_finding"
+      },
+      "description": "Findings invalidated by challenge"
+    },
+    "synthesis_notes": {
+      "type": "string",
+      "description": "Summary of expert council analysis"
+    }
+  },
+  "definitions": {
+    "finding": {
+      "type": "object",
+      "required": ["id", "severity", "title", "description"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique finding identifier"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+        },
+        "title": {
+          "type": "string",
+          "description": "Finding title"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description"
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Evidence supporting the finding"
+        },
+        "remediation": {
+          "type": "string",
+          "description": "Recommended fix"
+        },
+        "confirmed_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Expert roles that confirmed this finding"
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "disputed_finding": {
+      "type": "object",
+      "required": ["id", "title", "positions"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "positions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["role", "severity", "position"],
+            "properties": {
+              "role": {
+                "type": "string",
+                "description": "Expert role"
+              },
+              "severity": {
+                "type": "string",
+                "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+              },
+              "position": {
+                "type": "string",
+                "description": "The position taken by this expert"
+              }
+            }
+          }
+        }
+      }
+    },
+    "integration_finding": {
+      "type": "object",
+      "required": ["id", "severity", "title", "components_involved"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "components_involved": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Components with cross-component implications"
+        },
+        "implicit_contract": {
+          "type": "string",
+          "description": "The implicit contract that was violated or missing"
+        },
+        "remediation": {
+          "type": "string"
+        }
+      }
+    },
+    "withdrawn_finding": {
+      "type": "object",
+      "required": ["id", "title", "withdrawal_reason"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "original_severity": {
+          "type": "string",
+          "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+        },
+        "withdrawal_reason": {
+          "type": "string",
+          "description": "Why the finding was withdrawn"
+        },
+        "challenged_by": {
+          "type": "string",
+          "description": "Expert role that challenged it"
+        }
+      }
+    }
+  }
+}

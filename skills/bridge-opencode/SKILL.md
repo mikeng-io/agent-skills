@@ -18,13 +18,19 @@ This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Rea
 
 ```yaml
 bridge: opencode
-model_family: multi-provider   # Routes to any configured AI provider
+model_family: multi-provider # Routes to any configured AI provider
 availability: conditional
 connection_preference:
-  1: native-dispatch  # Executor is OpenCode — internal agent routing
-  2: http-api         # Any executor — opencode serve REST API at :4096
-  3: cli              # Any other executor — opencode run
-  4: halt             # None available — surface advisory, offer setup
+  1: native-dispatch # Executor is OpenCode — use task tool with subagent_type
+  2: http-api # OpenCode server running at localhost:4096
+  3: cli # Fallback — opencode run
+  4: halt # None available — surface advisory, offer setup
+
+native_dispatch:
+  detection: "task tool (lowercase) is accessible with subagent_type parameter"
+  reliability: "HIGH — actual capability check, not env var"
+  subagent_types:
+    ["explore", "general", "librarian", "oracle", "metis", "momus"]
 ```
 
 ## Why OpenCode?
@@ -37,24 +43,57 @@ OpenCode is provider-agnostic — it routes to whichever AI providers are config
 
 ## Step 1: Pre-Flight — Connection Detection
 
-### Check A: Native Dispatch?
+**MUST read `bridge-commons/tool-discovery.md` first** to understand the discovery protocol.
 
-If the executor is OpenCode, this is the preferred path — route the task to an OpenCode internal agent within the current session rather than shelling out or calling the HTTP API.
+### Step 1.0: Discover Execution Context
 
-```bash
-# Check if running inside an OpenCode session
-echo ${OPENCODE_SESSION_ID:+found}
-# Alternatively: OPENCODE_CLIENT is set when OpenCode is the executor
-echo ${OPENCODE_CLIENT:+found}
+Before checking connection paths, discover what dispatch methods are available in the CURRENT execution context. This bridge runs inside multiple executors (Claude Code, OpenCode, Codex CLI, Gemini CLI, others).
+
+**Primary detection: Tool availability** (most reliable)
+
+```yaml
+# Check if running INSIDE OpenCode (native dispatch)
+opencode_native:
+  signal: "task tool (lowercase) is accessible with subagent_type parameter"
+  check: "Can invoke task() with subagent_type='explore' or 'general'"
+  reliability: HIGH
+
+# Environment variables (backup signals, less reliable)
+opencode_env:
+  signal: "OPENCODE_SESSION_ID or OPENCODE_CLIENT is set"
+  check: "echo ${OPENCODE_SESSION_ID:-${OPENCODE_CLIENT:-}}"
+  reliability: LOW (may not be set in all contexts)
 ```
 
-If in an OpenCode session → **use native dispatch** (route to `general` or `explore` subagent).
+**If OpenCode native dispatch is available**:
 
-If executor is not OpenCode → proceed to Check B.
+```json
+{
+  "executor_type": "opencode",
+  "native_dispatch": {
+    "available": true,
+    "tool_name": "task",
+    "subagent_types": [
+      "explore",
+      "general",
+      "librarian",
+      "oracle",
+      "metis",
+      "momus"
+    ],
+    "session_continuity": true
+  },
+  "recommended_dispatch": "native"
+}
+```
+
+→ **Use native dispatch** (Step 3N). This is the preferred path.
+
+**If NOT running inside OpenCode**, proceed to Check A.
 
 ---
 
-### Check B: HTTP API Server Running?
+### Check A: HTTP API Server Running?
 
 ```bash
 curl -s --max-time 3 http://localhost:4096 -o /dev/null -w "%{http_code}"
@@ -248,7 +287,118 @@ Proceed to Step 3A or 3B with the single configured model (or OpenCode's default
 
 ---
 
-## Step 3A: Execute via HTTP API (Preferred)
+## Step 3N: Execute via Native Dispatch (Preferred)
+
+**Use this path when running INSIDE OpenCode** and the `task` tool is accessible.
+
+This is the preferred dispatch path because:
+
+- No subprocess overhead (direct agent invocation)
+- Session continuity maintained automatically
+- Can spawn parallel subagents for multi-domain review
+- Lower latency than HTTP API or CLI
+
+### Single-Domain Dispatch
+
+For single-domain or single-model review, invoke the appropriate subagent:
+
+```yaml
+# For exploration/analysis tasks
+invoke: task(
+  subagent_type: "explore",
+  description: "{review_id}-domain-review",
+  prompt: "{constructed_prompt from bridge-commons Agent Prompt Template}"
+)
+
+# For general-purpose review
+invoke: task(
+  subagent_type: "general",
+  description: "{review_id}-review",
+  prompt: "{constructed_prompt}"
+)
+
+# For research-backed review
+invoke: task(
+  subagent_type: "librarian",
+  description: "{review_id}-research-review",
+  prompt: "{constructed_prompt} + research context from external sources"
+)
+```
+
+### Multi-Domain Parallel Dispatch
+
+When `bridge_input.domains` has 2+ domains, spawn one subagent per domain in parallel:
+
+```yaml
+# Spawn parallel subagents — one per domain
+domain_experts: [
+  task(subagent_type: "general", prompt: "{domain_1_prompt}"),
+  task(subagent_type: "general", prompt: "{domain_2_prompt}"),
+  task(subagent_type: "general", prompt: "{domain_3_prompt}"),
+]
+
+# After all complete, aggregate outputs
+aggregated_findings: collect all outputs
+verdict: apply bridge-commons verdict logic
+```
+
+### Multi-Model Parallel Dispatch
+
+When `.bridge-settings.json` has `bridges.opencode.models` with 2+ entries, spawn one subagent per model:
+
+```yaml
+# Each subagent uses a different model
+model_sessions: [
+  task(subagent_type: "general", model: "glm/glm-4-7", prompt: "{prompt}"),
+  task(subagent_type: "general", model: "kimi/moonshot-v1-8k", prompt: "{prompt}"),
+  task(subagent_type: "general", model: "qwen/qwen-plus", prompt: "{prompt}"),
+]
+
+# After all complete, run mini-synthesis
+deduplication: merge findings with >70% overlap
+intra_bridge_confirmed: findings agreed by 2+ models
+```
+
+### Post-Analysis Protocol via Native Dispatch
+
+For `standard` and `thorough` intensity, the post-analysis protocol runs within OpenCode:
+
+**Round 2 (Challenge Round)**:
+
+```yaml
+# Spawn Challenger subagent
+challenger: task(
+  subagent_type: "general",
+  prompt: "{Devil's Advocate prompt from bridge-commons Post-Analysis Protocol}"
+)
+
+# Spawn Integration Checker subagent
+integration_checker: task(
+  subagent_type: "general",
+  prompt: "{Integration Checker prompt from bridge-commons}"
+)
+```
+
+**Session continuity**: The calling orchestrator (deep-council or other) maintains state between rounds and injects context packets.
+
+### Output from Native Dispatch
+
+Return the standard bridge-commons output schema with:
+
+```json
+{
+  "bridge": "opencode",
+  "connection_used": "native-dispatch",
+  "model_family": "multi-provider",
+  "dispatch_mode": "multi-domain | multi-model | single",
+  "models_used": ["glm/glm-4-7", ...],
+  "native_executor": "opencode"
+}
+```
+
+---
+
+## Step 3A: Execute via HTTP API (Secondary)
 
 The OpenCode HTTP server exposes a REST API. Use it when the server is already running.
 
@@ -302,8 +452,8 @@ examples:
   - "anthropic/claude-sonnet-4-20250514"
   - "openai/gpt-4o"
   - "google/gemini-2.0-flash"
-  - "glm/glm-4-flash"          # If GLM configured
-  - "qwen/qwen-plus"           # If Qwen configured
+  - "glm/glm-4-flash" # If GLM configured
+  - "qwen/qwen-plus" # If Qwen configured
 
 selection_strategy:
   - Use default model if no preference (omit model field)
@@ -328,6 +478,7 @@ curl -s -X POST http://localhost:4096/session \
 ```
 
 Built-in agents:
+
 - `plan` — restricted, read-only, suited for analysis tasks
 - `build` — full tool access (not appropriate for review-only)
 
@@ -349,11 +500,11 @@ For the Post-Analysis Protocol via CLI, use separate `opencode run` calls per ro
 
 ### CLI Error Handling
 
-| Exit code | Meaning | Action |
-|-----------|---------|--------|
-| 0 | Success | Parse JSON event stream for final message |
-| 124 | Timeout | Return SKIPPED, `skip_reason: timeout_after_{n}s` |
-| Other | CLI error | Capture stderr, return SKIPPED with detail |
+| Exit code | Meaning   | Action                                            |
+| --------- | --------- | ------------------------------------------------- |
+| 0         | Success   | Parse JSON event stream for final message         |
+| 124       | Timeout   | Return SKIPPED, `skip_reason: timeout_after_{n}s` |
+| Other     | CLI error | Capture stderr, return SKIPPED with detail        |
 
 ---
 

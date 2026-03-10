@@ -21,42 +21,85 @@ bridge: gemini
 model_family: google/gemini
 availability: conditional
 connection_preference:
-  1: native-dispatch  # Executor is Gemini CLI — Gemini subagents (enableAgents)
-  2: cli              # Any other executor — gemini -p
-  3: skip             # Neither — return SKIPPED (non-blocking)
+  1: native-dispatch # Executor is Gemini CLI — Gemini subagents (enableAgents)
+  2: cli # Any other executor — gemini -p
+  3: skip # Neither — return SKIPPED (non-blocking)
+
+native_dispatch:
+  detection: ".gemini/settings.json has experimental.enableAgents: true AND running inside Gemini CLI"
+  reliability: "MEDIUM — requires settings check + context awareness"
+  subagent_types: [] # Gemini spawns subagents internally
 ```
 
 ---
 
 ## Pre-Flight — Connection Detection
 
-### Check A: Native Dispatch?
+**MUST read `bridge-commons/tool-discovery.md` first** to understand the discovery protocol.
 
-If the executor is Gemini CLI with subagent support enabled, this is the preferred path — spawn specialized Gemini subagents rather than shelling out to the CLI.
+### Step 1.0: Discover Execution Context
 
-```bash
-# Check if subagents are enabled in project or user settings
-cat .gemini/settings.json 2>/dev/null | python3 -c \
-  "import sys,json; d=json.load(sys.stdin); print(d.get('experimental',{}).get('enableAgents', False))"
+Before checking connection paths, discover what dispatch methods are available in the CURRENT execution context. This bridge runs inside multiple executors (Claude Code, OpenCode, Codex CLI, Gemini CLI, others).
 
-# Also check user-level settings
-cat ~/.gemini/settings.json 2>/dev/null | python3 -c \
-  "import sys,json; d=json.load(sys.stdin); print(d.get('experimental',{}).get('enableAgents', False))"
+**Primary detection: Tool availability + settings check** (most reliable)
+
+```yaml
+# Check if running INSIDE Gemini CLI (native dispatch)
+gemini_native:
+  signal: "running inside Gemini CLI AND enableAgents is true"
+  check_1: "Am I running inside a Gemini CLI session?"
+  check_2: "Is .gemini/settings.json or ~/.gemini/settings.json present with experimental.enableAgents: true?"
+  reliability: MEDIUM (requires both context awareness AND settings)
+
+# Environment signals (backup only, less reliable)
+gemini_env:
+  signal: "GEMINI_SESSION or similar context marker"
+  reliability: LOW (may not exist)
 ```
 
-If `True` and the current executor is Gemini CLI → **use native dispatch** (subagent path in Subagent Mode section).
+**Discovery logic:**
 
-If executor is not Gemini, or `enableAgents` is `false` or missing → proceed to Check B.
+```yaml
+# Step 1: Check if running inside Gemini CLI
+# Gemini CLI doesn't have a standard env var, so check tool access patterns
+# If you're reading this from inside a Gemini subagent, you already have native dispatch
+
+# Step 2: Check subagent enablement
+native_dispatch_available:
+  condition: "enableAgents: true in settings"
+  check_project: "cat .gemini/settings.json 2>/dev/null"
+  check_user: "cat ~/.gemini/settings.json 2>/dev/null"
+  parse: "extract experimental.enableAgents, default false"
+```
+
+**If Gemini native dispatch is available**:
+
+```json
+{
+  "executor_type": "gemini-cli",
+  "native_dispatch": {
+    "available": true,
+    "tool_name": null,
+    "subagent_types": [],
+    "session_continuity": true
+  },
+  "recommended_dispatch": "native"
+}
+```
+
+→ **Use native dispatch** (Subagent Mode section). This is the preferred path.
+
+**If NOT running inside Gemini CLI or enableAgents is false**, proceed to Check A.
 
 ---
 
-### Check B: CLI Installed?
+### Check A: CLI Installed?
 
 ```bash
 which gemini
 ```
 
-If found → proceed to Check C.
+If found → proceed to Check B (Auth Probe).
 
 If not found → return immediately:
 
@@ -74,9 +117,9 @@ Never fail or block — SKIPPED is a valid bridge outcome.
 
 ---
 
-### Check C: Auth / Quota Probe
+### Check B: Auth / Quota Probe
 
-A gemini CLI that is installed but has an expired token or exhausted quota passes Check B and then fails silently at execution time. Catch this at availability check instead:
+A gemini CLI that is installed but has an expired token or exhausted quota passes Check A and then fails silently at execution time. Catch this at availability check instead:
 
 ```bash
 # Lightweight probe — verifies auth without a full execution
@@ -112,6 +155,7 @@ timeout $TIMEOUT gemini -p "$PROMPT" --approval-mode plan --output-format json
 ```
 
 Error handling:
+
 - Exit code 0 with JSON → parse and return findings
 - Exit code 124 (timeout) → return SKIPPED with reason `timeout_after_{n}s`
 - Other exit codes → return SKIPPED with reason `gemini CLI error: {stderr}`
