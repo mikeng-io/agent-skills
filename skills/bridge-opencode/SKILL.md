@@ -471,16 +471,21 @@ curl -s -u opencode:$OPENCODE_SERVER_PASSWORD \
 ### Agent selection (optional)
 
 ```bash
-# Use the built-in 'plan' agent for read-only analysis
+# Resolve the agent from bridge-commons capability_profile
 curl -s -X POST http://localhost:4096/session \
   -H "Content-Type: application/json" \
-  -d '{"title": "...", "agent": "plan"}'
+  -d '{"title": "...", "agent": "{resolved from capability_profile}"}'
 ```
 
 Built-in agents:
 
-- `plan` — restricted, read-only, suited for analysis tasks
-- `build` — full tool access (not appropriate for review-only)
+- `plan` — inspect-oriented agent
+- `build` — modify-oriented agent
+
+Resolve the agent from bridge-commons:
+
+- `inspect` profile → select the analysis-oriented agent
+- `modify` profile → select the write-capable agent
 
 ---
 
@@ -491,7 +496,8 @@ Build the prompt using the bridge-commons Agent Prompt Template.
 ```bash
 timeout {final_timeout} opencode run "{constructed_prompt}" \
   --format json \
-  --model {provider/model}
+  --model {provider/model} \
+  {resolved runtime capability args}
 ```
 
 **Important:** `opencode` (bare) opens the interactive TUI. Always use `opencode run "..."` for programmatic use.
@@ -515,6 +521,7 @@ See bridge-commons Output Schema. Bridge-specific fields:
 ```json
 {
   "bridge": "opencode",
+  "capability_profile": "inspect | modify",
   "model_family": "multi-provider",
   "connection_used": "native-dispatch | http-api | cli",
   "dispatch_mode": "multi-model | single-model",
@@ -541,6 +548,6 @@ Output ID prefix: `O` (e.g., `O001`, `O002`). In multi-model mode, prefix per mo
 - **HTTP API is preferred** — use it when `opencode serve` is already running (lower overhead, session continuity)
 - **`opencode run` ≠ `opencode`** — bare `opencode` opens the interactive TUI; always use `opencode run "..."` for scripted use
 - **Model format is `provider/model`** — e.g., `anthropic/claude-sonnet-4-20250514`, not just `claude`
-- **`plan` agent** is the safe choice for review tasks (read-only mode)
+- **Capability resolution is shared** — map `inspect | modify` from bridge-commons onto the appropriate OpenCode agent or CLI args at runtime
 - **1.5× timeout multiplier** always applies (provider routing overhead)
 - **HALTED ≠ SKIPPED** — HALTED requires user input before the review can proceed

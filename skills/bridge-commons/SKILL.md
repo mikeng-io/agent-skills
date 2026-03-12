@@ -105,6 +105,28 @@ All bridges accept this standard input:
 | `research` | `observation`, `recommendation` | "What do we know? What are the options?" |
 | `audit` | `finding`, `compliance-gap` | "Does this meet the stated requirement?" — Compliance-calibrated: unmet MUST → HIGH; unmet SHOULD → MEDIUM; met requirements → INFO. |
 
+### Execution Capability Profile
+
+Dispatch capability is derived from `task_type`. Orchestrators pass `task_type`; bridges resolve the capability profile locally and then translate it into runtime-specific flags, agents, or sandbox values.
+
+| task_type | capability_profile | Intent |
+|-----------|--------------------|--------|
+| `review` | `inspect` | Analyze without changing project state |
+| `analysis` | `inspect` | Analyze without changing project state |
+| `research` | `inspect` | Gather evidence without changing project state |
+| `audit` | `inspect` | Verify compliance without changing project state |
+| `planning` | `inspect` | Produce plans without changing project state |
+| `implementation` | `modify` | Permit edits and other state-changing work |
+
+Bridges MUST follow this process:
+
+1. Derive `capability_profile` from `task_type`
+2. Resolve bridge-specific invocation settings from that profile
+3. Inject the resolved settings into the final command or tool call
+4. Record the resolved profile in the bridge output
+
+Bridges MUST NOT treat runtime-specific controls as global policy. Values such as CLI permission flags, sandbox modes, agent names, or tool allowlists are implementation details of the selected bridge and must be chosen through this shared profile rather than hardcoded as the only execution mode.
+
 ---
 
 ## Agent Prompt Template
@@ -209,6 +231,7 @@ Apply only when `task_type` is `review`, `analysis`, or `audit`. Set `null` for 
   "connection_used": "native-dispatch | cli | api | http-api | mcp",
   "session_id": "...",
   "task_type": "review | planning | implementation | analysis | research",
+  "capability_profile": "inspect | modify",
   "status": "COMPLETED | SKIPPED | HALTED | ABORTED",
   "skip_reason": "...",
   "halt_reason": "...",
@@ -644,7 +667,7 @@ This prevents silent capability reduction when committed model identifiers becom
 
 ## Notes
 
-- Bridges do not modify source files unless `task_type` is `implementation`
+- Bridges do not modify source files unless `capability_profile` resolves to `modify` from `task_type = implementation`
 - Bridges do not make external network calls beyond what their connected runtime provides
 - `SKIPPED` is always non-blocking — orchestrators must handle it gracefully
 - `HALTED` requires explicit user input (interactive) or orchestrator conversion to SKIPPED (non-interactive) — never silently dropped

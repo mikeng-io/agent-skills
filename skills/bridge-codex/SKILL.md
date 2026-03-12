@@ -361,10 +361,17 @@ Call: mcp__codex__codex
 Parameters:
   prompt:          {constructed_prompt}
   approval-policy: "never"                  # No interactive approval prompts
-  sandbox:         "read-only"              # Analysis only — no file writes
+  sandbox:         {resolved from capability_profile}
   model:           {latest from models list, or omit}
   reasoning:       "{medium|high|xhigh}"    # From Reasoning Level Selection
 ```
+
+Resolve the MCP `sandbox` from bridge-commons:
+
+- `inspect` profile → choose the non-mutating Codex sandbox
+- `modify` profile → choose the write-capable Codex sandbox allowed by the executor
+
+The bridge contract is capability-driven. Codex sandbox values are runtime details, not the policy itself.
 
 Capture `structuredContent.threadId` from response for multi-turn use.
 
@@ -398,7 +405,7 @@ CODEX_MODEL=$(codex prompt --models 2>/dev/null | awk 'NR==1{print $1}')
 MODEL_FLAG=${CODEX_MODEL:+--model $CODEX_MODEL}   # omit flag if empty
 
 timeout {final_timeout} codex exec "{constructed_prompt}" \
-  --sandbox read-only \
+  --sandbox {resolved from capability_profile} \
   --ask-for-approval never \
   --json \
   --output-last-message /tmp/codex-bridge-{review_id}.json \
@@ -428,6 +435,7 @@ See bridge-commons Output Schema. Bridge-specific fields:
 ```json
 {
   "bridge": "codex",
+  "capability_profile": "inspect | modify",
   "model_family": "openai/codex",
   "connection_used": "native-dispatch | mcp | cli",
   "multi_agent_enabled": true,
@@ -444,7 +452,7 @@ Output ID prefix: `X` (e.g., `X001`, `X002`).
 - **MCP server is preferred** — no CLI install needed, auth handled internally, persistent sessions via `codex-reply`
 - **Auto-setup option** — orchestrator can write `.mcp.json` to enable MCP server without user installing anything
 - **`codex exec` ≠ `codex`** — bare `codex` opens an interactive session; always use `codex exec` for programmatic use
-- **`--sandbox read-only` + `--ask-for-approval never`** are required for analysis-only mode
+- **Capability resolution is shared** — map `inspect | modify` from bridge-commons onto the appropriate Codex sandbox at runtime
 - **HALTED ≠ SKIPPED** — HALTED means the user must make a choice before the review can continue
 - **Model**: check latest via `codex prompt --models` at runtime; omit to use server default — never hardcode a model name
 - **X-high reasoning requires explicit user confirmation** before proceeding — never activate silently

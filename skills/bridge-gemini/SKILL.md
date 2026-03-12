@@ -150,8 +150,9 @@ Build the prompt using the Agent Prompt Template from bridge-commons, adapting t
 ```bash
 TIMEOUT={calculated_timeout}
 PROMPT="{constructed_prompt}"
+APPROVAL_MODE={resolved from capability_profile}
 
-timeout $TIMEOUT gemini -p "$PROMPT" --approval-mode plan --output-format json
+timeout $TIMEOUT gemini -p "$PROMPT" --approval-mode "$APPROVAL_MODE" --output-format json
 ```
 
 Error handling:
@@ -203,6 +204,7 @@ See bridge-commons Output Schema. Bridge-specific fields:
 ```json
 {
   "bridge": "gemini",
+  "capability_profile": "inspect | modify",
   "model_family": "google/gemini",
   "connection_used": "native-dispatch | cli",
   "subagent_mode": true
@@ -221,6 +223,9 @@ Output ID prefix: `G` (e.g., `G001`, `G002`).
 - Timeout is estimated from scope, not hardcoded — see bridge-commons formula
 - SKIPPED is a valid, non-error outcome
 
-**Analysis safety:** Use `--approval-mode plan` for all non-implementation task types.
-This prevents Gemini from auto-applying file edits during review/audit/research tasks.
-For implementation tasks (task_type = implementation), `auto_edit` may be appropriate.
+Resolve `APPROVAL_MODE` from bridge-commons:
+
+- `inspect` profile → use Gemini's non-mutating approval mode
+- `modify` profile → use Gemini's write-capable approval mode supported by the current runtime
+
+Gemini approval settings are runtime details. The shared policy is `capability_profile`, derived from `task_type`.

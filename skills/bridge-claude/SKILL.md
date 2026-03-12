@@ -269,9 +269,11 @@ All tasks run in parallel. After all complete, run the bridge-commons Post-Analy
 When any non-Claude-Code executor can call the `claude` CLI:
 
 ```bash
+CAPABILITY_FLAGS={resolved from bridge-commons capability_profile}
+
 timeout {final_timeout} claude -p "{constructed_prompt}" \
   --output-format json \
-  --allowedTools "Read,Grep,Glob,Bash(ls *)"
+  $CAPABILITY_FLAGS
 ```
 
 **Key flags:**
@@ -281,10 +283,15 @@ timeout {final_timeout} claude -p "{constructed_prompt}" \
 | `-p "prompt"`                 | Prompt string — non-interactive mode                 |
 | `--output-format json`        | Structured JSON output for parsing                   |
 | `--output-format stream-json` | Streaming JSON for real-time processing              |
-| `--allowedTools`              | Restrict what Claude can do (read-only for analysis) |
+| `CAPABILITY_FLAGS`            | Resolved runtime controls for `inspect` or `modify`  |
 | `--continue`                  | Resume the most recent session                       |
 
-For read-only analysis, scope tools to `Read,Grep,Glob,Bash(ls *)`. For implementation tasks, use the full tool set.
+Resolve `CAPABILITY_FLAGS` from bridge-commons:
+
+- `inspect` profile → constrain Claude to non-mutating tools only
+- `modify` profile → enable non-interactive writes so implementation tasks do not block on approvals
+
+The bridge policy is the shared `capability_profile`, not a fixed Claude flag set. Claude-specific permission flags are only the runtime-level translation of that profile.
 
 ---
 
@@ -318,6 +325,7 @@ See bridge-commons Output Schema. Bridge-specific fields:
 ```json
 {
   "bridge": "claude",
+  "capability_profile": "inspect | modify",
   "model_family": "anthropic/claude",
   "connection_used": "native-dispatch | cli | api",
   "agents_spawned": 4
