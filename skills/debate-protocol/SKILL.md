@@ -318,11 +318,12 @@ PASS:
 ## Fallback Mode
 
 If TeamCreate fails (not available in context):
-- Spawn independent Task sub-agents (no debate, no cross-challenge)
-- Collect findings independently
-- Skip Phases 3 and 4
-- Run Phase 5 synthesis directly
-- Mark output with `"type": "debate-protocol-fallback"`
+- Spawn independent Task sub-agents
+- Run a cross-visibility challenge round (Phase 3) explicitly: each reviewer receives the other reviewers' Phase 2 findings and issues challenges through a second Task invocation. Challenges and responses must flow through real agent messages — the coordinator must NOT synthesize them.
+- Phases 4 and 5 proceed as normal.
+- Emit the JSON log with `"mode": "adversarial_subagents"` and NO `team_session_id` field (or `team_session_id: null`).
+
+Do NOT emit `"mode": "debate"` for a fallback run. When consumed by `record_gate_1_result`, the `adversarial_subagents` mode is tagged `confidence_class: "reduced"`; a mislabelled log is fabrication.
 
 ---
 
@@ -406,8 +407,30 @@ Round 1 for discovery/brainstorm must use `context_policy: minimal-non-leading`:
 
 ## Artifact Output
 
-Save to `.outputs/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.md` with YAML frontmatter:
+Save **two** artifacts per run:
 
+### 1. JSON log — conforms to Gate 1 schema
+
+Path: `.outputs/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.json`
+
+This file is the authoritative proof-of-execution artifact and MUST conform to `.agents/skills/state/schemas/gate_1_debate_log.schema.json` (v1.0). It is consumed by `record_gate_1_result`, which parses it and derives `challenge_stats` / `finding_summary` from its message counts — downstream callers do not recompute these.
+
+Required top-level fields:
+- `schema_version: "1.0"`
+- `review_id` (string)
+- `mode`: `"debate"` when orchestrated through TeamCreate with a real team session; `"adversarial_subagents"` when orchestrated through parallel Task sub-agents (Fallback Mode above).
+- `team_session_id`: non-null string matching the TeamCreate session when `mode: "debate"`; `null` or absent when `mode: "adversarial_subagents"`.
+- `reviewers`: array of at least 3 items, each `{participant_id, role, model}` with non-empty strings.
+- `messages`: every reviewer message recorded as a separate entry. Fields: `participant_id`, `message_type` ∈ {`finding, challenge, defense, concession, corroboration, cross_challenge, discovery, merge_proposal, final_position`}, `timestamp` (ISO-8601), `content`, optional `finding_id`, optional `in_reply_to`. `challenge`, `defense`, and `concession` messages REQUIRE `in_reply_to` (typically a `finding_id`).
+- `final_verdict`: one of `"PASS"`, `"CONCERNS"`, `"FAIL"`.
+
+**Do not fabricate participant voices.** Every entry in `messages[]` must correspond to a real Task-agent (fallback) or TeamCreate-session message that actually happened.
+
+### 2. Markdown summary (optional, human-readable)
+
+Path: `.outputs/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.md`
+
+YAML frontmatter:
 ```yaml
 ---
 skill: debate-protocol
@@ -417,11 +440,12 @@ domains: [{domain1}, {domain2}]
 verdict: PASS | FAIL | CONCERNS
 intensity: quick | standard | thorough
 review_id: "{unique id}"
+mode: debate | adversarial_subagents
 context_summary: "{brief description of the task}"
 ---
 ```
 
-Also save JSON companion: `{YYYYMMDD-HHMMSS}-debate-{review_id}.json`
+The Markdown is for human readers; the JSON is load-bearing for state.py.
 
 **No symlinks.** To find the latest artifact:
 ```bash
