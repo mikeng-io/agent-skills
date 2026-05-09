@@ -638,7 +638,7 @@ export DEEP_REVIEW_INCLUDE_EXAMPLES="true"
 - **Conversation-Driven:** Extracts context from what was discussed
 - **Domain-Agnostic:** Works for any domain (code, design, content, etc.)
 - **Parallel Execution:** All reviewers run simultaneously for speed
-- **Multi-Model**: For cross-model review confidence, see `deep-council`
+- **Deep Council**: For cross-runtime/cross-council review confidence, see `deep-council`
 - **Domain-Aware**: Reviewer distribution adapts to detected domains via domain-registry
 - **Context Routing**: If the artifact is complex or multi-domain, invoke the `context` skill first to classify artifact type and determine optimal routing (parallel-workflow vs debate-protocol vs deep-council)
 - **DeepWiki (optional)**: For code artifacts, invoke `Skill("deepwiki")` before spawning reviewers if the codebase has a Devin-indexed wiki — provides architectural context that improves domain expert quality. Non-blocking; skip if unavailable.

@@ -1,6 +1,6 @@
 ---
 name: agent-council
-description: Single-model expert council. Dispatches multiple expert roles (Devil's Advocate, Integration Checker, Domain Experts) within the SAME model to catch project-specific issues, assumptions, and integration gaps. Complementary to deep-council (multi-model). Use when you need diverse perspectives but multi-model dispatch is unavailable or overkill. Orchestrator-agnostic — can be invoked by Claude Code, OpenCode, or any executor with native agent dispatch.
+description: Role-diverse local council. Dispatches multiple expert roles (Devil's Advocate, Integration Checker, Domain Experts, Synthesis Lead) within one runtime/model family to review, audit, or brainstorm. Complements Model Council, Runtime Council, and Deep Council; use when role diversity and local adversarial debate are needed.
 location: managed
 dependencies:
   - context
@@ -16,9 +16,9 @@ allowed-tools:
   - Bash(ls *)
 ---
 
-# Agent Council: Single-Model Expert Council
+# Agent Council: Role-Diverse Local Council
 
-Execute this skill to run an expert council using the SAME model with multiple specialized roles. Unlike deep-council (which dispatches to multiple AI models/providers), agent-council uses a single model's different expert PERSPECTIVES to catch:
+Execute this skill to run a local expert council using one runtime/model family with multiple specialized roles. Unlike deep-council (which composes multiple bridge/runtime councils and may also include model diversity), agent-council uses role-diverse expert PERSPECTIVES to catch:
 
 - **Shared assumptions** that a single viewpoint misses
 - **Integration gaps** between components
@@ -27,15 +27,55 @@ Execute this skill to run an expert council using the SAME model with multiple s
 
 ## When to Use Agent Council
 
-| Scenario                                      | Use Agent Council | Use Deep Council |
-| --------------------------------------------- | ----------------- | ---------------- |
-| Multi-model bridges unavailable               | ✓                 | ✗                |
-| Quick review, no time for multi-model latency | ✓                 | ✗                |
-| Project-specific issues (not model biases)    | ✓                 | ✗                |
-| Need maximum confidence via diverse models    | ✗                 | ✓                |
-| Catching provider-specific blind spots        | ✗                 | ✓                |
+| Scenario | Use Agent Council | Use Deep Council |
+| --- | --- | --- |
+| Need fast local role-diverse review | ✓ | Optional |
+| Need phase-end closure artifact | ✓ | Optional for high-risk phases |
+| Need each bridge/runtime to run its own local council | As child council | ✓ |
+| Need runtime/toolchain diversity (Codex vs Claude Code vs OpenCode) | ✗ alone | ✓ |
+| Need model diversity inside a bridge | ✗ alone | ✓ if bridge supports Model Council |
+| Need cross-council debate | ✗ alone | ✓ |
 
-**Agent Council catches project-specific issues. Deep Council catches provider-specific blind spots. They are COMPLEMENTARY.**
+**Agent Council is the local role-diverse primitive. Deep Council may compose multiple Agent Councils, Model Councils, or runtime-native councils and then run cross-council debate.** For shared terminology, read `council-taxonomy`.
+
+---
+
+## Modes
+
+Agent Council supports multiple modes:
+
+- `review` / `audit` — produce findings, challenge them, and return a verdict.
+- `brainstorm` / `design` — produce competing proposals, challenge assumptions, merge or reject proposals, and recommend a design direction.
+- `research` — produce evidence-backed observations, contradictions, confidence levels, and gaps.
+
+### Brainstorm Mode
+
+Brainstorm mode is for generating alternatives, not validating a coordinator's idea. The first round must be independent and minimally framed. Experts receive scope, objective, constraints, and output contract only. Do not include expected findings, a preferred design, or other experts' outputs in Round 1.
+
+Brainstorm-mode output uses proposals, not severity findings:
+
+```json
+{
+  "participant": "{role-name}",
+  "mode": "brainstorm",
+  "proposals": [
+    {
+      "id": "P001",
+      "title": "Short proposal title",
+      "summary": "What this design does",
+      "rationale": "Why it could work",
+      "tradeoffs": [],
+      "failure_modes": [],
+      "open_questions": [],
+      "recommended_when": "When to choose this proposal"
+    }
+  ],
+  "assumptions": [],
+  "questions": []
+}
+```
+
+Proposal states: `proposed`, `expanded`, `challenged`, `revised`, `merged`, `split`, `accepted`, `rejected`, `parked`, `superseded`.
 
 ---
 
@@ -446,17 +486,17 @@ Also save JSON companion: `{YYYYMMDD-HHMMSS}-agent-council-{review_id}.json`
 
 ## Comparison: Agent Council vs Deep Council vs Model Council
 
-| Feature             | Agent Council                    | Deep Council                       |
-| ------------------- | -------------------------------- | ---------------------------------- |
-| **Model Count**     | 1                                | 2-4                                |
-| **Expert Roles**    | Multiple                         | Multiple per model                 |
-| **Dispatch Method** | Task agents (same model)         | Bridge adapters (different models) |
-| **Catches**         | Project-specific assumptions     | Provider-specific blind spots      |
-| **Latency**         | Lower (single model)             | Higher (multi-model)               |
-| **Availability**    | Always (if Task tool accessible) | Conditional (bridges required)     |
-| **Confidence Tier** | Single-model confirmed           | Multi-model confirmed              |
+| Feature | Agent Council | Deep Council |
+| --- | --- | --- |
+| **Primary diversity** | Roles/perspectives | Roles + models + runtimes + toolchains + debate layers |
+| **Scope** | One local runtime/model family | Multiple bridge/runtime councils |
+| **Dispatch method** | Local agents/roles | Bridge adapters, each running a local council when possible |
+| **Catches** | Local assumptions and integration gaps | Cross-runtime blind spots, shared-bias failures, runtime/toolchain-specific discoveries |
+| **Latency** | Lower | Higher |
+| **Availability** | Available when local agent dispatch exists | Conditional on bridges/runtimes |
+| **Confidence tier** | Local debate-confirmed | Cross-council debate-confirmed |
 
-**Recommendation**: Use Agent Council for quick project reviews. Use Deep Council when maximum confidence is required and multi-model dispatch is available.
+**Recommendation**: Use Agent Council as the default phase-end local council. Use Deep Council when runtime/tool diversity, model diversity, or cross-council debate materially improves confidence.
 
 ---
 

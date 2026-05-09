@@ -1,6 +1,6 @@
 ---
 name: debate-protocol
-description: Generic 5-phase structured adversarial analysis protocol. Model-agnostic and domain-agnostic. Works for review, audit, research synthesis, planning, creative critique, or any task requiring multi-perspective examination. Can be used standalone or embedded by any orchestrating skill. Produces verdict with confirmed/withdrawn/disputed/merged/discovered findings.
+description: Generic structured adversarial protocol for review, audit, research synthesis, and brainstorm/design councils. Supports finding validation plus proposal brainstorming lifecycles, packetized exchanges, and auditable manifests for nested councils.
 location: managed
 allowed-tools:
   - Read
@@ -26,6 +26,20 @@ Debate is NOT brainstorming and NOT round-table discussion. Debate is **adversar
 - Downgraded findings where the initial severity was an assumption, not evidence
 - Withdrawn findings that were patterns, not problems
 - New findings that only appear when you combine two domain experts' views
+
+## Brainstorm Is Related, But Not The Same
+
+Brainstorm mode is **divergent proposal generation followed by adversarial convergence**. It should not force proposals into finding/severity fields. Use brainstorm mode when the task is to design an architecture, generate alternatives, or discover candidate approaches before deciding what to build.
+
+Brainstorm phases:
+
+1. **Diverge** — independent proposal generation with minimal, non-leading context.
+2. **Expand** — publish proposal inventory; participants improve, combine, or add missing alternatives.
+3. **Challenge** — Devil's Advocate and peers challenge assumptions, complexity, feasibility, and hidden coupling.
+4. **Converge** — merge, split, reject, or park proposals.
+5. **Handoff** — produce an accepted direction, open questions, and next-step recommendation.
+
+Proposal states: `proposed`, `expanded`, `challenged`, `revised`, `merged`, `split`, `accepted`, `rejected`, `parked`, `superseded`.
 
 ### What "Debate" Means Per Task Context
 
@@ -87,10 +101,12 @@ When invoked, accept the following input (from conversation context or caller):
 ```yaml
 debate_input:
   review_id: ""          # Unique ID for this debate session (generate UUID if not provided)
-  review_scope: ""       # What is being reviewed (files, topics, description)
+  review_scope: ""       # What is being reviewed, researched, or designed
+  mode: "review"         # review | audit | brainstorm | design | research | synthesis
   domains: []            # Domains selected (from domain-registry or caller)
   intensity: "standard"  # quick | standard | thorough
-  context_summary: ""    # What the conversation/task is about
+  context_summary: ""    # Neutral context summary
+  context_policy: "minimal-non-leading" # round1 policy for discovery/brainstorm
 ```
 
 ---
@@ -307,6 +323,84 @@ If TeamCreate fails (not available in context):
 - Skip Phases 3 and 4
 - Run Phase 5 synthesis directly
 - Mark output with `"type": "debate-protocol-fallback"`
+
+---
+
+## Packetized Exchange Contract
+
+Councils exchange information through immutable packets and message envelopes when auditability matters, especially in nested Deep Council runs.
+
+### CouncilTaskPacket
+
+```json
+{
+  "packet_type": "discovery | challenge | reconciliation | final-position",
+  "schema_version": "1.0",
+  "review_id": "...",
+  "mode": "review | audit | brainstorm | design | research | synthesis",
+  "artifact": {"scope": "..."},
+  "objective": "...",
+  "domains": [],
+  "constraints": {
+    "mutation": "forbidden | allowed",
+    "evidence_required": true,
+    "independent_discovery": true,
+    "avoid_leading_context": true
+  },
+  "context": {
+    "minimal_background": "...",
+    "known_claims": [],
+    "prior_findings": [],
+    "prior_proposals": []
+  },
+  "output_contract": {
+    "format": "json",
+    "proposal_schema": "proposal-v1",
+    "finding_schema": "finding-v1"
+  }
+}
+```
+
+Round 1 for discovery/brainstorm must use `context_policy: minimal-non-leading`: include scope, objective, hard constraints, and output contract; exclude expected findings, suspected root causes, coordinator-preferred design, prior participant outputs, and desired verdict.
+
+### ExchangeEnvelope
+
+```json
+{
+  "packet_type": "exchange_envelope",
+  "schema_version": "1.0",
+  "message_id": "MSG001",
+  "session_id": "...",
+  "round": 2,
+  "exchange_mode": "coordinator-mediated | session-continuity | direct-async | stateless-replay",
+  "from": {"participant_id": "coordinator", "council_id": "root"},
+  "to": {"participant_id": "codex-local-council", "council_id": "child"},
+  "message_kind": "prompt | context_packet | proposal_packet | challenge | response | synthesis | final_summary",
+  "references": {"packet_ids": [], "proposal_ids": [], "finding_ids": [], "artifact_ids": []},
+  "payload": {},
+  "delivery": {"transport": "task-tool | codex-mcp-thread | cli-prompt | agent-team-sendmessage | file-drop"}
+}
+```
+
+### Brainstorm Proposal Object
+
+```json
+{
+  "id": "P001",
+  "title": "...",
+  "summary": "...",
+  "rationale": "...",
+  "proposal_type": "schema | protocol | lifecycle | policy | implementation",
+  "maturity": "seed | sketched | refined | candidate | accepted | rejected | parked",
+  "tradeoffs": [],
+  "dependencies": [],
+  "open_questions": [],
+  "risks": [],
+  "lineage": {"derived_from": [], "supersedes": [], "merged_from": []},
+  "status": "proposed"
+}
+```
+
 
 ---
 

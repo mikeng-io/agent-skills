@@ -126,8 +126,8 @@ Skills using domain-registry should:
 
 | Skill           | Usage                                        |
 | --------------- | -------------------------------------------- |
-| `agent-council` | Select expert roles for single-model council |
-| `deep-council`  | Select expert roles for multi-model council  |
+| `agent-council` | Select expert roles for local role-diverse council |
+| `deep-council`  | Select expert roles/domains for council-of-councils |
 | `deep-review`   | Select domain experts for deep review        |
 | `deep-audit`    | Select domain experts for audit              |
 | `deep-verify`   | Select domain experts for verification       |

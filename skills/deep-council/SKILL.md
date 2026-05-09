@@ -1,6 +1,6 @@
 ---
 name: deep-council
-description: Multi-model review council. Dispatches review tasks to all available bridge adapters (Claude, Gemini, Codex, OpenCode), each of which runs internal sub-agents. Synthesizes findings across model families using debate-protocol. Usable standalone or as a second-pass from deep-verify. Orchestrator-agnostic — can be invoked by Claude Code, OpenCode, or Codex CLI.
+description: Council-of-councils orchestrator. Dispatches discovery-first packets to bridge adapters (Claude, Gemini, Codex, OpenCode), each of which runs a local Agent/Model/Runtime Council, then performs cross-council debate using debate-protocol. Supports review, audit, research, and brainstorm/design modes.
 location: managed
 dependencies:
   - context
@@ -23,9 +23,52 @@ allowed-tools:
   - Bash(cat *)
 ---
 
-# Deep Council: Multi-Model Review Council
+# Deep Council: Council-of-Councils
 
-Execute this skill to run a multi-model review using all available bridge adapters, synthesizing findings across model families.
+Execute this skill to run a nested council across independent runtimes/toolchains. Deep Council is not merely multi-model review: it treats Claude Code, Codex, OpenCode, Gemini, and other bridges as council-capable runtimes. Each bridge runs its own local council using native strengths, then Deep Council runs cross-council debate over their reports.
+
+## Council-of-Councils Architecture
+
+```text
+Deep Council
+├─ bridge-claude
+│  └─ local Agent Council / full debate-protocol when available
+├─ bridge-codex
+│  └─ local Agent Council optimized for diff/code/repo review
+├─ bridge-opencode
+│  └─ local Agent Council or Model Council if multiple models configured
+├─ bridge-gemini
+│  └─ local stateless debate-compatible council
+└─ Cross-Council Debate
+   ├─ frame comparison
+   ├─ finding/proposal challenge
+   ├─ shared-bias challenge
+   └─ final synthesis
+```
+
+A finding supported by multiple models is `model-confirmed`. A finding supported by multiple runtimes/toolchains is `runtime-confirmed`. A finding supported by tests/logs/source evidence is `evidence-confirmed`. Record these separately; do not treat model count as the only confidence signal.
+
+## Modes
+
+`deep-council` supports:
+
+- `review` / `audit` — local councils produce findings; cross-council debate validates them.
+- `brainstorm` / `design` — local councils produce competing proposals; cross-council debate challenges, merges, rejects, or selects proposals.
+- `research` — local councils produce evidence-backed observations and contradictions; cross-council debate validates evidence and confidence.
+
+### Brainstorm Mode
+
+Use brainstorm mode when the goal is to create candidate architectures or plans, not to validate an existing proposal. The root orchestrator sends each bridge a minimal discovery packet and asks it to generate independent proposals. Later rounds publish proposal inventories and challenge assumptions.
+
+Brainstorm flow:
+
+1. **Round 0: Minimal discovery packet** — scope, objective, constraints, output contract. No expected findings or preferred design.
+2. **Round 1: Local frame discovery** — each bridge decides its local roster, domains, and tool strategy.
+3. **Round 2: Local council execution** — each bridge runs local Agent/Model Council and emits a local report.
+4. **Round 3: Cross-council frame debate** — compare investigation strategies, runtime affordances, and blind spots.
+5. **Round 4: Cross-council proposal/finding debate** — challenge proposals or findings using debate-protocol state semantics.
+6. **Round 5: Final report** — preserve lineage, diversity sources, accepted/rejected/parked proposals, and verdict or recommendation.
+
 
 ## Execution Instructions
 
@@ -35,8 +78,9 @@ When invoked, you will:
 1. Populate council context from working_scope
 2. Read and inventory available bridges
 3. Dispatch all available bridges in parallel via Task agents
-4. Synthesize findings across bridges using debate-protocol logic
-5. Produce a consolidated multi-model report
+4. Require each bridge to return a local council report, degraded-mode report, or SKIPPED/HALTED status
+5. Run cross-council debate using debate-protocol logic
+6. Produce a consolidated council-of-councils report with runtime/tool/model/role provenance
 
 ---
 
@@ -323,6 +367,9 @@ For each available bridge, spawn a Task agent. The Task prompt embeds:
     "scope": "{review_scope}",
     "review_scope": "{review_scope}",
     "task_type": "{task_type}",
+    "mode": "{mode}",
+    "context_policy": "minimal-non-leading",
+    "local_council_required": true,
     "task_description": "{context_summary}",
     "domains": {domains},
     "context_summary": "{context_summary}",
@@ -332,6 +379,8 @@ For each available bridge, spawn a Task agent. The Task prompt embeds:
 ```
 
 `session_id` and `scope` are the bridge-commons canonical field names; `review_id` and `review_scope` are aliases for backward compatibility.
+
+For `mode: brainstorm | design | research`, the first bridge dispatch must use a minimal, non-leading `context_summary`: scope, objective, constraints, and output contract only. Do not include expected findings, suspected root causes, preferred designs, or other bridge outputs until the cross-council challenge/reconciliation rounds.
 
 ### Task Prompt Template (for each bridge)
 
@@ -400,7 +449,7 @@ Cross-bridge synthesis runs in two stages: mechanical deduplication first, then 
 Collect all findings from all bridge reports. Apply these rules:
 
 ```yaml
-multi_model_confirmed_preliminary:
+multi_source_confirmed_preliminary:
   condition: "Finding confirmed by 2+ bridge reports (>70% description overlap)"
   action: "Merge into single finding — inherit highest severity, list all contributing bridges"
 
@@ -440,13 +489,13 @@ Intensity: {council_context.intensity}
 Domains covered: {council_context.domains}
 
 ## Preliminary Findings (from {N} bridges)
-{preliminary_findings JSON — include all multi-model-confirmed, single-source, and disputed findings}
+{preliminary_findings JSON — include all multi-source-confirmed, single-source, and disputed findings}
 
 ## Your Obligations
 
 ### Role 1: Devil's Advocate
 
-MUST challenge every multi-model-confirmed CRITICAL or HIGH finding. A finding that "all bridges agree on" is exactly the finding most in need of adversarial review — agreement can reflect shared bias, shared prompting, or shared blindspot.
+MUST challenge every multi-source-confirmed CRITICAL or HIGH finding. A finding that "all bridges agree on" is exactly the finding most in need of adversarial review — agreement can reflect shared bias, shared prompting, or shared blindspot.
 
 For each CRITICAL/HIGH preliminary finding, ask:
 1. What assumption does every bridge share that could be wrong?
@@ -477,7 +526,7 @@ Surface integration findings under domain: "integration".
 
 Run 2 rounds (standard intensity) or 3 rounds (thorough intensity):
 
-**Round 1** — DA challenges multi-model-confirmed CRITICALs and HIGHs. For each:
+**Round 1** — DA challenges multi-source-confirmed CRITICALs and HIGHs. For each:
 - If challenge succeeds → downgrade or mark DISPUTED with rationale
 - If challenge fails (finding holds) → mark CONFIRMED with "DA-challenged" annotation
 
@@ -511,7 +560,7 @@ Return:
 Replace preliminary classification with debate output:
 
 ```yaml
-multi_model_confirmed:   # Debate-confirmed multi-bridge findings
+multi_source_confirmed:  # Debate-confirmed multi-bridge/runtime/model findings
 single_source_findings:  # Surviving single-source findings (debate-unchallenged)
 disputed_findings:       # Debate-disputed (from both preliminary + debate rounds)
 integration_findings:    # New findings from Integration Checker
@@ -522,18 +571,18 @@ withdrawn_findings:      # Findings invalidated by DA challenge
 
 **Note:** Cross-bridge verdict thresholds deliberately differ from per-bridge bridge-commons thresholds.
 Per-bridge: FAIL = any single CRITICAL finding (that bridge's internal debate flagged it).
-Cross-bridge: FAIL = multi-model-confirmed CRITICAL (requires multiple model families to agree).
+Cross-bridge: FAIL = multi-source-confirmed CRITICAL (requires multiple independent bridge/runtime/model signals or one high-depth critical with strong evidence).
 This is intentional — cross-bridge synthesis accounts for depth asymmetry (some bridges run richer
-debate than others) by requiring multi-model agreement before escalating to FAIL.
+debate than others) by requiring independent bridge/runtime/model evidence before escalating to FAIL.
 
 ```yaml
 FAIL:
-  - Any multi-model-confirmed CRITICAL finding
+  - Any multi-source-confirmed CRITICAL finding
   - Any single-source CRITICAL finding (from a high-depth bridge — claude with Agent Teams or Task Tool)
-  - 3+ multi-model-confirmed HIGH findings
+  - 3+ multi-source-confirmed HIGH findings
 
 CONCERNS:
-  - 1-2 multi-model-confirmed HIGH findings
+  - 1-2 multi-source-confirmed HIGH findings
   - Multiple single-source HIGH findings
   - Any disputed CRITICAL/HIGH finding
 
@@ -567,7 +616,7 @@ PASS:
   },
   "domains_covered": ["{domain1}", "{domain2}"],
   "intensity": "standard",
-  "multi_model_confirmed": [
+  "multi_source_confirmed": [
     {
       "id": "MMC001",
       "severity": "HIGH",
@@ -603,7 +652,7 @@ PASS:
       ]
     }
   ],
-  "synthesis_notes": "Summary of cross-model analysis"
+  "synthesis_notes": "Summary of cross-council analysis"
 }
 ```
 

@@ -34,7 +34,7 @@ The result: findings that have been stress-tested. When something comes out of t
 
 #### Beyond Single-Model Thinking
 
-The suite goes further with the Deep Council — a multi-model review architecture. It dispatches the same task to Claude, Gemini, Codex, and OpenCode in parallel. Each model family runs its own internal analysis. Then a cross-model debate challenges the aggregated findings.
+The suite goes further with the Deep Council — a council-of-councils architecture. It dispatches discovery-first packets to Claude, Gemini, Codex, and OpenCode in parallel. Each runtime runs its own local analysis or council. Then a cross-council debate challenges the aggregated findings.
 
 Why does this matter? Every model has blind spots. Claude reasons differently from Gemini. When three model families independently find the same issue, confidence goes up. When they disagree, that disagreement itself is valuable — it surfaces assumptions that a single model would never question.
 
@@ -73,7 +73,7 @@ AI agents are great at generating code reviews. They're terrible at questioning 
 
 I built a skill suite that makes AI agents debate each other. A Devil's Advocate agent is required to challenge every critical finding. Challenges must be substantive — identify a missing assumption, propose an alternative explanation, or prove non-applicability. Findings that survive are confirmed. Findings that don't are withdrawn.
 
-It goes further: the Deep Council dispatches the same task to multiple AI model families (Claude, Gemini, Codex) in parallel, then runs a cross-model debate on the aggregated results. Multi-model agreement = higher confidence. Disagreement = surfaced blind spots.
+It goes further: the Deep Council dispatches discovery-first packets to multiple AI runtimes (Claude, Gemini, Codex, OpenCode) in parallel, then runs cross-council debate on the aggregated results. Multi-source confirmation = higher confidence. Disagreement = surfaced blind spots.
 
 The best part? I ran it on its own codebase. It found 13 real issues in itself. All fixed.
 
