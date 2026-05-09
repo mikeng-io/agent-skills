@@ -1162,7 +1162,71 @@ export DEEP_RESEARCH_OUTPUT_FORMAT="markdown"
 - **Tool-agnostic**: Gracefully handles unavailable tools with fallbacks
 - **Evidence-based**: All findings tied to sources with credibility assessment
 - **Cross-domain**: Identifies insights that emerge from domain intersections
-- **Multi-Model**: For cross-model research synthesis, see `deep-council`
+- **Deep Council**: For cross-runtime/cross-council research synthesis, see `deep-council`
 - **Domain-Aware**: Research agents adapt to domain context via domain-registry
 - **Context Routing**: If the research scope is complex or multi-domain, invoke the `context` skill first to classify artifact type and determine optimal routing (parallel-workflow vs debate-protocol vs deep-council)
 - **Severity vs Consensus**: `severity` (CRITICAL/HIGH/MEDIUM/LOW/INFO) reflects the finding's importance; `consensus` (STRONG/MODERATE/WEAK/DEBATE) reflects source agreement strength — both are recorded per finding
+
+---
+
+## Integration Boundary: Research Dossiers, Not Editorial Pipelines
+
+`deep-research` is a generic evidence-acquisition and synthesis framework. It may produce artifacts consumed by editorial systems, strategy workflows, implementation planners, or humans, but it must not embed consumer-specific workflow logic.
+
+Boundary rule:
+
+```text
+deep-research → research_dossier → downstream consumer
+```
+
+Do not turn this into:
+
+```text
+deep-research ↔ Cortex/editorial combined pipeline
+```
+
+### Deep Research Owns
+
+- research framing and domain detection
+- source discovery and extraction
+- credibility assessment
+- claim/evidence mapping
+- contradiction and gap analysis
+- confidence scoring
+- generic reports, dossiers, source bundles, debate packets, and decision briefs
+
+### Downstream Consumers Own
+
+- editorial thesis and angle selection
+- audience and voice
+- narrative structure
+- headline/lede/publishability
+- channel packaging
+- product-specific workflow gates
+
+### Generic Dossier Contract
+
+Prefer consumer-neutral artifact names:
+
+- `research_dossier`
+- `source_bundle`
+- `claim_matrix`
+- `evidence_log`
+- `debate_packet`
+- `decision_brief`
+
+Avoid consumer-specific names in this skill, such as `cortex_packet`, `editorial_brief`, `article_seed`, or `publication_dossier`. A downstream system may transform the dossier into those artifacts outside `deep-research`.
+
+### Optional Research Brainstorm Mode
+
+When the research topic is broad or ambiguous, use a generic brainstorm stage before gathering evidence:
+
+1. **Frame** — clarify question, domains, constraints, and excluded scope.
+2. **Diverge** — generate candidate questions, hypotheses, source classes, stakeholder lenses, and likely controversies.
+3. **Plan** — choose research questions, source strategy, and evidence thresholds.
+4. **Gather** — collect sources and evidence.
+5. **Triangulate** — map claims to evidence for/against.
+6. **Contest** — produce debate packets for contradictions and weak claims.
+7. **Synthesize** — emit dossier/report with confidence and limitations.
+
+Hypotheses from brainstorm mode are unverified until supported by evidence. Do not convert research brainstorm output directly into publication copy or implementation plans without a separate downstream workflow.

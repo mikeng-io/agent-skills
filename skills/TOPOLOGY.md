@@ -137,12 +137,12 @@ deep-{skill}
 
 Best for: ≥ 3 domains, high-stakes changes, standard or thorough intensity.
 
-### Path C: Deep Council (Multi-Model)
+### Path C: Deep Council (Council-of-Councils)
 
-Dispatches the task to multiple AI runtimes in parallel. The architecture has **two debate layers**:
+Dispatches discovery-first packets to multiple council-capable runtimes in parallel. The architecture has **two debate layers**:
 
-- **Layer 2 (intra-bridge):** Each bridge extracts maximum value from its own model family before reporting
-- **Layer 1 (cross-bridge):** After all bridges report, a Debate Coordinator challenges the aggregated findings across model families
+- **Layer 2 (intra-bridge):** Each bridge extracts maximum value from its own runtime/toolchain/model setup before reporting
+- **Layer 1 (cross-bridge):** After all bridges report, a Debate Coordinator challenges the aggregated findings/proposals across bridge/runtime/model sources
 
 ```
 deep-council
@@ -159,7 +159,7 @@ deep-council
   └── Layer 1: Cross-bridge synthesis (deep-council Step 6)
         Stage A: Mechanical deduplication (find overlapping findings)
         Stage B: Debate Coordinator Task agent
-                 ├── DA challenges multi-model-confirmed findings
+                 ├── DA challenges multi-source-confirmed findings
                  │   ("all bridges agreed — shared bias or genuine?")
                  ├── IC checks cross-bridge integration gaps
                  └── 2–3 challenge rounds (standard/thorough)
@@ -168,7 +168,7 @@ deep-council
                            integration_findings (new — emerged from cross-bridge debate)
 ```
 
-Best for: maximum confidence, multi-model verification, explicit user request, thorough intensity.
+Best for: maximum confidence, cross-runtime verification, brainstorm/design councils, explicit user request, thorough intensity.
 
 ---
 
@@ -181,7 +181,7 @@ Best for: maximum confidence, multi-model verification, explicit user request, t
 | `deep-review` | parallel-workflow | deep-council | Escalates on high-stakes or user request |
 | `deep-audit` | parallel-workflow | deep-council | Escalates on compliance/security signals |
 | `deep-verify` | parallel-workflow + debate-protocol | deep-council | Debate is default for verification |
-| `deep-research` | parallel-workflow | deep-council | Multi-model adds perspective diversity |
+| `deep-research` | parallel-workflow | deep-council | Deep Council adds runtime/model/toolchain perspective diversity |
 
 ---
 
@@ -243,6 +243,6 @@ Skills with **no `context` field** run **inline** in the invoking agent — full
 1. **Non-blocking bridges** — A missing CLI never halts a session; it produces `SKIPPED`.
 2. **Generic, not review-specific** — All components handle review, planning, implementation, analysis, and research.
 3. **No hardcoded models** — Every bridge detects the latest available model at runtime.
-4. **Progressive enhancement** — Multi-agent mode, debate, and multi-model council are additive. Each skill works with the minimum available capability.
+4. **Progressive enhancement** — Multi-agent mode, debate, model diversity, and runtime/toolchain councils are additive. Each skill works with the minimum available capability.
 5. **Composable** — Any skill can be used standalone or as part of a larger orchestration.
 6. **Shared contract** — All bridges implement `bridge-commons` — one schema to learn, four runtimes.

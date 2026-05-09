@@ -273,7 +273,7 @@ If any model invocation times out or errors → mark it as `skipped` in `instanc
 After all model invocations complete, run a mini-synthesis before returning to deep-council:
 
 1. **Deduplication**: Findings with >70% description overlap across models → merge (inherit highest severity, list contributing models as `confirmed_by_models`)
-2. **Model-confirmed**: Merged findings are elevated (`intra-bridge_multi_model_confirmed: true`)
+2. **Model-confirmed**: Merged findings are elevated (`intra_bridge_model_confirmed: true`)
 3. **Single-model findings**: Retained with model attribution
 4. **Verdict**: Apply bridge-commons verdict logic to the merged finding set
 

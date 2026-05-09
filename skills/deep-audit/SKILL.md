@@ -748,7 +748,7 @@ export DEEP_AUDIT_FAIL_ON_CRITICAL="true"
 - **Conversation-Driven:** Infers standards from context
 - **Domain-Agnostic:** Works for any domain with standards
 - **Parallel Execution:** All auditors run simultaneously
-- **Multi-Model**: For cross-model audit confidence, see `deep-council`
+- **Deep Council**: For cross-runtime/cross-council audit confidence, see `deep-council`
 - **Domain-Aware**: Auditor selection adapts to domain context via domain-registry
 - **Context Routing**: If the artifact is complex or multi-domain, invoke the `context` skill first to classify artifact type and determine optimal routing (parallel-workflow vs debate-protocol vs deep-council)
 - **DeepWiki (optional)**: For code artifacts, invoke `Skill("deepwiki")` before spawning auditors if the codebase has a Devin-indexed wiki — provides architectural context that improves standards mapping. Non-blocking; skip if unavailable.

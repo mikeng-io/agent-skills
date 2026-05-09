@@ -1,6 +1,6 @@
 # Deep Skills Suite
 
-A collection of composable, model-agnostic, domain-agnostic AI agent skills for multi-agent analysis, verification, research, and multi-model council review.
+A collection of composable, model-agnostic, domain-agnostic AI agent skills for multi-agent analysis, verification, research, and council-of-councils review.
 
 ## Overview
 
@@ -9,7 +9,7 @@ Skills are **conversation-driven** — they extract context from what you've bee
 **Architecture principles:**
 - **Inline execution** — context-sensitive skills run in the same agent, inheriting full conversation history
 - **Isolated execution** — stateless data-retrieval skills (`brave-search`, `perplexity`, `deepwiki`) run as isolated sub-agents
-- **Progressive enhancement** — each skill works standalone; multi-agent debate and multi-model council are additive layers
+- **Progressive enhancement** — each skill works standalone; multi-agent debate, model diversity, runtime diversity, and cross-council synthesis are additive layers
 - **Non-blocking bridges** — unavailable CLI tools produce `SKIPPED`, never halt execution
 
 ---
@@ -48,6 +48,7 @@ ln -s $(pwd)/skills/context ~/.claude/skills/context
 ln -s $(pwd)/skills/preflight ~/.claude/skills/preflight
 ln -s $(pwd)/skills/parallel-workflow ~/.claude/skills/parallel-workflow
 ln -s $(pwd)/skills/debate-protocol ~/.claude/skills/debate-protocol
+ln -s $(pwd)/skills/council-taxonomy ~/.claude/skills/council-taxonomy
 
 # Deep skills
 ln -s $(pwd)/skills/deep-explorer ~/.claude/skills/deep-explorer
@@ -57,7 +58,7 @@ ln -s $(pwd)/skills/deep-verify ~/.claude/skills/deep-verify
 ln -s $(pwd)/skills/deep-research ~/.claude/skills/deep-research
 ln -s $(pwd)/skills/deep-council ~/.claude/skills/deep-council
 
-# Optional — multi-model council bridges
+# Optional — council-of-councils bridges
 ln -s $(pwd)/skills/bridge-commons ~/.claude/skills/bridge-commons
 ln -s $(pwd)/skills/bridge-claude ~/.claude/skills/bridge-claude
 ln -s $(pwd)/skills/bridge-gemini ~/.claude/skills/bridge-gemini
@@ -76,7 +77,7 @@ ln -s $(pwd)/skills/bridge-opencode ~/.claude/skills/bridge-opencode
 | Check compliance / standards | `/deep-audit` | PASS / CONCERNS / FAIL |
 | Verify correctness, surface risks | `/deep-verify` | PASS / CONCERNS / FAIL |
 | Research a topic | `/deep-research` | Evidence-based report |
-| Multi-model council review | `/deep-council` | PASS / CONCERNS / FAIL (multi-model confirmed) |
+| Council-of-councils review | `/deep-council` | PASS / CONCERNS / FAIL (multi-source confirmed) |
 
 **Example workflows:**
 
@@ -92,7 +93,7 @@ ln -s $(pwd)/skills/bridge-opencode ~/.claude/skills/bridge-opencode
 /deep-research   # Background research
 # ... implement ...
 /deep-review     # Improvement suggestions
-/deep-council    # Multi-model confidence boost
+/deep-council    # Cross-runtime/cross-council confidence boost
 ```
 
 ---
@@ -108,7 +109,10 @@ Classifies the current conversation artifact (code, financial, marketing, etc.),
 Lightweight scope clarifier. Invoked by deep-* skills when conversation context is too sparse to determine what to analyze. Asks 1–3 targeted questions one at a time (one per message, multiple-choice preferred), then returns a structured `scope_clarification` block for the calling skill. Skipped automatically when scope is already clear. Adapted from the [superpowers `brainstorming` skill](https://github.com/obra/superpowers/blob/main/skills/brainstorming/SKILL.md) — same principle of asking before acting, scoped to analysis intent rather than feature design.
 
 #### [`debate-protocol`](./skills/debate-protocol/)
-5-phase structured adversarial debate. Domain experts analyze independently, a Devil's Advocate challenges every CRITICAL/HIGH finding, an Integration Checker surfaces cross-component gaps, findings are confirmed/withdrawn/disputed/merged. Used by deep-council and deep-verify.
+5-phase structured adversarial debate. Domain experts analyze independently, a Devil's Advocate challenges every CRITICAL/HIGH finding, an Integration Checker surfaces cross-component gaps, findings are confirmed/withdrawn/disputed/merged. Also supports brainstorm/design proposal lifecycles, packetized council exchange, and nested-council artifacts. Used by deep-council and deep-verify.
+
+#### [`council-taxonomy`](./skills/council-taxonomy/)
+Shared vocabulary for Agent Council, Model Council, Runtime Council, and Deep Council. Use before designing or invoking council workflows so role, model, runtime/toolchain, evidence-channel, and debate-layer diversity are not conflated.
 
 #### [`parallel-workflow`](./skills/parallel-workflow/)
 DAG-based parallel dispatch. Spawns independent sub-agents, collects results, synthesizes. Used by all deep-* skills as their default execution path.
@@ -137,7 +141,7 @@ Standards and compliance audit with formal verdicts. Auditor selection driven by
 **Output:** `.outputs/audit/`
 
 #### [`deep-verify`](./skills/deep-verify/)
-Risk-focused verification with Devil's Advocate as a mandatory challenger. DAG execution: domain experts → (DA + Integration Checker in parallel) → Third-Party Reviewer. Optional multi-model second pass via `deep-council`.
+Risk-focused verification with Devil's Advocate as a mandatory challenger. DAG execution: domain experts → (DA + Integration Checker in parallel) → Third-Party Reviewer. Optional council-of-councils second pass via `deep-council`.
 
 **Verdict:** PASS / CONCERNS / FAIL
 **Output:** `.outputs/verification/`
@@ -149,13 +153,13 @@ Multi-domain research with parallel domain researchers. Automatic tool discovery
 
 ---
 
-### Multi-Model Council
+### Council-of-Councils
 
 #### [`deep-council`](./skills/deep-council/)
-Dispatches the same task to all available AI runtimes in parallel and synthesizes findings across model families. Two-layer debate architecture:
+Dispatches discovery-first packets to all available council-capable runtimes in parallel. Each bridge runs the richest local council it supports, then Deep Council synthesizes proposals/findings through cross-council debate. Two-layer debate architecture:
 
-- **Layer 2 (intra-bridge):** Each bridge extracts maximum value from its own model family
-- **Layer 1 (cross-bridge):** Debate Coordinator challenges findings across all bridges — multi-model agreement gets elevated, conflicts get flagged
+- **Layer 2 (intra-bridge):** Each bridge extracts maximum value from its own runtime/toolchain/model setup through local Agent Council, Model Council, or debate-compatible review
+- **Layer 1 (cross-bridge):** Debate Coordinator challenges findings/proposals across all bridges — multi-source confirmation gets elevated, conflicts and shared-bias risks get flagged
 
 **Bridges:**
 | Bridge | Requires | Layer 2 depth |
@@ -218,7 +222,7 @@ agent-skills/
     ├── bridge-commons/            # Shared contract for all bridge adapters
     │   └── SKILL.md
     │
-    ├── debate-protocol/           # 5-phase adversarial debate framework
+    ├── debate-protocol/           # 5-phase adversarial debate + brainstorm/proposal protocol
     │   ├── SKILL.md
     │   ├── experts/
     │   │   ├── devils-advocate.md
@@ -228,6 +232,8 @@ agent-skills/
     │   └── schemas/
     │
     ├── context/                   # Artifact classifier and smart router
+    │   └── SKILL.md
+    ├── council-taxonomy/          # Agent/Model/Runtime/Deep Council reference
     │   └── SKILL.md
     │
     ├── parallel-workflow/         # DAG-based parallel agent dispatcher
@@ -242,7 +248,7 @@ agent-skills/
     ├── bridge-opencode/           # OpenCode multi-model bridge
     │   └── SKILL.md
     │
-    ├── deep-council/              # Multi-model council orchestrator
+    ├── deep-council/              # Council-of-councils orchestrator
     │   ├── SKILL.md
     │   ├── README.md
     │   └── schemas/
@@ -327,7 +333,7 @@ Suite-level configuration at the repo root:
 1. **Non-blocking** — a missing CLI never halts execution; it produces `SKIPPED`
 2. **Conversation-driven** — no triggers, keywords, or configuration required
 3. **No hardcoded models** — capability levels (`highest`, `high`, `standard`) only
-4. **Progressive enhancement** — each skill works at minimum capability; debate and multi-model council are additive
+4. **Progressive enhancement** — each skill works at minimum capability; debate, local councils, model diversity, and runtime/toolchain diversity are additive
 5. **Domain-agnostic** — domain-registry drives expert selection; the same skills work for code, finance, marketing, design, legal
 6. **Composable** — any skill can be used standalone or as part of a larger orchestration
 

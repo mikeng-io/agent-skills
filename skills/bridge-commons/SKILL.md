@@ -87,6 +87,9 @@ All bridges accept this standard input:
     "scope": "files, topics, or description of what to work on",
     "task_description": "what the agent should do",
     "task_type": "review | planning | implementation | analysis | research | audit",
+    "mode": "review | audit | brainstorm | design | research | synthesis",
+    "local_council_required": false,
+    "context_policy": "minimal-non-leading | packetized-summary | full-context | targeted-challenge",
     "domains": ["domain1", "domain2"],
     "context_summary": "brief description of context",
     "intensity": "quick | standard | thorough"
@@ -127,6 +130,32 @@ Bridges MUST follow this process:
 
 Bridges MUST NOT treat runtime-specific controls as global policy. Values such as CLI permission flags, sandbox modes, agent names, or tool allowlists are implementation details of the selected bridge and must be chosen through this shared profile rather than hardcoded as the only execution mode.
 
+### Council Capability Profile
+
+When `local_council_required: true`, a bridge must run the richest local council its runtime supports, or explicitly report degraded mode. It must not silently collapse into a single-answer reviewer.
+
+Local council options:
+
+- **Agent Council:** multiple role-framed agents inside the bridge/runtime.
+- **Model Council:** multiple configured models inside the same runtime/toolchain.
+- **Runtime-native review:** the best available local equivalent when full council mechanics are unavailable.
+
+Bridge outputs must record:
+
+```json
+{
+  "local_council_type": "agent-council | model-council | runtime-native-review | none",
+  "local_council_degraded": false,
+  "degradation_reason": null,
+  "diversity_sources": ["role", "model", "runtime", "toolchain"],
+  "runtime": "codex | claude-code | opencode | gemini | other",
+  "toolchain": [],
+  "exchange_mode": "coordinator-mediated | session-continuity | direct-async | stateless-replay"
+}
+```
+
+For brainstorm/design mode, bridges emit proposals and questions in addition to findings. For review/audit mode, findings remain primary.
+
 ---
 
 ## Agent Prompt Template
@@ -152,7 +181,7 @@ Return your output as JSON:
   "outputs": [
     {
       "id": "",
-      "type": "finding | recommendation | plan-item | implementation-note | observation",
+      "type": "finding | recommendation | plan-item | implementation-note | observation | proposal | question | constraint | assumption | risk | experiment",
       "severity": "CRITICAL | HIGH | MEDIUM | LOW | INFO | null",
       "title": "Short title",
       "description": "Detailed description",
@@ -614,7 +643,7 @@ deep-council
 
 **Why the asymmetry exists:** bridge-claude has native sub-agent dispatch (Task tool, Agent Teams) — it can run truly parallel, async-communicating agents. CLI bridges (gemini, codex, opencode) are single-process invocations — they can only achieve multi-round analysis through sequential re-prompting, which is the Post-Analysis Protocol.
 
-**Multi-model opencode fills the gap:** With 2+ models configured in `.bridge-settings.json`, bridge-opencode spawns one invocation per model in parallel — each model produces independent findings, and a mini-synthesis deduplicates and elevates multi-model-confirmed findings. This gives bridge-opencode a Layer 2 that is closer in depth to bridge-claude, without requiring native sub-agent dispatch.
+**Multi-model opencode fills the gap:** With 2+ models configured in `.bridge-settings.json`, bridge-opencode spawns one invocation per model in parallel — each model produces independent findings, and a mini-synthesis deduplicates and elevates model-confirmed findings within that bridge. This gives bridge-opencode a Layer 2 that is closer in depth to bridge-claude, without requiring native sub-agent dispatch.
 
 **The two layers are complementary, not redundant:**
 - Layer 2 (intra-bridge) maximizes what each model family can find on its own

@@ -1096,4 +1096,4 @@ export DEEP_EXPLORER_INCLUDE_UNCOMMITTED="true"
 - **No Git Commits:** Does not commit exploration reports to Git
 - **Flexible:** Works with dirty working directory
 - **Efficient:** Only re-explores changed areas on delta runs
-- **Multi-Model**: For cross-model codebase analysis, see `deep-council`
+- **Deep Council**: For cross-runtime/cross-council codebase analysis, see `deep-council`

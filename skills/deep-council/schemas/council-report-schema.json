@@ -3,7 +3,7 @@
   "title": "CouncilReport",
   "description": "Output schema for deep-council skill",
   "type": "object",
-  "required": ["type", "review_id", "verdict", "bridges_invoked", "bridges_available", "bridges_skipped", "auto_skipped_halted_bridges", "partial_coverage", "domains_covered", "multi_model_confirmed", "single_source_findings", "disputed_findings"],
+  "required": ["type", "review_id", "verdict", "bridges_invoked", "bridges_available", "bridges_skipped", "auto_skipped_halted_bridges", "partial_coverage", "domains_covered", "multi_source_confirmed", "single_source_findings", "disputed_findings"],
   "properties": {
     "type": {
       "type": "string",
@@ -49,7 +49,7 @@
     },
     "partial_coverage": {
       "type": "boolean",
-      "description": "True when one or more bridges were auto-skipped from HALTED state, meaning the verdict reflects fewer model families than were attempted."
+      "description": "True when one or more bridges were auto-skipped from HALTED state, meaning the verdict reflects fewer bridge/runtime sources than were attempted."
     },
     "skip_reasons": {
       "type": "object",
@@ -67,7 +67,7 @@
       "type": "boolean",
       "description": "True when invoked in fallback mode from another skill"
     },
-    "multi_model_confirmed": {
+    "multi_source_confirmed": {
       "type": "array",
       "items": {
         "type": "object",
