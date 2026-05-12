@@ -20,12 +20,80 @@ The `-p` flag runs Claude non-interactively without opening an interactive sessi
 |------|--------|---------|
 | `-p`, `--print` | string | Prompt string — enables non-interactive mode |
 | `--output-format` | `text`, `json`, `stream-json` | Output format |
-| `--allowedTools` | comma-separated tool names | Restrict available tools |
-| `--continue` | — | Resume most recent session |
+| `--permission-mode` | see table below | Controls what actions Claude can take |
+| `--effort` | `low`, `medium`, `high`, `xhigh`, `max` | Thinking/reasoning depth |
+| `--allowedTools` | space-separated tool names | Allow specific tools (e.g. `"Read Grep Glob"`) |
+| `--disallowedTools` | space-separated tool names | Deny specific tools |
+| `--tools` | space-separated tool names | Specify the exact set of available tools |
+| `--bare` | — | Minimal mode: no hooks, LSP, plugins, CLAUDE.md auto-discovery |
+| `--model` | model ID or alias | Override model (`sonnet`, `opus`, `haiku`, or full ID) |
+| `--agents` | JSON string | Define custom inline agents |
+| `--agent` | agent name | Use a specific configured agent for the session |
+| `--append-system-prompt` | string | Append additional system prompt |
+| `--system-prompt` | string | Override the default system prompt entirely |
+| `--max-budget-usd` | float | Cap total API spend (only with `--print`) |
+| `--session-id` | UUID | Use a specific session ID |
+| `-c`, `--continue` | — | Resume most recent session |
 | `--resume` | session ID | Resume a specific session |
-| `--model` | model ID | Override model |
 | `--verbose` | — | Debug output (remove in production) |
-| `--dangerously-skip-permissions` | — | Skip all permission checks (use in sandboxed env only) |
+| `--dangerously-skip-permissions` | — | Bypass ALL permission checks (sandboxed env only) |
+| `--allow-dangerously-skip-permissions` | — | Enable bypass as an option without it being default |
+
+---
+
+## Permission Modes
+
+`--permission-mode` is the primary way to control capability profile from external executors:
+
+| Mode | Behavior | Bridge use |
+|------|----------|-----------|
+| `default` | Prompts user on each tool call | Unusable for automated dispatch |
+| `acceptEdits` | Auto-accepts file edits; prompts for Bash | Inspect tasks with file reads |
+| `auto` | Auto-accepts everything except unsafe Bash | Standard automated use |
+| `bypassPermissions` | Skips all checks (like `--dangerously-skip-permissions`) | Trusted sandboxed env only |
+| `dontAsk` | Never prompts; rejects instead of asking | Strict non-interactive mode |
+| `plan` | Shows plan before executing; requires approval | Not suitable for automated dispatch |
+
+**Recommended bridge mappings:**
+
+| capability_profile | Recommended `--permission-mode` |
+|-------------------|-------------------------------|
+| `inspect` | `acceptEdits` (reads freely; edits require no prompt since we only read) |
+| `modify` | `auto` (auto-accepts edits and safe Bash) |
+
+For tightly controlled inspect tasks, combine with `--allowedTools`:
+```bash
+--permission-mode acceptEdits --allowedTools "Read Grep Glob Bash(ls *) Bash(cat *)"
+```
+
+---
+
+## Effort Levels
+
+`--effort` maps directly to bridge intensity. Use this instead of relying on prompt-level instructions for reasoning depth:
+
+| bridge `intensity` | `--effort` value |
+|-------------------|-----------------|
+| `quick` | `low` |
+| `standard` | `medium` |
+| `thorough` | `high` |
+| n/a (security/compliance) | `xhigh` |
+
+---
+
+## Bare Mode (Recommended for Bridge Use)
+
+`--bare` minimizes overhead by disabling hooks, LSP, plugin sync, CLAUDE.md auto-discovery, and background prefetches. Ideal for bridge dispatch from external executors where you control all context explicitly:
+
+```bash
+claude -p "{prompt}" \
+  --bare \
+  --output-format json \
+  --permission-mode acceptEdits \
+  --effort medium
+```
+
+In bare mode, provide context explicitly via `--system-prompt`, `--append-system-prompt`, or `--add-dir`.
 
 ---
 
@@ -39,15 +107,41 @@ The `-p` flag runs Claude non-interactively without opening an interactive sessi
 
 ---
 
-## Tool Scoping for Read-Only Analysis
+## Inspect Profile — Read-Only Analysis
 
 ```bash
 claude -p "{prompt}" \
+  --bare \
   --output-format json \
-  --allowedTools "Read,Grep,Glob,Bash(ls *),Bash(cat *)"
+  --permission-mode acceptEdits \
+  --allowedTools "Read Grep Glob Bash(ls *) Bash(find *) Bash(cat *)" \
+  --effort medium
 ```
 
-Restricts Claude to reading files only — appropriate for review, analysis, planning tasks where no writes should occur.
+---
+
+## Modify Profile — Implementation Tasks
+
+```bash
+claude -p "{prompt}" \
+  --bare \
+  --output-format json \
+  --permission-mode auto \
+  --effort medium
+```
+
+---
+
+## Inline Agent Definition
+
+Define custom domain expert agents without a `.claude/agents/` directory:
+
+```bash
+claude -p "{prompt}" \
+  --bare \
+  --output-format json \
+  --agents '{"security-expert": {"description": "Security vulnerability reviewer", "prompt": "You are a security engineer. Review for injection vulnerabilities, auth flaws, secrets in code, and insecure data handling."}}'
+```
 
 ---
 

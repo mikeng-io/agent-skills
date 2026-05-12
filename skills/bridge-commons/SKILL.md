@@ -17,7 +17,7 @@ Bridges are reference adapters — they define how to dispatch tasks to specific
 - Is **read by orchestrating skills** (e.g., deep-council) via the `Read` tool
 - Has its **instructions embedded** into Task agent prompts — not invoked separately
 - Returns a **structured report** conforming to this contract
-- Is **non-blocking** — unavailability produces `SKIPPED`, not a failure
+- Reports availability and output status to the orchestrator. For optional council participants, unavailability may be non-blocking. For mandatory ACP gates, `SKIPPED` is blocking unless the governing phase explicitly records a user-authorized waiver.
 
 ---
 
@@ -34,13 +34,13 @@ Every bridge executes these checks in order before dispatching. Deviate only whe
 5. **Multi-agent capability** — detect and record; degrade gracefully if absent
 6. **Timeout estimation** — calculate from scope + intensity
 
-If none of steps 1–3 succeed → return `status: SKIPPED` immediately. Never block the calling orchestrator.
+If none of steps 1–3 succeed → return `status: SKIPPED` immediately with a machine-readable reason. The orchestrator applies phase policy: optional bridges may be skipped, but mandatory ACP gates must block or record an explicit user-authorized waiver.
 
 ### HALTED vs SKIPPED
 
 | Status | Cause | Orchestrator action |
 |--------|-------|---------------------|
-| `SKIPPED` | Non-fatal unavailability — CLI missing, timeout, parse failure | Non-blocking — continue with other bridges |
+| `SKIPPED` | Provider unavailable, CLI missing, timeout, parse failure | Optional reviews may continue with other bridges. Mandatory ACP gates block unless an explicit user-authorized waiver is recorded. |
 | `HALTED` | Requires user decision — no provider configured, explicit user abort | **Interactive:** Surface `halt_message` and wait for user input before proceeding. **Non-interactive / auto-mode:** Orchestrator converts to SKIPPED — record `{"bridge": "...", "halt_reason": "..."}` in the council report's `auto_skipped_halted_bridges` array and set `partial_coverage: true`. Never drop silently — the conversion must always be recorded. |
 | `ABORTED` | User chose to stop the entire operation | Stop the orchestrator |
 | `COMPLETED` | Task ran and outputs are available | Include in synthesis |
@@ -555,6 +555,8 @@ Every bridge saves two files per execution for auditability.
 ### JSONL event log
 
 Path: `.outputs/bridges/{bridge}-{YYYYMMDD-HHMMSS}-{session_id}.jsonl`
+
+For ACP-controlled reviews, the orchestrating phase must also persist the final bridge result under the canonical ACP evidence root for that review type, for example `.trustless/reviews/`, `.trustless/verification/<spec-id>/`, or `.trustless/validation/`. `.outputs/bridges/**` is diagnostic bridge telemetry, not lifecycle evidence.
 
 Write events as they occur — one JSON object per line:
 

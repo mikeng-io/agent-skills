@@ -1,6 +1,6 @@
 ---
 name: deep-council
-description: Council-of-councils orchestrator. Dispatches discovery-first packets to bridge adapters (Claude, Gemini, Codex, OpenCode), each of which runs a local Agent/Model/Runtime Council, then performs cross-council debate using debate-protocol. Supports review, audit, research, and brainstorm/design modes.
+description: Council-of-councils orchestrator. Dispatches discovery-first packets to bridge adapters (Claude, Gemini, Codex, OpenCode, Kimi), each of which runs a local Agent/Model/Runtime Council, then performs cross-council debate using debate-protocol. Supports review, audit, research, and brainstorm/design modes.
 location: managed
 dependencies:
   - context
@@ -10,6 +10,7 @@ dependencies:
   - bridge-gemini
   - bridge-codex
   - bridge-opencode
+  - bridge-kimi
   - domain-registry
 allowed-tools:
   - Read
@@ -25,7 +26,7 @@ allowed-tools:
 
 # Deep Council: Council-of-Councils
 
-Execute this skill to run a nested council across independent runtimes/toolchains. Deep Council is not merely multi-model review: it treats Claude Code, Codex, OpenCode, Gemini, and other bridges as council-capable runtimes. Each bridge runs its own local council using native strengths, then Deep Council runs cross-council debate over their reports.
+Execute this skill to run a nested council across independent runtimes/toolchains. Deep Council is not merely multi-model review: it treats Claude Code, Codex, OpenCode, Gemini, Kimi, and other bridges as council-capable runtimes. Each bridge runs its own local council using native strengths, then Deep Council runs cross-council debate over their reports.
 
 ## Council-of-Councils Architecture
 
@@ -39,6 +40,8 @@ Deep Council
 │  └─ local Agent Council or Model Council if multiple models configured
 ├─ bridge-gemini
 │  └─ local stateless debate-compatible council
+├─ bridge-kimi
+│  └─ local Agent Council (explore/coder subagents)
 └─ Cross-Council Debate
    ├─ frame comparison
    ├─ finding/proposal challenge
@@ -96,6 +99,7 @@ Before executing any step, verify all required skills are present. Use `Glob` or
 [skills-root]/bridge-gemini/SKILL.md
 [skills-root]/bridge-codex/SKILL.md
 [skills-root]/bridge-opencode/SKILL.md
+[skills-root]/bridge-kimi/SKILL.md
 [skills-root]/domain-registry/README.md
 ```
 
@@ -410,6 +414,7 @@ Task: bridge-claude executor (if available — Task tool accessible)
 Task: bridge-gemini executor (if gemini available)
 Task: bridge-codex executor (if codex available)
 Task: bridge-opencode executor (if opencode available)
+Task: bridge-kimi executor (if kimi available)
 ```
 
 Wait for ALL tasks to complete before proceeding.
@@ -423,6 +428,7 @@ Collect all bridge reports. Each should conform to its bridge's output format:
 - `bridge_gemini_report` — findings, verdict, status (may be SKIPPED)
 - `bridge_codex_report` — findings, verdict, status (may be SKIPPED)
 - `bridge_opencode_report` — findings, verdict, status, models_used
+- `bridge_kimi_report` — findings, verdict, status (may be SKIPPED)
 
 SKIPPED bridges are noted but do not block synthesis.
 

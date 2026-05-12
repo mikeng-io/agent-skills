@@ -269,29 +269,49 @@ All tasks run in parallel. After all complete, run the bridge-commons Post-Analy
 When any non-Claude-Code executor can call the `claude` CLI:
 
 ```bash
-CAPABILITY_FLAGS={resolved from bridge-commons capability_profile}
+# Resolve from bridge-commons capability_profile + bridge_input.intensity
+# inspect → --permission-mode acceptEdits --allowedTools "Read Grep Glob Bash(ls *) Bash(find *)"
+# modify  → --permission-mode auto
+# quick   → --effort low  | standard → --effort medium | thorough → --effort high
 
 timeout {final_timeout} claude -p "{constructed_prompt}" \
+  --bare \
   --output-format json \
-  $CAPABILITY_FLAGS
+  --permission-mode {resolved_permission_mode} \
+  --effort {resolved_effort} \
+  {allowedTools_flag_if_inspect}
 ```
 
 **Key flags:**
 
-| Flag                          | Purpose                                              |
-| ----------------------------- | ---------------------------------------------------- |
-| `-p "prompt"`                 | Prompt string — non-interactive mode                 |
-| `--output-format json`        | Structured JSON output for parsing                   |
-| `--output-format stream-json` | Streaming JSON for real-time processing              |
-| `CAPABILITY_FLAGS`            | Resolved runtime controls for `inspect` or `modify`  |
-| `--continue`                  | Resume the most recent session                       |
+| Flag | Purpose |
+|------|---------|
+| `-p "prompt"` | Prompt string — non-interactive mode |
+| `--bare` | Minimal mode: no hooks, LSP, plugins, CLAUDE.md — use in external executor dispatch |
+| `--output-format json` | Structured JSON output for parsing |
+| `--output-format stream-json` | Streaming JSON for real-time processing |
+| `--permission-mode <mode>` | Runtime control for capability profile (see table below) |
+| `--effort <level>` | Reasoning depth — map from bridge `intensity` |
+| `--allowedTools <tools>` | Restrict available tools (space-separated) |
 
-Resolve `CAPABILITY_FLAGS` from bridge-commons:
+**Capability profile → permission mode mapping:**
 
-- `inspect` profile → constrain Claude to non-mutating tools only
-- `modify` profile → enable non-interactive writes so implementation tasks do not block on approvals
+| capability_profile | `--permission-mode` | Optional tool restriction |
+|-------------------|-------------------|--------------------------|
+| `inspect` | `acceptEdits` | `--allowedTools "Read Grep Glob Bash(ls *) Bash(find *) Bash(cat *)"` |
+| `modify` | `auto` | No restriction needed |
 
-The bridge policy is the shared `capability_profile`, not a fixed Claude flag set. Claude-specific permission flags are only the runtime-level translation of that profile.
+**Intensity → effort mapping:**
+
+| bridge `intensity` | `--effort` |
+|-------------------|-----------|
+| `quick` | `low` |
+| `standard` | `medium` |
+| `thorough` | `high` |
+
+The bridge policy is the shared `capability_profile`, not a fixed flag set. `--permission-mode` and `--allowedTools` are the runtime-level translation of that profile for the `claude` CLI.
+
+See `bridge-claude/cli-reference.md` for full flag reference.
 
 ---
 

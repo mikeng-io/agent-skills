@@ -88,6 +88,11 @@ mcp_tools:
   # Other MCP servers...
 
 cli_tools:
+  claude:
+    check: "which claude returns path"
+    non_interactive: "claude -p"
+    notes: "Use --bare --permission-mode --effort for external executor dispatch"
+
   codex:
     check: "which codex returns path"
 
@@ -276,12 +281,12 @@ fi
 
 After discovery, use this matrix to select the dispatch path:
 
-| Executor        | Native        | MCP            | CLI            | Priority                |
-| --------------- | ------------- | -------------- | -------------- | ----------------------- |
-| **Claude Code** | ✓ Task tool   | ✓ configured   | N/A            | Native → MCP            |
-| **OpenCode**    | ✓ task tool   | ✓ configured   | ✓ opencode run | Native → HTTP API → CLI |
-| **Codex**       | ✓ multi-agent | ✓ mcp\_\_codex | ✓ codex exec   | Native → MCP → CLI      |
-| **Gemini**      | ✓ subagents   | ✗              | ✓ gemini -p    | Subagent → CLI          |
+| Executor        | Native        | MCP            | CLI              | Priority                |
+| --------------- | ------------- | -------------- | ---------------- | ----------------------- |
+| **Claude Code** | ✓ Task tool   | ✓ configured   | ✓ claude -p      | Native → MCP → CLI      |
+| **OpenCode**    | ✓ task tool   | ✓ configured   | ✓ opencode run   | Native → HTTP API → CLI |
+| **Codex**       | ✓ multi-agent | ✓ mcp\_\_codex | ✓ codex exec     | Native → MCP → CLI      |
+| **Gemini**      | ✓ subagents   | ✗              | ✓ gemini -p      | Subagent → CLI          |
 
 **Priority rule**: Always prefer native dispatch when available - it provides richer context, session continuity, and parallel execution.
 

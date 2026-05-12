@@ -20,10 +20,11 @@ This document describes the relationship between all skills, how they depend on 
 │  └── preflight           Ask 1–3 clarifying questions when scope is fuzzy │
 │                                                                     │
 │  Bridge Adapters (reference — not invocable standalone)            │
-│  ├── bridge-claude       Task tool → claude CLI → Anthropic API     │
+│  ├── bridge-claude       Task tool → claude -p → Anthropic API     │
 │  ├── bridge-gemini       gemini -p → SKIPPED                       │
 │  ├── bridge-codex        MCP → codex exec → SKIPPED                │
-│  └── bridge-opencode     HTTP API → opencode run → SKIPPED         │
+│  ├── bridge-opencode     HTTP API → opencode run → SKIPPED         │
+│  └── bridge-kimi         native subagents → kimi --print → SKIPPED │
 │                                                                     │
 │  Orchestrators                                                      │
 │  ├── parallel-workflow   DAG dispatch — independent sub-agents      │
@@ -57,6 +58,7 @@ bridge-commons ◄────────────────────�
                                               bridge-gemini
                                               bridge-codex
                                               bridge-opencode
+                                              bridge-kimi
 
 debate-protocol ◄─────────────────────────── deep-council (embedded inline)
                                               deep-verify (optional)
@@ -72,6 +74,7 @@ deep-council ◄─────────────────────�
             bridge-gemini
             bridge-codex
             bridge-opencode
+            bridge-kimi
             debate-protocol (inline)
             parallel-workflow (for bridge dispatch)
 ```
@@ -197,6 +200,8 @@ Codex MCP configured
 opencode serve running
   OR opencode CLI installed → bridge-opencode available
   + .bridge-settings.json models array has 2+ entries → multi-model dispatch
+kimi-code-mcp configured
+  OR kimi CLI installed    → bridge-kimi available
 
 Minimum viable council: any single bridge that returns COMPLETED
 Zero bridges complete → ABORTED (emitted by deep-council)
