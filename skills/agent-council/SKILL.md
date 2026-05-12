@@ -129,6 +129,18 @@ Do not run Tier 3 for ≤2-domain routine reviews. Tier inflation wastes context
 
 Record the selected tier in `council_context.tier`.
 
+### Finding-driven mode: IC-tier asymmetry
+
+When `mode == "finding-driven"` with `fixes_applied` containing ≥2 fixes, the **Integration Checker may run at a higher tier than the rest of the council**. Fix-interaction analysis (Check #4 in Finding-Driven Mode) is where runtime diversity helps most — one runtime sees the local fix; a different runtime is more likely to catch the cross-fix invariant break.
+
+| Council intent | Council tier | IC tier |
+|---------------|--------------|---------|
+| Trivial fix re-review (1 fix, 1 domain) | 1 | 1 |
+| Multi-fix re-review (≥2 fixes, may interact) | 1 | **2** |
+| Critical-proposal multi-fix re-review | 2 | **3** |
+
+Record both as `council_context.tier` and `council_context.ic_tier`. See **Finding-Driven Mode** below for details.
+
 ---
 
 ## Step 4: Populate Council Context
@@ -416,12 +428,18 @@ For brainstorm/design/research modes, replace `outputs` with `proposals` or `obs
 
 ## Modes
 
-Mode is independent of tier. A Tier 3 council can run in brainstorm mode; a Tier 1 council can run in audit mode. Mode affects prompt framing and output schema.
+Mode is independent of tier. A Tier 3 council can run in brainstorm mode; a Tier 1 council can run in finding-driven mode. Mode affects **what the council looks at** and **how prompts are framed**.
 
+### Two families of modes
+
+**Open-ended modes** — no prior findings; the council surfaces what's true / wrong / possible:
 - `review` / `audit` — produce findings with severity; return verdict.
 - `brainstorm` / `design` — produce competing proposals; no verdict; converge via challenge/merge/reject.
 - `research` — produce evidence-backed observations with confidence and contradictions; no verdict.
 - `synthesis` — Tier 3 only; the cross-runtime synthesis output mode.
+
+**Finding-driven mode** — anchored to specific findings/concerns:
+- `finding-driven` — input includes a `findings` list; the council assesses the artifact through the lens of those findings, performing up to four checks: resolution, regression, design-drift, and fix-interaction. See **Finding-Driven Mode** below.
 
 ### Brainstorm-mode discipline
 
@@ -430,6 +448,168 @@ The first round (Round 1) must receive a **minimal, non-leading packet**:
 - **Exclude**: expected findings, suspected root cause, coordinator's preferred architecture, other participants' findings, desired verdict
 
 Later rounds may introduce proposal inventories, challenges, and reconciliation packets. See `runtime-contracts` for the brainstorm output schema.
+
+---
+
+## Finding-Driven Mode
+
+A `finding-driven` council is anchored to a specific findings list — the "lens" through which it views the artifact. Use it whenever the council should assess the artifact **in relation to known concerns**, not as an open exploration.
+
+### Use cases
+
+| Use case | What the `findings` list contains |
+|----------|----------------------------------|
+| **Post-fix re-review** | Prior council's findings (Stage 1 findings being re-checked after fixes) |
+| **Spec compliance check** | Requirements from the spec (each requirement is a "finding to verify") |
+| **Regression check after a change** | Known historical bugs or behaviors that must not regress |
+| **Targeted review** | User-listed concerns ("review around these 4 things") |
+| **Threat-model assessment** | Listed threats from a STRIDE/PASTA exercise |
+
+### Required inputs
+
+```yaml
+finding_driven_input:
+  mode: "finding-driven"
+  findings: []                  # the findings list (the lens)
+  fixes_applied: ""             # OPTIONAL — diff/description of changes since findings were surfaced
+  original_proposal: ""         # OPTIONAL — the design/spec/intent being upheld
+  prior_session_id: ""          # OPTIONAL — if findings came from a prior council session
+  # ... + standard fields (scope, domains, tier, intensity)
+```
+
+The three optional inputs unlock additional checks:
+- Without `fixes_applied` → only resolution check runs (verify each finding against the artifact)
+- With `fixes_applied` → resolution + regression + fix-interaction checks
+- With `original_proposal` → design-drift check is added
+
+### The four checks
+
+A finding-driven council performs up to four checks, depending on inputs provided:
+
+| # | Check | Question | Requires |
+|---|-------|----------|----------|
+| 1 | **Resolution** | Did each finding get addressed? | always |
+| 2 | **Regression** | Did the fix introduce new issues in the same domain? | `fixes_applied` |
+| 3 | **Design drift** | Did the fix subtly violate the original proposal's intent? | `fixes_applied` + `original_proposal` |
+| 4 | **Fix interaction** | Do *combinations* of fixes create new issues that no single fix would alone? | `fixes_applied` (≥2 fixes) |
+
+Check #4 is the most commonly missed: naive re-review treats each fix as isolated. Real systems have invariants that span fixes, and fix(F1) + fix(F2) together can break what fix(F1) alone preserves.
+
+### Tier interaction (important asymmetry)
+
+Finding-driven councils may dispatch the **Integration Checker at a higher tier than the rest of the council**, because fix-interaction (Check #4) is exactly where runtime diversity helps catch shared-blind-spot misses.
+
+| Council intent | Rest of council | Integration Checker |
+|---------------|-----------------|---------------------|
+| Trivial fix re-review (1 finding, 1 fix) | Tier 1 | Tier 1 |
+| Multi-fix re-review (≥2 fixes interact) | Tier 1 | **Tier 2** (cross-runtime IC) |
+| Critical proposal, multi-fix re-review | Tier 2 | **Tier 3** (cross-runtime IC + debate) |
+
+Record this in the artifact as `ic_tier`: the tier the Integration Checker actually ran at.
+
+### Domain expert prompt (re-review with fixes)
+
+```
+This is a finding-driven council. You are a {expert_role}.
+
+You are NOT doing an open review. You are assessing the artifact through the lens
+of specific findings.
+
+SCOPE: {scope}
+DOMAINS: {domains}
+INTENSITY: {intensity}
+
+Prior findings (the lens):
+{findings filtered to your domain — and findings in adjacent domains for cross-checks}
+
+Fixes applied since findings were surfaced:
+{fixes_applied}
+
+Original proposal (must be upheld):
+{original_proposal — only if provided}
+
+Run up to four checks (skip the ones whose inputs are missing):
+
+1. RESOLUTION
+   For each prior finding in your domain, report:
+   - status: addressed | partially-addressed | not-addressed | superseded | obsolete
+   - evidence: specific reference to the fix (or note why not addressed)
+
+2. REGRESSION (only if fixes_applied)
+   Did the fixes introduce new issues in YOUR domain that didn't exist before the fix?
+   Produce findings with type: "regression-finding".
+
+3. DESIGN DRIFT (only if fixes_applied AND original_proposal)
+   Where did the fix subtly diverge from the proposal's stated intent?
+   Look for: changed contracts, weakened invariants, scope creep, removed behaviors
+   that the proposal required. Produce findings with type: "design-drift-finding".
+   These are often more important than the original findings because they're invisible
+   to the person who applied the fix.
+
+4. CROSS-DOMAIN IMPACT
+   Where did a fix in ANOTHER domain affect your domain? (You are positioned to see
+   this; the other domain's expert is not.) Produce findings with type: "cross-domain-impact".
+
+Return outputs in the standard council schema, with each output tagged by
+type: "resolution" | "regression-finding" | "design-drift-finding" | "cross-domain-impact".
+```
+
+### Integration Checker prompt (re-review with fixes)
+
+```
+This is a finding-driven council. You are the Integration Checker.
+
+Your specific job in this mode is FIX-INTERACTION analysis. Domain experts catch
+single-fix side effects. You catch what they cannot: combinations.
+
+Fixes applied:
+{fixes_applied}
+
+For each PAIR and TRIPLE of fixes, ask:
+- Do these fixes interact at any shared interface, state, or invariant?
+- Does fix(A) + fix(B) together break something that neither alone breaks?
+- Does fix(A) change an assumption that fix(B) depends on?
+- Do these fixes together drift further from the original proposal than each alone?
+
+Produce findings with type: "fix-interaction-finding" — each must explicitly name
+the fixes involved and the invariant/interface affected.
+
+Also produce standard integration findings (interface mismatches, contract gaps)
+across the post-fix state of the system.
+```
+
+### Output schema additions
+
+Finding-driven mode adds these arrays to the standard output:
+
+```json
+{
+  "mode": "finding-driven",
+  "prior_session_id": "...",
+  "input_findings_count": 5,
+  "prior_findings_status": [
+    {
+      "finding_id": "F1",
+      "status": "addressed | partially-addressed | not-addressed | superseded | obsolete",
+      "evidence": "..."
+    }
+  ],
+  "regression_findings": [],         // new issues introduced by single fixes
+  "design_drift_findings": [],       // fix-vs-proposal divergence
+  "fix_interaction_findings": [],    // emergent issues from fix combinations
+  "ic_tier": 1                        // tier the Integration Checker actually ran at
+}
+```
+
+### Verdict logic for finding-driven mode
+
+| Verdict | Condition |
+|---------|-----------|
+| `FAIL` | Any `not-addressed` finding that was CRITICAL/HIGH, OR any CRITICAL regression / design-drift / fix-interaction finding |
+| `CONCERNS` | Any HIGH regression / design-drift / fix-interaction finding, OR ≥2 partially-addressed CRITICAL/HIGH findings |
+| `PASS` | All findings addressed, no HIGH+ new issues, no design drift |
+
+A re-review that says "all fixes addressed their findings" but introduces design drift is still `CONCERNS` — that's the point of the mode.
 
 ---
 

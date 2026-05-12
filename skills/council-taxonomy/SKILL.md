@@ -176,6 +176,52 @@ Multi-model dispatch inside a single runtime is **model diversity**, not runtime
 
 These names are deprecated. Use "Tier 3 Agent Council" and "Tier 2 Agent Council" respectively. The old names obscured that all three are the same skill at different scales.
 
+### Anti-Pattern 8: Naive re-review
+
+**Wrong:** After fixes are applied to address Stage 1 findings, Stage 2 re-review checks only "did each finding get fixed?" and signs off when yes.
+
+**Right:** Stage 2 runs in `finding-driven` mode and performs **four checks**, not one:
+1. **Resolution** — did each fix address its target finding?
+2. **Regression** — did any fix introduce new issues in its own domain?
+3. **Design drift** — did any fix subtly violate the original proposal's intent?
+4. **Fix interaction** — do combinations of fixes create issues that no single fix would alone?
+
+The naive re-review misses checks 2–4 — especially #3 (design drift), where a fix "solves" the finding by changing what the system does, and #4 (fix interaction), where fixing F1 and F2 together breaks an invariant neither breaks alone. Always invoke `agent-council` with `mode: finding-driven` for post-fix re-reviews, providing `fixes_applied` and `original_proposal` so all four checks run.
+
+---
+
+## Council Modes: Two Families
+
+Mode is independent of tier. The modes split into two families based on whether the council has a prior anchor:
+
+### Open-ended modes (no prior findings)
+
+The council surfaces what's true / wrong / possible about the artifact from scratch:
+
+| Mode | Output | Verdict? |
+|------|--------|----------|
+| `review` | Findings with severity | Yes |
+| `audit` | Compliance gaps, calibrated severity | Yes |
+| `brainstorm` / `design` | Competing proposals, no severity | No |
+| `research` | Evidence-backed observations, contradictions | No |
+| `synthesis` | Cross-runtime synthesis (Tier 3 only) | n/a |
+
+### Finding-driven mode (anchored to a findings list)
+
+The council assesses the artifact **through the lens of specific findings**:
+
+| Use case | What the `findings` list contains |
+|----------|----------------------------------|
+| Post-fix re-review | Prior council's findings (Stage 1 findings being re-checked after fixes) |
+| Spec compliance | Requirements from the spec (each requirement is a "finding to verify") |
+| Regression check | Known historical bugs that must not regress |
+| Targeted review | User-listed concerns ("review around these 4 things") |
+| Threat-model assessment | Listed threats from a STRIDE/PASTA exercise |
+
+Finding-driven mode performs up to four checks (resolution, regression, design-drift, fix-interaction), depending on which optional inputs are provided. See `agent-council/SKILL.md` "Finding-Driven Mode" section for the full schema, prompt templates, and IC-tier asymmetry rule.
+
+**Key vocabulary:** "Re-review" is not a council mode — it is a *use case* for finding-driven mode. Always say "finding-driven mode for post-fix re-review" or "finding-driven mode for spec compliance" — the mode name is what matters.
+
 ---
 
 ## Old → New Vocabulary Mapping
@@ -215,6 +261,15 @@ These names are deprecated. Use "Tier 3 Agent Council" and "Tier 2 Agent Council
 
 **"A runtime adapter returned SKIPPED."**
 → Continue with what completed. Document the gap. Do not fabricate.
+
+**"Stage 1 review surfaced findings, fixes were applied, now I need to re-review."**
+→ Invoke `agent-council` with `mode: finding-driven`. Pass the prior findings, the fixes, and the original proposal. This triggers all four checks (resolution, regression, design-drift, fix-interaction). Never run a naive re-review (Anti-Pattern 8).
+
+**"I need to verify the artifact against a spec."**
+→ `finding-driven` mode with the spec requirements as the `findings` list.
+
+**"I need to check the artifact for known historical bugs."**
+→ `finding-driven` mode with the known bugs as the `findings` list.
 
 ---
 

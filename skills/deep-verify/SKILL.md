@@ -83,7 +83,9 @@ Default for `deep-verify` is **Tier 2** because spec-verification benefits from 
 
 ---
 
-## Step 4: Invoke agent-council
+## Step 4: Invoke agent-council in finding-driven mode
+
+Spec verification is a canonical finding-driven use case: the spec requirements ARE the findings list, and the council assesses the artifact against them.
 
 ```
 Skill("agent-council")
@@ -95,20 +97,27 @@ With inputs:
 agent_council_input:
   scope: "{working_scope.artifact}"
   task_type: "audit"
-  mode: "review"
+  mode: "finding-driven"
   tier: <from Step 3>
   domains: "{working_scope.domains}"
   context_summary: "{working_scope.context_summary}"
   intensity: "{working_scope.intensity}"
-  requirements: "{working_scope.spec_path}"
+  findings: "{spec requirements, each as a 'verify-this' finding}"
+  original_proposal: "{working_scope.spec_path}"
+  fixes_applied: "{if this is a re-verification after fixes, the diff; otherwise empty}"
   framing: |
-    Verify the artifact against the attached specification.
-    For each spec requirement, produce one of:
-    - met (INFO)
-    - partially met (MEDIUM gap)
-    - unmet (HIGH gap — or CRITICAL if it's a MUST-have)
-    - ambiguous in spec (LOW — flag for spec author)
+    Each spec requirement is a finding to verify against the artifact.
+    For each requirement, status is:
+    - addressed (INFO — requirement met by artifact)
+    - partially-addressed (MEDIUM gap)
+    - not-addressed (HIGH gap — or CRITICAL if it's a MUST-have)
+    - obsolete (LOW — requirement no longer applies; flag for spec author)
     Findings should reference specific spec sections.
+
+    If fixes_applied is provided (re-verification scenario), ALSO run:
+    - regression check: did the fix introduce non-compliance with other requirements?
+    - design-drift check: did the fix satisfy this requirement by violating the spec's intent?
+    - fix-interaction check: do combined fixes break a spec invariant?
 ```
 
 ---
