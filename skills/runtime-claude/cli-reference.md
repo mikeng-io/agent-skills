@@ -1,6 +1,6 @@
 # Claude Code CLI Reference
 
-Complete reference for `claude` CLI non-interactive usage. Used when bridge-claude runs via an external executor (OpenCode, Codex, Gemini, or any agent that can shell out to `claude`).
+Complete reference for `claude` CLI non-interactive usage. Used when runtime-claude runs via an external executor (OpenCode, Codex, Gemini, or any agent that can shell out to `claude`).
 
 ---
 

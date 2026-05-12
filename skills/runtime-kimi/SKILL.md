@@ -1,10 +1,10 @@
 ---
-name: bridge-kimi
+name: runtime-kimi
 description: Reference adapter for Kimi Code CLI dispatch. Read by any orchestrating skill via the Read tool. Defines how to invoke Kimi CLI in non-interactive mode, timeout estimation, and fallback behavior. Usable by deep-council, deep-review, deep-audit, or any future skill that needs Kimi-based review.
 location: managed
 context: reference
 dependencies:
-  - bridge-commons
+  - runtime-contracts
   - domain-registry
 ---
 
@@ -12,7 +12,7 @@ dependencies:
 
 This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for Kimi CLI dispatch.
 
-**Input schema, agent prompt template, output schema, verdict logic, timeout formula, artifact format, and status semantics are defined in `bridge-commons/SKILL.md`. This file covers only Kimi-specific connection detection and execution.**
+**Input schema, agent prompt template, output schema, verdict logic, timeout formula, artifact format, and status semantics are defined in `runtime-contracts/SKILL.md`. This file covers only Kimi-specific connection detection and execution.**
 
 ## Bridge Identity
 
@@ -42,7 +42,7 @@ mcp:
 
 ## Pre-Flight — Connection Detection
 
-**MUST read `bridge-commons/tool-discovery.md` first** to understand the discovery protocol.
+**MUST read `runtime-contracts/tool-discovery.md` first** to understand the discovery protocol.
 
 ### Step 1.0: Discover Execution Context
 
@@ -190,7 +190,7 @@ For `implement` tasks, use `subagent_type: coder` instead of `explore`.
 
 **Important constraint:** Kimi subagents cannot spawn further subagents (no recursion). Keep the dispatch flat — one parent, N typed subagents.
 
-After all subagents complete, run the bridge-commons Post-Analysis Protocol inline (parent agent holds all state).
+After all subagents complete, run the runtime-contracts Post-Analysis Protocol inline (parent agent holds all state).
 
 ---
 
@@ -213,7 +213,7 @@ When `kimi-code-mcp` is configured as an MCP server, invoke it directly. This av
 }
 ```
 
-**Invocation:** Use `mcp__kimi__*` tools as available in the executor's MCP toolset. Prompt construction follows the same Agent Prompt Template from bridge-commons.
+**Invocation:** Use `mcp__kimi__*` tools as available in the executor's MCP toolset. Prompt construction follows the same Agent Prompt Template from runtime-contracts.
 
 If MCP invocation fails → fall back to Step 3C (CLI).
 
@@ -224,7 +224,7 @@ If MCP invocation fails → fall back to Step 3C (CLI).
 When any non-Kimi executor can call the `kimi` CLI:
 
 ```bash
-# Resolve from bridge-commons capability_profile + bridge_input.intensity
+# Resolve from runtime-contracts capability_profile + runtime_input.intensity
 # inspect → --thinking (default)
 # thorough → --thinking (force on)
 # quick    → --no-thinking
@@ -262,7 +262,7 @@ timeout {final_timeout} kimi \
 | `standard` | `--thinking` (default) |
 | `thorough` | `--thinking` |
 
-**Model selection:** Do not hardcode. If `.bridge-settings.json` specifies `model` for the kimi bridge, pass as `--model {model}`. Otherwise, omit the flag and use the configured default from `~/.kimi/config.toml`.
+**Model selection:** Do not hardcode. If `.runtime-settings.json` specifies `model` for the kimi bridge, pass as `--model {model}`. Otherwise, omit the flag and use the configured default from `~/.kimi/config.toml`.
 
 For the Post-Analysis Protocol rounds, use separate `kimi --print` calls — no cross-call session state. Embed the full previous-round context in each Round N prompt (stateless pattern, same as Gemini CLI).
 
@@ -304,7 +304,7 @@ If `--output-format stream-json` is not available or fails, fall back to `--outp
 
 ## Timeout Estimation
 
-Use bridge-commons base timeout table. Apply a 1.3× multiplier for subagent spawn overhead when running natively inside Kimi.
+Use runtime-contracts base timeout table. Apply a 1.3× multiplier for subagent spawn overhead when running natively inside Kimi.
 
 No additional multiplier for CLI path.
 
@@ -312,7 +312,7 @@ No additional multiplier for CLI path.
 
 ## Output
 
-See bridge-commons Output Schema. Bridge-specific fields:
+See runtime-contracts Output Schema. Bridge-specific fields:
 
 ```json
 {
@@ -335,5 +335,5 @@ Output ID prefix: `K` (e.g., `K001`, `K002`).
 - **Subagent types are typed** — `explore` = read-only, `coder` = read-write, `plan` = planning-only; always map from capability_profile
 - **No subagent recursion** — Kimi subagents cannot spawn further subagents; keep dispatch flat
 - **API key for CI** — set `KIMI_API_KEY` env var; no interactive login needed in automated pipelines
-- **Model selection** — Kimi supports multiple Moonshot models and OpenAI-compatible providers; use `bridge-settings.json` to configure, never hardcode
+- **Model selection** — Kimi supports multiple Moonshot models and OpenAI-compatible providers; use `runtime-settings.json` to configure, never hardcode
 - **SKIPPED is non-blocking** — if unavailable, other bridges continue

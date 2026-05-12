@@ -1,10 +1,10 @@
 ---
-name: bridge-opencode
+name: runtime-opencode
 description: Reference adapter for OpenCode — model-agnostic multi-provider bridge. Read by any orchestrating skill via the Read tool. Covers pre-flight checks with interactive advisory, HTTP API server path (preferred), CLI run path as fallback, correct flags and model format embedded. Usable by deep-council, deep-review, deep-audit, or any future skill that needs multi-model review.
 location: managed
 context: reference
 dependencies:
-  - bridge-commons
+  - runtime-contracts
   - domain-registry
 ---
 
@@ -12,7 +12,7 @@ dependencies:
 
 This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for OpenCode dispatch.
 
-**Input schema, agent prompt template, output schema, verdict logic, artifact format, and status semantics are defined in `bridge-commons/SKILL.md`. This file covers OpenCode-specific connection detection, timeout multiplier, and execution paths.**
+**Input schema, agent prompt template, output schema, verdict logic, artifact format, and status semantics are defined in `runtime-contracts/SKILL.md`. This file covers OpenCode-specific connection detection, timeout multiplier, and execution paths.**
 
 ## Bridge Identity
 
@@ -43,7 +43,7 @@ OpenCode is provider-agnostic — it routes to whichever AI providers are config
 
 ## Step 1: Pre-Flight — Connection Detection
 
-**MUST read `bridge-commons/tool-discovery.md` first** to understand the discovery protocol.
+**MUST read `runtime-contracts/tool-discovery.md` first** to understand the discovery protocol.
 
 ### Step 1.0: Discover Execution Context
 
@@ -186,7 +186,7 @@ Return `status: HALTED` with the full advisory in `halt_message`. Never silently
 Before estimating timeout, check bridge settings for a `models` array. This is a **suite-owned config file** — separate from OpenCode's own `~/.config/opencode/` config — that tells the bridge which models to use for multi-model dispatch.
 
 ```bash
-cat .bridge-settings.json 2>/dev/null
+cat .runtime-settings.json 2>/dev/null
 ```
 
 Extract `bridges.opencode.models`:
@@ -203,13 +203,13 @@ single_model_dispatch:
   action: "Single execution using configured model or OpenCode's default"
 ```
 
-**Why multi-model matters:** Each model has different training data, biases, and reasoning patterns. With 3 models configured, bridge-opencode becomes its own mini-council — 3 independent perspectives before findings even reach the cross-bridge synthesis layer.
+**Why multi-model matters:** Each model has different training data, biases, and reasoning patterns. With 3 models configured, runtime-opencode becomes its own mini-council — 3 independent perspectives before findings even reach the cross-bridge synthesis layer.
 
 ---
 
 ## Timeout Estimation
 
-Use bridge-commons base timeout table and intensity multiplier, then apply the OpenCode-specific multiplier:
+Use runtime-contracts base timeout table and intensity multiplier, then apply the OpenCode-specific multiplier:
 
 ```yaml
 opencode_multiplier: 1.5   # Always applied — provider routing overhead
@@ -230,7 +230,7 @@ OpenCode internally dispatches to one or more providers — each provider call a
 
 ### Multi-Model Dispatch (when `models` has 2+ entries)
 
-Spawn one parallel execution per configured model. All models receive the identical `bridge_input` — independence is the point.
+Spawn one parallel execution per configured model. All models receive the identical `runtime_input` — independence is the point.
 
 **Via HTTP API (preferred when server running):**
 
@@ -268,14 +268,14 @@ wait $PID_A $PID_B $PID_C
 
 If any model invocation times out or errors → mark it as `skipped` in `instances_completed` and continue with remaining results. Never block on a single model failure.
 
-**Post-dispatch: Mini-Synthesis within bridge-opencode**
+**Post-dispatch: Mini-Synthesis within runtime-opencode**
 
 After all model invocations complete, run a mini-synthesis before returning to deep-council:
 
 1. **Deduplication**: Findings with >70% description overlap across models → merge (inherit highest severity, list contributing models as `confirmed_by_models`)
 2. **Model-confirmed**: Merged findings are elevated (`intra_bridge_model_confirmed: true`)
 3. **Single-model findings**: Retained with model attribution
-4. **Verdict**: Apply bridge-commons verdict logic to the merged finding set
+4. **Verdict**: Apply runtime-contracts verdict logic to the merged finding set
 
 This mini-synthesis is the intra-bridge equivalent of deep-council's cross-bridge Stage B — but lighter (no full DA challenge round, just deduplication and model-agreement detection).
 
@@ -307,7 +307,7 @@ For single-domain or single-model review, invoke the appropriate subagent:
 invoke: task(
   subagent_type: "explore",
   description: "{review_id}-domain-review",
-  prompt: "{constructed_prompt from bridge-commons Agent Prompt Template}"
+  prompt: "{constructed_prompt from runtime-contracts Agent Prompt Template}"
 )
 
 # For general-purpose review
@@ -327,7 +327,7 @@ invoke: task(
 
 ### Multi-Domain Parallel Dispatch
 
-When `bridge_input.domains` has 2+ domains, spawn one subagent per domain in parallel:
+When `runtime_input.domains` has 2+ domains, spawn one subagent per domain in parallel:
 
 ```yaml
 # Spawn parallel subagents — one per domain
@@ -339,12 +339,12 @@ domain_experts: [
 
 # After all complete, aggregate outputs
 aggregated_findings: collect all outputs
-verdict: apply bridge-commons verdict logic
+verdict: apply runtime-contracts verdict logic
 ```
 
 ### Multi-Model Parallel Dispatch
 
-When `.bridge-settings.json` has `bridges.opencode.models` with 2+ entries, spawn one subagent per model:
+When `.runtime-settings.json` has `bridges.opencode.models` with 2+ entries, spawn one subagent per model:
 
 ```yaml
 # Each subagent uses a different model
@@ -369,13 +369,13 @@ For `standard` and `thorough` intensity, the post-analysis protocol runs within 
 # Spawn Challenger subagent
 challenger: task(
   subagent_type: "general",
-  prompt: "{Devil's Advocate prompt from bridge-commons Post-Analysis Protocol}"
+  prompt: "{Devil's Advocate prompt from runtime-contracts Post-Analysis Protocol}"
 )
 
 # Spawn Integration Checker subagent
 integration_checker: task(
   subagent_type: "general",
-  prompt: "{Integration Checker prompt from bridge-commons}"
+  prompt: "{Integration Checker prompt from runtime-contracts}"
 )
 ```
 
@@ -383,7 +383,7 @@ integration_checker: task(
 
 ### Output from Native Dispatch
 
-Return the standard bridge-commons output schema with:
+Return the standard runtime-contracts output schema with:
 
 ```json
 {
@@ -412,7 +412,7 @@ SESSION=$(curl -s -X POST http://localhost:4096/session \
   -H "Content-Type: application/json" \
   -d '{"title": "bridge-review-{review_id}"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
 
-# Send prompt — use bridge-commons Agent Prompt Template for the constructed_prompt
+# Send prompt — use runtime-contracts Agent Prompt Template for the constructed_prompt
 curl -s -X POST http://localhost:4096/session/$SESSION/message \
   -H "Content-Type: application/json" \
   -d '{
@@ -421,14 +421,14 @@ curl -s -X POST http://localhost:4096/session/$SESSION/message \
   }'
 ```
 
-For the bridge-commons Post-Analysis Protocol, use the same session for each round — the HTTP session maintains full conversation history, so Round 2+ only needs the context packet injected. Run each role as a separate message (or separate session per role for parallelism):
+For the runtime-contracts Post-Analysis Protocol, use the same session for each round — the HTTP session maintains full conversation history, so Round 2+ only needs the context packet injected. Run each role as a separate message (or separate session per role for parallelism):
 
 ```bash
 # Round 2 message — session already has Round 1 history
 curl -s -X POST http://localhost:4096/session/$SESSION/message \
   -H "Content-Type: application/json" \
   -d '{
-    "content": [{"type": "text", "text": "{role-specific Round N prompt from bridge-commons context packet}"}]
+    "content": [{"type": "text", "text": "{role-specific Round N prompt from runtime-contracts context packet}"}]
   }'
 ```
 
@@ -471,7 +471,7 @@ curl -s -u opencode:$OPENCODE_SERVER_PASSWORD \
 ### Agent selection (optional)
 
 ```bash
-# Resolve the agent from bridge-commons capability_profile
+# Resolve the agent from runtime-contracts capability_profile
 curl -s -X POST http://localhost:4096/session \
   -H "Content-Type: application/json" \
   -d '{"title": "...", "agent": "{resolved from capability_profile}"}'
@@ -482,7 +482,7 @@ Built-in agents:
 - `plan` — inspect-oriented agent
 - `build` — modify-oriented agent
 
-Resolve the agent from bridge-commons:
+Resolve the agent from runtime-contracts:
 
 - `inspect` profile → select the analysis-oriented agent
 - `modify` profile → select the write-capable agent
@@ -491,7 +491,7 @@ Resolve the agent from bridge-commons:
 
 ## Step 3B: Execute via CLI (Fallback)
 
-Build the prompt using the bridge-commons Agent Prompt Template.
+Build the prompt using the runtime-contracts Agent Prompt Template.
 
 ```bash
 timeout {final_timeout} opencode run "{constructed_prompt}" \
@@ -516,7 +516,7 @@ For the Post-Analysis Protocol via CLI, use separate `opencode run` calls per ro
 
 ## Output
 
-See bridge-commons Output Schema. Bridge-specific fields:
+See runtime-contracts Output Schema. Bridge-specific fields:
 
 ```json
 {
@@ -533,7 +533,7 @@ See bridge-commons Output Schema. Bridge-specific fields:
 }
 ```
 
-- `models_configured`: full list from `.bridge-settings.json`
+- `models_configured`: full list from `.runtime-settings.json`
 - `models_used`: models that successfully completed (subset if any timed out)
 - `instances_spawned`: number of parallel executions launched
 - `instances_completed`: number that returned results (may be less than spawned)
@@ -548,6 +548,6 @@ Output ID prefix: `O` (e.g., `O001`, `O002`). In multi-model mode, prefix per mo
 - **HTTP API is preferred** — use it when `opencode serve` is already running (lower overhead, session continuity)
 - **`opencode run` ≠ `opencode`** — bare `opencode` opens the interactive TUI; always use `opencode run "..."` for scripted use
 - **Model format is `provider/model`** — e.g., `anthropic/claude-sonnet-4-20250514`, not just `claude`
-- **Capability resolution is shared** — map `inspect | modify` from bridge-commons onto the appropriate OpenCode agent or CLI args at runtime
+- **Capability resolution is shared** — map `inspect | modify` from runtime-contracts onto the appropriate OpenCode agent or CLI args at runtime
 - **1.5× timeout multiplier** always applies (provider routing overhead)
 - **HALTED ≠ SKIPPED** — HALTED requires user input before the review can proceed

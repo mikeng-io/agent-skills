@@ -1,10 +1,10 @@
 ---
-name: bridge-gemini
+name: runtime-gemini
 description: Reference adapter for Gemini CLI. Read by any orchestrating skill via the Read tool. Defines how to invoke Gemini CLI in non-interactive mode, timeout estimation, and fallback behavior. Usable by deep-council, deep-review, deep-audit, or any future skill that needs Gemini-based review.
 location: managed
 context: reference
 dependencies:
-  - bridge-commons
+  - runtime-contracts
   - domain-registry
 ---
 
@@ -12,7 +12,7 @@ dependencies:
 
 This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for Gemini CLI dispatch.
 
-**Input schema, agent prompt template, output schema, verdict logic, timeout formula, artifact format, and status semantics are defined in `bridge-commons/SKILL.md`. This file covers only Gemini-specific connection detection and execution.**
+**Input schema, agent prompt template, output schema, verdict logic, timeout formula, artifact format, and status semantics are defined in `runtime-contracts/SKILL.md`. This file covers only Gemini-specific connection detection and execution.**
 
 ## Bridge Identity
 
@@ -35,7 +35,7 @@ native_dispatch:
 
 ## Pre-Flight — Connection Detection
 
-**MUST read `bridge-commons/tool-discovery.md` first** to understand the discovery protocol.
+**MUST read `runtime-contracts/tool-discovery.md` first** to understand the discovery protocol.
 
 ### Step 1.0: Discover Execution Context
 
@@ -145,7 +145,7 @@ If the probe succeeds → **use CLI path** (Execution section).
 
 ## Execution
 
-Build the prompt using the Agent Prompt Template from bridge-commons, adapting to `task_type`. Calculate timeout using bridge-commons formula (no bridge-specific multiplier for Gemini).
+Build the prompt using the Agent Prompt Template from runtime-contracts, adapting to `task_type`. Calculate timeout using runtime-contracts formula (no bridge-specific multiplier for Gemini).
 
 ```bash
 TIMEOUT={calculated_timeout}
@@ -162,7 +162,7 @@ Error handling:
 - Other exit codes → return SKIPPED with reason `gemini CLI error: {stderr}`
 - Invalid JSON output → attempt to extract structured content, else SKIPPED
 
-After execution, run the bridge-commons Post-Analysis Protocol. Gemini uses **stateless context passing** between rounds — embed the full previous-round outputs and context packet in each subsequent `gemini -p` call. There is no session continuity between separate CLI invocations.
+After execution, run the runtime-contracts Post-Analysis Protocol. Gemini uses **stateless context passing** between rounds — embed the full previous-round outputs and context packet in each subsequent `gemini -p` call. There is no session continuity between separate CLI invocations.
 
 For `standard` and `thorough` intensity, construct the Round 2 prompt as:
 
@@ -199,7 +199,7 @@ Subagent mode is a progressive enhancement. Record `subagent_mode: true/false` i
 
 ## Output
 
-See bridge-commons Output Schema. Bridge-specific fields:
+See runtime-contracts Output Schema. Bridge-specific fields:
 
 ```json
 {
@@ -220,10 +220,10 @@ Output ID prefix: `G` (e.g., `G001`, `G002`).
 - Always check availability first — never assume gemini is installed
 - Use non-interactive mode only; always specify `--approval-mode`
 - Use `--output-format json` for structured parsing (not `-o json`)
-- Timeout is estimated from scope, not hardcoded — see bridge-commons formula
+- Timeout is estimated from scope, not hardcoded — see runtime-contracts formula
 - SKIPPED is a valid, non-error outcome
 
-Resolve `APPROVAL_MODE` from bridge-commons:
+Resolve `APPROVAL_MODE` from runtime-contracts:
 
 - `inspect` profile → use Gemini's non-mutating approval mode
 - `modify` profile → use Gemini's write-capable approval mode supported by the current runtime

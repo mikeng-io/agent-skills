@@ -24,7 +24,7 @@ An AI agent executor: Claude Code, Codex CLI, Gemini CLI, Kimi Code, OpenCode, o
 A skill that defines how to dispatch a council task to a specific runtime. Lives at `skills/runtime-{name}/SKILL.md`. Examples: `runtime-claude`, `runtime-codex`, `runtime-kimi`, `runtime-gemini`, `runtime-opencode`. Each adapter is a reference document — read via the `Read` tool and embedded into an executor agent's prompt. *(Historically called "bridge-\*".)*
 
 ### Runtime contracts
-The shared schema all runtime adapters implement: input format, output schema, capability profiles, status values, agent prompt template, artifact format, and the post-analysis protocol. Lives at `skills/runtime-contracts/SKILL.md`. *(Historically `bridge-commons`.)*
+The shared schema all runtime adapters implement: input format, output schema, capability profiles, status values, agent prompt template, artifact format, and the post-analysis protocol. Lives at `skills/runtime-contracts/SKILL.md`. *(Historically `runtime-contracts`.)*
 
 ### Local agent / sub-agent
 An agent dispatched inside a single runtime using its native mechanism — for example, `Task` in Claude Code, `task` (lowercase) in OpenCode, `delegate_task` in Hermes, the `Agent` tool in Kimi, multi-agent dispatch in Codex or Gemini when enabled. "Local" always means **inside one runtime** — it does not cross runtime boundaries.
@@ -233,9 +233,9 @@ Finding-driven mode performs up to four checks (resolution, regression, design-d
 | Deep Council | Agent Council, Tier 3 |
 | Local council / local review | Tier 1 (in-runtime dispatch) |
 | Bridge / bridge adapter | Runtime adapter |
-| `bridge-commons` skill | `runtime-contracts` skill |
-| `bridge-claude` / `bridge-codex` / `bridge-gemini` / `bridge-opencode` / `bridge-kimi` | `runtime-claude` / `runtime-codex` / `runtime-gemini` / `runtime-opencode` / `runtime-kimi` |
-| `.bridge-settings.json` | `.runtime-settings.json` |
+| `runtime-contracts` skill | `runtime-contracts` skill |
+| `runtime-claude` / `runtime-codex` / `runtime-gemini` / `runtime-opencode` / `runtime-kimi` | `runtime-claude` / `runtime-codex` / `runtime-gemini` / `runtime-opencode` / `runtime-kimi` |
+| `.runtime-settings.json` | `.runtime-settings.json` |
 | Deep Council escalation | Tier escalation (Tier 1 → 2 → 3) |
 | `deep-council` skill | Deleted. Invoke `agent-council` with `tier: 3` |
 | `deep-explorer` skill | Deprecated. Codebase exploration handled by `context` skill + runtime's native `explore` sub-agent |

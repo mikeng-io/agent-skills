@@ -122,7 +122,7 @@ Question: "What are the primary domains this codebase deals with? What are the m
 → Use answer to supplement domain-registry signal matching
 ```
 
-### Called by bridge-claude / domain experts (pre-analysis context)
+### Called by runtime-claude / domain experts (pre-analysis context)
 
 ```
 Question: "What is the architecture of {component}? What design decisions constrain how it works?"
@@ -140,7 +140,7 @@ Question: "How does {feature} currently work in this codebase before I research 
 
 ```
 Topics: read_wiki_structure → identify relevant docs → read_wiki_contents for scope areas
-→ Attach to bridge_input.context_summary to give bridges richer understanding
+→ Attach to runtime_input.context_summary to give runtime adapters richer understanding
 ```
 
 ### Standalone invocation (direct codebase exploration)

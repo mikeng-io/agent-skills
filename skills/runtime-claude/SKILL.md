@@ -1,10 +1,10 @@
 ---
-name: bridge-claude
+name: runtime-claude
 description: Reference adapter for Claude (Anthropic) dispatch. Read by any orchestrating skill via the Read tool. Defines how to invoke Claude sub-agents or the Anthropic API, with availability checks. Usable by any AI orchestrator — Claude Code, OpenCode, Codex, Gemini, or custom agents.
 location: managed
 context: reference
 dependencies:
-  - bridge-commons
+  - runtime-contracts
   - domain-registry
   - debate-protocol
 ---
@@ -13,7 +13,7 @@ dependencies:
 
 This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for Anthropic model dispatch.
 
-**Input schema, agent prompt template, output schema, verdict logic, timeout formula, artifact format, and status semantics are defined in `bridge-commons/SKILL.md`. This file covers only Claude-specific connection detection and execution paths.**
+**Input schema, agent prompt template, output schema, verdict logic, timeout formula, artifact format, and status semantics are defined in `runtime-contracts/SKILL.md`. This file covers only Claude-specific connection detection and execution paths.**
 
 ## Bridge Identity
 
@@ -37,7 +37,7 @@ native_dispatch:
 
 ## Step 1: Pre-Flight — Connection Detection
 
-**MUST read `bridge-commons/tool-discovery.md` first** to understand the discovery protocol.
+**MUST read `runtime-contracts/tool-discovery.md` first** to understand the discovery protocol.
 
 ### Step 1.0: Discover Execution Context
 
@@ -177,12 +177,12 @@ When `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set and task complexity warrant
 Before executing the full flow, attempt `TeamCreate`. If it fails for any reason (not available in this execution context, naming collision, experimental feature restricted at current depth) → **immediately fall back to Step 3B**. Do not retry Agent Teams.
 
 ```
-0. ATTEMPT TeamCreate → "bridge-claude-{session_id}"
+0. ATTEMPT TeamCreate → "runtime-claude-{session_id}"
    IF TeamCreate fails → go to Step 3B (Task Tool fallback)
 
 1. TeamCreate succeeded → continue
 2. Spawn teammates:
-   - One per domain from bridge_input.domains
+   - One per domain from runtime_input.domains
    - Devil's Advocate (always)
    - Integration Checker (always)
 3. Create tasks in shared task list — one per teammate
@@ -195,7 +195,7 @@ Before executing the full flow, attempt `TeamCreate`. If it fails for any reason
    IF any step 2–6 fails → call TeamDelete before returning SKIPPED
 ```
 
-Teammates communicate findings and challenges directly without routing through the parent. This replaces the bridge-commons consolidation pass — debate-protocol provides a richer version.
+Teammates communicate findings and challenges directly without routing through the parent. This replaces the runtime-contracts consolidation pass — debate-protocol provides a richer version.
 
 ### Teammate prompts
 
@@ -205,7 +205,7 @@ Teammates communicate findings and challenges directly without routing through t
 You are a {expert_role}. Your task: {task_description}
 Scope: {scope} | Context: {context_summary} | Intensity: {intensity}
 Focus: {focus_areas from domain-registry}
-Return your output as the JSON structure defined in bridge-commons Agent Prompt Template.
+Return your output as the JSON structure defined in runtime-contracts Agent Prompt Template.
 ```
 
 **Devil's Advocate:**
@@ -250,7 +250,7 @@ Return outputs JSON with domain: "integration".
 
 ## Step 3B: Execute via Task Tool (fallback)
 
-When Agent Teams is not available, spawn parallel Task sub-agents — one per domain + Devil's Advocate + Integration Checker. Sub-agents report results to parent only (no direct inter-agent communication). Build prompts using the Agent Prompt Template from bridge-commons.
+When Agent Teams is not available, spawn parallel Task sub-agents — one per domain + Devil's Advocate + Integration Checker. Sub-agents report results to parent only (no direct inter-agent communication). Build prompts using the Agent Prompt Template from runtime-contracts.
 
 ```
 Task 1: {domain_1} expert — focus: {focus_areas}, scope: {scope}
@@ -260,7 +260,7 @@ Task N:   Devil's Advocate — challenge assumptions, find failure modes (domain
 Task N+1: Integration Checker — cross-component impacts, implicit contracts (domain: "integration")
 ```
 
-All tasks run in parallel. After all complete, run the bridge-commons Post-Analysis Protocol. For subsequent rounds, spawn new Task sub-agents with the context packet embedded in their prompts — the parent agent holds all state between rounds and manages the orchestrator synthesis step.
+All tasks run in parallel. After all complete, run the runtime-contracts Post-Analysis Protocol. For subsequent rounds, spawn new Task sub-agents with the context packet embedded in their prompts — the parent agent holds all state between rounds and manages the orchestrator synthesis step.
 
 ---
 
@@ -269,7 +269,7 @@ All tasks run in parallel. After all complete, run the bridge-commons Post-Analy
 When any non-Claude-Code executor can call the `claude` CLI:
 
 ```bash
-# Resolve from bridge-commons capability_profile + bridge_input.intensity
+# Resolve from runtime-contracts capability_profile + runtime_input.intensity
 # inspect → --permission-mode acceptEdits --allowedTools "Read Grep Glob Bash(ls *) Bash(find *)"
 # modify  → --permission-mode auto
 # quick   → --effort low  | standard → --effort medium | thorough → --effort high
@@ -311,7 +311,7 @@ timeout {final_timeout} claude -p "{constructed_prompt}" \
 
 The bridge policy is the shared `capability_profile`, not a fixed flag set. `--permission-mode` and `--allowedTools` are the runtime-level translation of that profile for the `claude` CLI.
 
-See `bridge-claude/cli-reference.md` for full flag reference.
+See `runtime-claude/cli-reference.md` for full flag reference.
 
 ---
 
@@ -340,7 +340,7 @@ Single API call covers all domains in one prompt. Less parallelism than native-d
 
 ## Output
 
-See bridge-commons Output Schema. Bridge-specific fields:
+See runtime-contracts Output Schema. Bridge-specific fields:
 
 ```json
 {

@@ -223,9 +223,9 @@ Skills with **no `context` field** run **inline** in the invoking agent — full
 | Old | New |
 |-----|-----|
 | Bridge / bridge adapter | Runtime adapter |
-| `bridge-commons` | `runtime-contracts` |
+| `runtime-contracts` | `runtime-contracts` |
 | `bridge-{claude,codex,gemini,opencode,kimi}` | `runtime-{claude,codex,gemini,opencode,kimi}` |
-| `.bridge-settings.json` | `.runtime-settings.json` |
+| `.runtime-settings.json` | `.runtime-settings.json` |
 | Agent Council (role-only) | `agent-council` at Tier 1 |
 | Runtime Council | `agent-council` at Tier 2 |
 | Deep Council | `agent-council` at Tier 3 |

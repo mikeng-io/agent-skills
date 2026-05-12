@@ -1,6 +1,6 @@
 # Kimi Code CLI Reference
 
-Complete reference for `kimi` CLI non-interactive usage. Used when bridge-kimi runs via an external executor (Claude Code, OpenCode, Codex, Gemini, or any agent that can shell out to `kimi`).
+Complete reference for `kimi` CLI non-interactive usage. Used when runtime-kimi runs via an external executor (Claude Code, OpenCode, Codex, Gemini, or any agent that can shell out to `kimi`).
 
 ---
 

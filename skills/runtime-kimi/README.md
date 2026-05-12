@@ -8,10 +8,10 @@ This is a **reference document**, not a runnable skill. Any orchestrating skill 
 
 ## How it works
 
-1. An orchestrating skill reads `bridge-kimi/SKILL.md`
+1. An orchestrating skill reads `runtime-kimi/SKILL.md`
 2. Spawns a Task agent (the "bridge executor") with these instructions embedded
 3. Bridge executor invokes `kimi --print -p "..." --afk` (or native subagents when inside Kimi)
-4. Bridge executor collects findings and returns a `bridge_kimi_report`
+4. Bridge executor collects findings and returns a `runtime_kimi_report`
 5. The calling skill receives the report for synthesis
 
 ## Availability
@@ -26,7 +26,7 @@ Bridge-kimi is non-blocking — it returns SKIPPED if Kimi is not installed or n
 
 ## Output
 
-Returns a `bridge_kimi_report` JSON with findings, verdict, and confidence level.
+Returns a `runtime_kimi_report` JSON with findings, verdict, and confidence level.
 
 Output ID prefix: `K` (e.g., `K001`, `K002`).
 

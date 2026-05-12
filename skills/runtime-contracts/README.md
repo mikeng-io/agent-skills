@@ -12,22 +12,22 @@ Each bridge adapter (Claude, Gemini, Codex, OpenCode) connects to a different AI
 |---------|---------|
 | Pre-flight SOP | Ordered detection steps every bridge follows before executing |
 | Timeout estimation | Scope-based formula, no hardcoded values |
-| Input schema | `bridge_input` — the standard contract every bridge accepts |
+| Input schema | `runtime_input` — the standard contract every bridge accepts |
 | Output schema | Common report structure every bridge returns |
 | Status semantics | `COMPLETED`, `SKIPPED`, `HALTED`, `ABORTED` and when each applies |
-| Artifact format | JSONL event log + Markdown summary in `.outputs/bridges/` |
+| Artifact format | JSONL event log + Markdown summary in `.outputs/runtimes/` |
 | Error handling | Exit code patterns, timeout handling, parse failure recovery |
 
 ## How Bridges Use This
 
-Each bridge's `SKILL.md` references this document. When an orchestrating skill embeds a bridge's instructions into a Task agent prompt, the bridge follows `bridge-commons` for all shared behavior and only adds its own connection-specific logic on top.
+Each bridge's `SKILL.md` references this document. When an orchestrating skill embeds a bridge's instructions into a Task agent prompt, the bridge follows `runtime-contracts` for all shared behavior and only adds its own connection-specific logic on top.
 
 ```
-bridge-commons  ←  defines the contract
-bridge-claude   ←  implements it: Task tool → claude CLI → Anthropic API
-bridge-gemini   ←  implements it: gemini CLI → SKIPPED
-bridge-codex    ←  implements it: MCP → codex exec → SKIPPED
-bridge-opencode ←  implements it: HTTP API → opencode run → SKIPPED
+runtime-contracts  ←  defines the contract
+runtime-claude   ←  implements it: Task tool → claude CLI → Anthropic API
+runtime-gemini   ←  implements it: gemini CLI → SKIPPED
+runtime-codex    ←  implements it: MCP → codex exec → SKIPPED
+runtime-opencode ←  implements it: HTTP API → opencode run → SKIPPED
 ```
 
 ## Part of

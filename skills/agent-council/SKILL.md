@@ -264,11 +264,11 @@ Read: [skills-root]/runtime-kimi/SKILL.md
 
 **Step 6.2.3: Dispatch one Task agent per enabled adapter in parallel.**
 
-For each enabled adapter, spawn a Task agent (the "runtime executor") with the adapter's instructions embedded verbatim and the standard `bridge_input` JSON:
+For each enabled adapter, spawn a Task agent (the "runtime executor") with the adapter's instructions embedded verbatim and the standard `runtime_input` JSON:
 
 ```json
 {
-  "bridge_input": {
+  "runtime_input": {
     "session_id": "{session_id}-{runtime}",
     "scope": "{working_scope.artifact}",
     "task_description": "{constructed from intent + mode}",

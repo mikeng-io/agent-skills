@@ -1,13 +1,13 @@
 ---
-name: bridge-commons
-description: Shared contract for all bridge adapters — pre-flight SOP, standardized input/output schemas, artifact format, and status semantics. Read by any bridge or orchestrating skill. Not invocable standalone.
+name: runtime-contracts
+description: Shared contract for all runtime adapters — pre-flight SOP, standardized input/output schemas, artifact format, and status semantics. Read by any runtime adapter or orchestrating skill. Not invocable standalone.
 location: managed
 context: reference
 ---
 
 # Bridge Commons: Shared Contract
 
-This document defines the shared contract that all bridge adapters implement. Every bridge reads this document and conforms to the schemas, status semantics, artifact format, and pre-flight ordering defined here.
+This document defines the shared contract that all runtime adapters implement. Every bridge reads this document and conforms to the schemas, status semantics, artifact format, and pre-flight ordering defined here.
 
 ## What Bridges Are
 
@@ -82,7 +82,7 @@ All bridges accept this standard input:
 
 ```json
 {
-  "bridge_input": {
+  "runtime_input": {
     "session_id": "unique identifier for this session",
     "scope": "files, topics, or description of what to work on",
     "task_description": "what the agent should do",
@@ -160,7 +160,7 @@ For brainstorm/design mode, bridges emit proposals and questions in addition to 
 
 ## Agent Prompt Template
 
-Construct one prompt per domain in `bridge_input.domains`. Resolve `{expert_role}`, `{focus_areas}`, and `{standards}` from domain-registry using the **Lookup Protocol** in `domain-registry/README.md`. If no registry entry substantially covers the domain concern, synthesize a session-based virtual expert rather than falling back to a mismatched role. Adapt framing based on `task_type`:
+Construct one prompt per domain in `runtime_input.domains`. Resolve `{expert_role}`, `{focus_areas}`, and `{standards}` from domain-registry using the **Lookup Protocol** in `domain-registry/README.md`. If no registry entry substantially covers the domain concern, synthesize a session-based virtual expert rather than falling back to a mismatched role. Adapt framing based on `task_type`:
 
 ```
 You are a {expert_role}.
@@ -324,7 +324,7 @@ When multiple agents within a bridge produce similar outputs:
 
 After the initial parallel analysis, every bridge runs a post-analysis protocol before returning results. Two approaches are available — select based on intensity:
 
-**Note:** These round counts apply to the bridge-commons Post-Analysis Protocol — the iterative
+**Note:** These round counts apply to the runtime-contracts Post-Analysis Protocol — the iterative
 debate used within individual bridges (Gemini, Codex, OpenCode). They are distinct from the
 debate-protocol skill's round counts, which govern the standalone 5-phase protocol. The two
 systems have different purposes and calibrations:
@@ -343,13 +343,13 @@ For Claude with Agent Teams, this entire section is superseded by the full `deba
 
 ### Roles
 
-Domain experts are determined by the orchestrating skill (deep-council, deep-review, etc.) before the bridge is called — the bridge receives them via `bridge_input.domains` and executes. Bridges do not perform domain selection.
+Domain experts are determined by the orchestrating skill (deep-council, deep-review, etc.) before the bridge is called — the bridge receives them via `runtime_input.domains` and executes. Bridges do not perform domain selection.
 
 Spawn these roles in parallel at the start of each round:
 
 | Role | Count | Source | Purpose |
 |------|-------|--------|---------|
-| **Domain Expert** | One per domain in `bridge_input.domains` | domain-registry — expert role, focus areas, and standards per domain | Subject-matter analysis; defends and revises findings across rounds |
+| **Domain Expert** | One per domain in `runtime_input.domains` | domain-registry — expert role, focus areas, and standards per domain | Subject-matter analysis; defends and revises findings across rounds |
 | **Challenger** | 1 (always) | Fixed role — no domain-registry lookup | Cross-domain challenge — Devil's Advocate equivalent; escalates or withdraws challenges each round |
 | **Integration Checker** | 1 (always) | Fixed role — no domain-registry lookup | Surfaces cross-component issues; adds new findings as debates reveal interface gaps |
 
@@ -527,7 +527,7 @@ When previous-round outputs would exceed this limit:
 
 1. Summarize each finding to: `id`, `title`, `severity`, `description` only (drop `evidence`, `action`, `agent`)
 2. If still over limit: retain CRITICAL and HIGH findings verbatim; reduce MEDIUM/LOW to one-line summaries (`"id: title (severity)"`)
-3. Annotate the Round N prompt with: `"NOTE: Prior round context summarized due to size (>32k chars). Full outputs in .outputs/bridges/ artifact."`
+3. Annotate the Round N prompt with: `"NOTE: Prior round context summarized due to size (>32k chars). Full outputs in .outputs/runtimes/ artifact."`
 4. Record approximate prompt size per round in the bridge output as `prompt_size_chars_r{n}` (e.g., `prompt_size_chars_r2: 28500`)
 
 **Bridges MUST NOT silently truncate.** Silent truncation produces Round N responses that are indistinguishable from valid full-context responses and corrupts multi-model confirmation reliability.
@@ -554,9 +554,9 @@ Every bridge saves two files per execution for auditability.
 
 ### JSONL event log
 
-Path: `.outputs/bridges/{bridge}-{YYYYMMDD-HHMMSS}-{session_id}.jsonl`
+Path: `.outputs/runtimes/{bridge}-{YYYYMMDD-HHMMSS}-{session_id}.jsonl`
 
-For ACP-controlled reviews, the orchestrating phase must also persist the final bridge result under the canonical ACP evidence root for that review type, for example `.trustless/reviews/`, `.trustless/verification/<spec-id>/`, or `.trustless/validation/`. `.outputs/bridges/**` is diagnostic bridge telemetry, not lifecycle evidence.
+For ACP-controlled reviews, the orchestrating phase must also persist the final bridge result under the canonical ACP evidence root for that review type, for example `.trustless/reviews/`, `.trustless/verification/<spec-id>/`, or `.trustless/validation/`. `.outputs/runtimes/**` is diagnostic bridge telemetry, not lifecycle evidence.
 
 Write events as they occur — one JSON object per line:
 
@@ -571,7 +571,7 @@ Write events as they occur — one JSON object per line:
 
 ### Markdown summary
 
-Path: `.outputs/bridges/{bridge}-{YYYYMMDD-HHMMSS}-{session_id}.md`
+Path: `.outputs/runtimes/{bridge}-{YYYYMMDD-HHMMSS}-{session_id}.md`
 
 YAML frontmatter + human-readable summary:
 
@@ -618,19 +618,19 @@ deep-council
 │
 ├── Layer 2: Intra-Bridge Analysis (runs inside each bridge, before returning to council)
 │   │
-│   ├── bridge-claude
+│   ├── runtime-claude
 │   │     Full 5-phase debate-protocol (DA + IC + domain experts via Agent Teams or Task tool)
 │   │     Richest intra-bridge analysis — async messaging, multi-round adversarial
 │   │
-│   ├── bridge-gemini
+│   ├── runtime-gemini
 │   │     Post-Analysis Protocol rounds (sequential, stateless prompts)
 │   │     Lighter — no async messaging, 1–3 rounds via re-prompting
 │   │
-│   ├── bridge-codex
+│   ├── runtime-codex
 │   │     Post-Analysis Protocol rounds (sequential, stateless prompts)
 │   │     Same pattern as gemini
 │   │
-│   └── bridge-opencode
+│   └── runtime-opencode
 │         Single-model:  Post-Analysis Protocol rounds (same as gemini/codex)
 │         Multi-model:   N parallel model invocations → mini-synthesis within bridge
 │                        → becomes its own mini-council before reporting to Layer 1
@@ -643,9 +643,9 @@ deep-council
       Output: confirmed / downgraded / disputed / withdrawn / integration findings
 ```
 
-**Why the asymmetry exists:** bridge-claude has native sub-agent dispatch (Task tool, Agent Teams) — it can run truly parallel, async-communicating agents. CLI bridges (gemini, codex, opencode) are single-process invocations — they can only achieve multi-round analysis through sequential re-prompting, which is the Post-Analysis Protocol.
+**Why the asymmetry exists:** runtime-claude has native sub-agent dispatch (Task tool, Agent Teams) — it can run truly parallel, async-communicating agents. CLI bridges (gemini, codex, opencode) are single-process invocations — they can only achieve multi-round analysis through sequential re-prompting, which is the Post-Analysis Protocol.
 
-**Multi-model opencode fills the gap:** With 2+ models configured in `.bridge-settings.json`, bridge-opencode spawns one invocation per model in parallel — each model produces independent findings, and a mini-synthesis deduplicates and elevates model-confirmed findings within that bridge. This gives bridge-opencode a Layer 2 that is closer in depth to bridge-claude, without requiring native sub-agent dispatch.
+**Multi-model opencode fills the gap:** With 2+ models configured in `.runtime-settings.json`, runtime-opencode spawns one invocation per model in parallel — each model produces independent findings, and a mini-synthesis deduplicates and elevates model-confirmed findings within that bridge. This gives runtime-opencode a Layer 2 that is closer in depth to runtime-claude, without requiring native sub-agent dispatch.
 
 **The two layers are complementary, not redundant:**
 - Layer 2 (intra-bridge) maximizes what each model family can find on its own
@@ -655,7 +655,7 @@ deep-council
 
 ## Bridge Settings
 
-Bridges read suite configuration from `.bridge-settings.json` in the project root. This file is owned by the skill suite — it is not OpenCode's config, Gemini's config, or any CLI tool's config.
+Bridges read suite configuration from `.runtime-settings.json` in the project root. This file is owned by the skill suite — it is not OpenCode's config, Gemini's config, or any CLI tool's config.
 
 ```json
 {
@@ -675,7 +675,7 @@ Bridges read suite configuration from `.bridge-settings.json` in the project roo
 }
 ```
 
-**`opencode.models` array** — controls multi-model dispatch for bridge-opencode:
+**`opencode.models` array** — controls multi-model dispatch for runtime-opencode:
 
 | Value | Behavior |
 |-------|---------|
@@ -687,7 +687,7 @@ Models must use `provider/model` format as required by OpenCode (e.g., `glm/glm-
 
 `model` (singular): legacy single-model override — ignored when `models` array has entries.
 
-**Model identifier validation:** During bridge availability checks, if a model identifier is specified in `.bridge-settings.json`, bridges SHOULD perform a lightweight validation probe (e.g., `codex models list`, `opencode auth list`) to confirm the identifier is resolvable. If a model cannot be resolved:
+**Model identifier validation:** During bridge availability checks, if a model identifier is specified in `.runtime-settings.json`, bridges SHOULD perform a lightweight validation probe (e.g., `codex models list`, `opencode auth list`) to confirm the identifier is resolvable. If a model cannot be resolved:
 - Emit a **warning** in the bridge output (not SKIPPED — the bridge itself may still work with the provider's default model)
 - Record: `"model_validation_warnings": [{"model": "...", "reason": "not found in provider model list"}]`
 - Continue execution with the provider's default model if the specified model is invalid
@@ -706,7 +706,7 @@ This prevents silent capability reduction when committed model identifiers becom
 
 ### Input Field Aliases (Deprecated)
 
-`session_id` and `scope` are the canonical bridge-commons field names. The following aliases exist in deep-council Step 4 for backward compatibility and will be removed in a future version:
+`session_id` and `scope` are the canonical runtime-contracts field names. The following aliases exist in deep-council Step 4 for backward compatibility and will be removed in a future version:
 
 | Alias | Canonical name | Removal target |
 |-------|---------------|----------------|

@@ -1,8 +1,8 @@
 {
-	"_comment": "Suite-owned config — separate from any CLI tool's own config. Run deep-council with --reconfigure to update.",
+	"_comment": "Suite-owned config — separate from any CLI tool's own config. Run agent-council with --reconfigure to update.",
 	"_ttl_note": "TTL check uses (current_time - updated) > ttl_hours in real time. Committed past timestamps self-expire on next run and trigger re-discovery.",
-	"_model_validation": "Model identifiers must be confirmed valid at runtime. Bridge availability checks will warn (not SKIP) if a model identifier cannot be resolved by the provider.",
-	"bridges": {
+	"_model_validation": "Model identifiers must be confirmed valid at runtime. Runtime availability checks will warn (not SKIP) if a model identifier cannot be resolved by the provider.",
+	"runtimes": {
 		"claude": { "enabled": true },
 		"gemini": {
 			"enabled": true,

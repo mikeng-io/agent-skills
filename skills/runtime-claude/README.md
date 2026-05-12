@@ -8,10 +8,10 @@ This is a **reference document**, not a runnable skill. Any orchestrating skill 
 
 ## How it works
 
-1. An orchestrating skill reads `bridge-claude/SKILL.md`
+1. An orchestrating skill reads `runtime-claude/SKILL.md`
 2. Spawns a Task agent (the "bridge executor") with these instructions embedded
 3. Bridge executor spawns parallel domain expert sub-agents + DA + Integration Checker
-4. Bridge executor collects findings and returns a `bridge_claude_report`
+4. Bridge executor collects findings and returns a `runtime_claude_report`
 5. The calling skill receives the report for synthesis
 
 ## Why context: reference?
@@ -31,7 +31,7 @@ Bridge-claude is non-blocking — it returns SKIPPED if no Anthropic access is a
 
 ## Output
 
-Returns a `bridge_claude_report` JSON with findings, verdict, and confidence level.
+Returns a `runtime_claude_report` JSON with findings, verdict, and confidence level.
 
 ## Part of
 

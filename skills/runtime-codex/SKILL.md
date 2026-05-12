@@ -1,10 +1,10 @@
 ---
-name: bridge-codex
+name: runtime-codex
 description: Reference adapter for Codex multi-agent review. Read by any orchestrating skill via the Read tool. MCP server path (preferred) with auto-setup option, CLI path as fallback, interactive pre-flight advisory when not configured, correct flags embedded. Usable by deep-council, deep-review, deep-audit, or any future skill that needs Codex-based review.
 location: managed
 context: reference
 dependencies:
-  - bridge-commons
+  - runtime-contracts
   - domain-registry
 ---
 
@@ -12,7 +12,7 @@ dependencies:
 
 This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for Codex review dispatch via MCP server or CLI.
 
-**Input schema, output schema, verdict logic, artifact format, and status semantics are defined in `bridge-commons/SKILL.md`. This file covers Codex-specific connection detection, reasoning level, prompt adaptation, and execution.**
+**Input schema, output schema, verdict logic, artifact format, and status semantics are defined in `runtime-contracts/SKILL.md`. This file covers Codex-specific connection detection, reasoning level, prompt adaptation, and execution.**
 
 ## Bridge Identity
 
@@ -36,7 +36,7 @@ native_dispatch:
 
 ## Step 1: Pre-Flight — Connection Detection
 
-**MUST read `bridge-commons/tool-discovery.md` first** to understand the discovery protocol.
+**MUST read `runtime-contracts/tool-discovery.md` first** to understand the discovery protocol.
 
 ### Step 1.0: Discover Execution Context
 
@@ -282,7 +282,7 @@ Store selected level in `reasoning_level` output field.
 
 ## Step 3: Build Domain Prompt
 
-Codex's multi-agent capability means the prompt is addressed to a **coordinator**, not a single domain expert. This differs from the bridge-commons Agent Prompt Template (which addresses one expert per call). Adapt as follows:
+Codex's multi-agent capability means the prompt is addressed to a **coordinator**, not a single domain expert. This differs from the runtime-contracts Agent Prompt Template (which addresses one expert per call). Adapt as follows:
 
 ```
 You are a multi-agent code review coordinator. Spawn one agent per domain
@@ -297,7 +297,7 @@ Domains to analyze (spawn one agent per domain):
 {for each domain:
   "- {domain_name}: focus on {focus_areas from domain-registry}"}
 
-Each agent must return outputs using the schema from bridge-commons:
+Each agent must return outputs using the schema from runtime-contracts:
 {
   "domain": "...",
   "outputs": [
@@ -319,18 +319,18 @@ After all agents complete, consolidate all findings and return:
 }
 ```
 
-In single-agent mode, drop the coordinator framing and use the bridge-commons Agent Prompt Template directly, covering all domains in one prompt.
+In single-agent mode, drop the coordinator framing and use the runtime-contracts Agent Prompt Template directly, covering all domains in one prompt.
 
 ---
 
 ## Timeout Estimation
 
-Use bridge-commons base timeout table and intensity multiplier. Codex multi-agent adds sub-agent spawn overhead — apply a higher base when multi-agent is enabled:
+Use runtime-contracts base timeout table and intensity multiplier. Codex multi-agent adds sub-agent spawn overhead — apply a higher base when multi-agent is enabled:
 
 ```yaml
 # When multi_agent_enabled: true — increase base by 50%
 # e.g., 5-20 files: 180s → 270s to account for agent spawn latency
-# When multi_agent_enabled: false — use bridge-commons base times directly
+# When multi_agent_enabled: false — use runtime-contracts base times directly
 ```
 
 No separate bridge multiplier otherwise.
@@ -366,7 +366,7 @@ Parameters:
   reasoning:       "{medium|high|xhigh}"    # From Reasoning Level Selection
 ```
 
-Resolve the MCP `sandbox` from bridge-commons:
+Resolve the MCP `sandbox` from runtime-contracts:
 
 - `inspect` profile → choose the non-mutating Codex sandbox
 - `modify` profile → choose the write-capable Codex sandbox allowed by the executor
@@ -384,12 +384,12 @@ Parameters:
   threadId: {threadId from previous call}
 ```
 
-The `codex-reply` call implements the bridge-commons Post-Analysis Protocol for the MCP path. Use `codex-reply` for each subsequent round — the thread maintains full Round 1 history, so only inject the context packet:
+The `codex-reply` call implements the runtime-contracts Post-Analysis Protocol for the MCP path. Use `codex-reply` for each subsequent round — the thread maintains full Round 1 history, so only inject the context packet:
 
 ```
 Call: mcp__codex__codex-reply
 Parameters:
-  prompt:   "{role-specific Round N prompt from bridge-commons context packet}"
+  prompt:   "{role-specific Round N prompt from runtime-contracts context packet}"
   threadId: {threadId from Round 1}
 ```
 
@@ -430,7 +430,7 @@ For the Post-Analysis Protocol via CLI, use separate `codex exec` calls per roun
 
 ## Output
 
-See bridge-commons Output Schema. Bridge-specific fields:
+See runtime-contracts Output Schema. Bridge-specific fields:
 
 ```json
 {
@@ -452,7 +452,7 @@ Output ID prefix: `X` (e.g., `X001`, `X002`).
 - **MCP server is preferred** — no CLI install needed, auth handled internally, persistent sessions via `codex-reply`
 - **Auto-setup option** — orchestrator can write `.mcp.json` to enable MCP server without user installing anything
 - **`codex exec` ≠ `codex`** — bare `codex` opens an interactive session; always use `codex exec` for programmatic use
-- **Capability resolution is shared** — map `inspect | modify` from bridge-commons onto the appropriate Codex sandbox at runtime
+- **Capability resolution is shared** — map `inspect | modify` from runtime-contracts onto the appropriate Codex sandbox at runtime
 - **HALTED ≠ SKIPPED** — HALTED means the user must make a choice before the review can continue
 - **Model**: check latest via `codex prompt --models` at runtime; omit to use server default — never hardcode a model name
 - **X-high reasoning requires explicit user confirmation** before proceeding — never activate silently
