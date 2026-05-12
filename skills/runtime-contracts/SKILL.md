@@ -87,15 +87,22 @@ All bridges accept this standard input:
     "scope": "files, topics, or description of what to work on",
     "task_description": "what the agent should do",
     "task_type": "review | planning | implementation | analysis | research | audit",
-    "mode": "review | audit | brainstorm | design | research | synthesis",
+    "mode": "review | audit | brainstorm | design | research | synthesis | finding-driven",
     "local_council_required": false,
     "context_policy": "minimal-non-leading | packetized-summary | full-context | targeted-challenge",
     "domains": ["domain1", "domain2"],
     "context_summary": "brief description of context",
-    "intensity": "quick | standard | thorough"
+    "intensity": "quick | standard | thorough",
+
+    "findings": [],
+    "fixes_applied": "",
+    "original_proposal": "",
+    "prior_session_id": ""
   }
 }
 ```
+
+The last four fields are only meaningful when `mode == "finding-driven"`. Omit or leave empty for open-ended modes. See **Finding Object Schema** below for the per-item shape of `findings`.
 
 `task_type` drives how agent prompts are framed:
 
@@ -107,6 +114,25 @@ All bridges accept this standard input:
 | `implementation` | `implementation-note` | "What is needed to build this correctly?" |
 | `research` | `observation`, `recommendation` | "What do we know? What are the options?" |
 | `audit` | `finding`, `compliance-gap` | "Does this meet the stated requirement?" — Compliance-calibrated: unmet MUST → HIGH; unmet SHOULD → MEDIUM; met requirements → INFO. |
+
+`mode == "finding-driven"` is orthogonal to `task_type`: the council assesses the artifact through the lens of an explicit `findings` list rather than open-endedly. It coexists with any `task_type` (e.g., `task_type: audit` + `mode: finding-driven` for spec compliance; `task_type: review` + `mode: finding-driven` for post-fix re-review). See agent-council/SKILL.md "Finding-Driven Mode" for the four-check semantics.
+
+### Finding Object Schema
+
+When `mode == "finding-driven"`, the `findings` input array contains items with this minimum shape — usually lifted directly from a prior council artifact's `outputs[]`:
+
+```json
+{
+  "id": "F001",
+  "title": "Short title",
+  "description": "What the prior council said",
+  "severity": "CRITICAL | HIGH | MEDIUM | LOW | INFO | null",
+  "domain": "domain name",
+  "source": "prior_session_id or 'spec:<path>' or 'user-listed' or 'threat-model'"
+}
+```
+
+Additional fields from the source artifact (`evidence`, `action`, etc.) may be carried through. Consumers that build a `findings` list from a prior `agent-council` artifact MAY map `outputs[]` items directly.
 
 ### Execution Capability Profile
 
@@ -206,6 +232,8 @@ Return your output as JSON:
 
 ## Output Item Types
 
+### Standard types (any mode)
+
 | `type` | Severity applies? | Use when |
 |--------|-------------------|---------|
 | `finding` | Yes | Identifying a problem or risk |
@@ -213,6 +241,30 @@ Return your output as JSON:
 | `plan-item` | No (use `null`) | A step or action to execute |
 | `implementation-note` | No (use `null`) | A detail needed during implementation |
 | `observation` | Optional | A neutral insight or data point |
+
+### Finding-driven-mode types
+
+These types are valid only when `mode == "finding-driven"`. Items of these types live in the same `outputs[]` array as standard items, filterable by `type`.
+
+| `type` | Severity applies? | Use when |
+|--------|-------------------|---------|
+| `resolution` | No (use `null`) | Reports the status of a prior finding against the post-fix artifact. Carries a `resolution_status` field (see below) — does NOT use the canonical `status` enum. |
+| `regression-finding` | Yes | A new issue introduced by a fix in the fix's own domain |
+| `design-drift-finding` | Yes | The fix subtly diverges from the `original_proposal`'s intent (e.g., changed contract, weakened invariant, removed required behavior) |
+| `cross-domain-impact` | Yes | A fix in another domain affects this domain |
+| `fix-interaction-finding` | Yes | Issue that emerges only from the combination of two or more fixes; emitted by the Integration Checker. MUST name the involved fixes in `evidence`. |
+
+**`resolution` items** carry an additional field `resolution_status` (not `status` — kept separate to avoid collision with the debate-lifecycle `status` enum). Allowed values:
+
+| `resolution_status` | Meaning |
+|---------------------|---------|
+| `addressed` | The fix fully addresses the target finding |
+| `partially-addressed` | The fix addresses some but not all of the target finding |
+| `not-addressed` | The fix does not address the target finding |
+| `superseded` | The finding is no longer relevant because the artifact changed shape |
+| `obsolete` | The finding was invalid in retrospect (e.g., based on a misunderstanding) |
+
+Each `resolution` item also carries `target_finding_id` referencing the original finding's `id`.
 
 ---
 
@@ -231,9 +283,19 @@ Return your output as JSON:
 
 ## Verdict Logic
 
-Apply only when `task_type` is `review`, `analysis`, or `audit`. Set `null` for all other task types.
+Verdict routing depends on **both `mode` and `task_type`**. When `mode == "finding-driven"`, use the finding-driven table below regardless of `task_type`. Otherwise, route by `task_type`. Set `verdict: null` for `task_type` outside this section's coverage (e.g., `brainstorm`, `design`, `research`, `planning`, `implementation`).
 
-**For `review` and `analysis`:**
+**For `mode == "finding-driven"`** (takes precedence over task_type tables):
+
+| Verdict | Condition |
+|---------|-----------|
+| `FAIL` | Any `not-addressed` `resolution` whose target finding was CRITICAL/HIGH, OR any CRITICAL regression / design-drift / fix-interaction finding |
+| `CONCERNS` | Any HIGH regression / design-drift / fix-interaction finding, OR two or more `partially-addressed` resolutions whose target findings were CRITICAL/HIGH |
+| `PASS` | All target findings addressed; no HIGH+ new issues; no design drift |
+
+A re-review where every fix "addresses" its target but introduces design drift is `CONCERNS`, not `PASS` — this is the entire point of the mode.
+
+**For `task_type` in {`review`, `analysis`}** (when `mode` is not `finding-driven`):
 
 | Verdict | Condition |
 |---------|-----------|
@@ -241,7 +303,7 @@ Apply only when `task_type` is `review`, `analysis`, or `audit`. Set `null` for 
 | `CONCERNS` | One or more `HIGH` outputs, or three or more `MEDIUM` outputs |
 | `PASS` | No `CRITICAL` or `HIGH`; only `MEDIUM`, `LOW`, or `INFO` |
 
-**For `audit`** (compliance-calibrated — unmet requirements warrant stricter verdicts):
+**For `task_type == "audit"`** (when `mode` is not `finding-driven` — compliance-calibrated):
 
 | Verdict | Condition |
 |---------|-----------|

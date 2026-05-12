@@ -180,13 +180,20 @@ These names are deprecated. Use "Tier 3 Agent Council" and "Tier 2 Agent Council
 
 **Wrong:** After fixes are applied to address Stage 1 findings, Stage 2 re-review checks only "did each finding get fixed?" and signs off when yes.
 
-**Right:** Stage 2 runs in `finding-driven` mode and performs **four checks**, not one:
-1. **Resolution** — did each fix address its target finding?
-2. **Regression** — did any fix introduce new issues in its own domain?
-3. **Design drift** — did any fix subtly violate the original proposal's intent?
-4. **Fix interaction** — do combinations of fixes create issues that no single fix would alone?
+**Right:** Stage 2 runs in `finding-driven` mode and performs **up to four checks** (based on inputs available), not one:
+1. **Resolution** — did each fix address its target finding? *(always runs)*
+2. **Regression** — did any fix introduce new issues in its own domain? *(runs when `fixes_applied` is provided)*
+3. **Design drift** — did any fix subtly violate the original proposal's intent? *(runs when `fixes_applied` AND `original_proposal` are provided)*
+4. **Fix interaction** — do combinations of fixes create issues that no single fix would alone? *(runs when ≥2 fixes are in `fixes_applied`)*
 
-The naive re-review misses checks 2–4 — especially #3 (design drift), where a fix "solves" the finding by changing what the system does, and #4 (fix interaction), where fixing F1 and F2 together breaks an invariant neither breaks alone. Always invoke `agent-council` with `mode: finding-driven` for post-fix re-reviews, providing `fixes_applied` and `original_proposal` so all four checks run.
+The naive re-review misses checks 2–4 — especially #3 (design drift), where a fix "solves" the finding by changing what the system does, and #4 (fix interaction), where fixing F1 and F2 together breaks an invariant neither breaks alone.
+
+**When to use finding-driven mode (not "always" — match the scope):**
+
+- **Use it** when the re-review has more than one fix, OR when the original proposal is critical (security, financial, contract), OR when fixes touch shared state/concurrency/auth.
+- **Skip it for trivial re-reviews** — a 1-line typo fix to one function doesn't need resolution + regression + drift + interaction analysis. Naive review is fine here. The mode's cost (2–3× tokens vs. open-ended review, 5× with Tier-2 IC hoist) only pays off when the failure modes it catches are actually plausible.
+
+**How to invoke (the user-facing way):** Don't invoke `agent-council` directly. Use the thin wrappers — `deep-review`, `deep-audit`, `deep-verify` — and pass `fixes_applied` / `prior_findings` / `original_proposal`. The wrappers detect re-review intent and forward `mode: finding-driven` automatically. Invoke `agent-council` directly only when no wrapper fits or you're building a custom orchestration.
 
 ---
 
@@ -263,13 +270,19 @@ Finding-driven mode performs up to four checks (resolution, regression, design-d
 → Continue with what completed. Document the gap. Do not fabricate.
 
 **"Stage 1 review surfaced findings, fixes were applied, now I need to re-review."**
-→ Invoke `agent-council` with `mode: finding-driven`. Pass the prior findings, the fixes, and the original proposal. This triggers all four checks (resolution, regression, design-drift, fix-interaction). Never run a naive re-review (Anti-Pattern 8).
+→ Invoke `deep-review` with `fixes_applied` and (if available) `prior_findings` + `original_proposal`. The wrapper auto-routes to `agent-council` in `mode: finding-driven` and runs the four-check framework. Only invoke `agent-council` directly if you have a non-review/non-audit re-check use case.
 
 **"I need to verify the artifact against a spec."**
-→ `finding-driven` mode with the spec requirements as the `findings` list.
+→ Invoke `deep-verify` with the spec attached. The wrapper auto-routes to `mode: finding-driven` with the spec requirements as the `findings` list.
+
+**"I need to re-audit after remediation (compliance fixes were applied)."**
+→ Invoke `deep-audit` with `fixes_applied` and `prior_audit_findings`. The wrapper auto-routes to `mode: finding-driven` while preserving compliance-calibrated verdict logic.
 
 **"I need to check the artifact for known historical bugs."**
-→ `finding-driven` mode with the known bugs as the `findings` list.
+→ Invoke `agent-council` directly with `mode: finding-driven` and the known bugs as the `findings` list (no thin wrapper covers this case).
+
+**"It's a trivial 1-line fix re-review."**
+→ Use naive `deep-review` (don't bother with `fixes_applied`). Finding-driven mode is overhead when the failure modes it catches don't apply.
 
 ---
 

@@ -66,13 +66,26 @@ Default for `deep-audit` is **Tier 2** because compliance work benefits from run
 
 ---
 
-## Step 4: Invoke agent-council
+## Step 4: Detect Re-Audit Inputs and Select Mode
+
+Before invoking `agent-council`, check whether this is **re-audit after remediation** (fixes applied to address a prior audit's gaps) or a **fresh audit**.
+
+| Detected inputs | Mode |
+|----------------|------|
+| Fresh audit (no prior gaps/fixes mentioned) | `mode: audit` |
+| Any of: `fixes_applied`, `prior_audit_findings`, `prior_session_id` | `mode: finding-driven` (with `task_type: audit` preserved) |
+
+In `mode: finding-driven` with `task_type: audit`, agent-council runs the four-check framework while preserving the compliance-calibrated verdict logic — so a re-audit catches both new compliance regressions AND drift from the original compliance intent.
+
+---
+
+## Step 5: Invoke agent-council
 
 ```
 Skill("agent-council")
 ```
 
-With inputs:
+**For a fresh audit** (default):
 
 ```yaml
 agent_council_input:
@@ -87,14 +100,29 @@ agent_council_input:
   framing: "compliance-calibrated: unmet MUST → HIGH, unmet SHOULD → MEDIUM, met → INFO"
 ```
 
-The audit verdict logic in `agent-council` is compliance-calibrated per `runtime-contracts`:
-- `FAIL` — any CRITICAL, or ≥2 HIGH compliance-gaps
-- `CONCERNS` — 1 HIGH compliance-gap, or ≥3 MEDIUM gaps
-- `PASS` — all requirements met or only LOW/INFO gaps
+**For a re-audit after remediation** (mode = finding-driven, task_type stays audit):
+
+```yaml
+agent_council_input:
+  scope: "{working_scope.artifact}"
+  task_type: "audit"
+  mode: "finding-driven"
+  tier: <from Step 3 — re-audit of regulated work often warrants Tier 3>
+  domains: "{working_scope.domains}"
+  context_summary: "{working_scope.context_summary}"
+  intensity: "{working_scope.intensity}"
+  findings: "{prior_audit_findings — each prior compliance-gap is one finding to re-check}"
+  fixes_applied: "{the remediation diff or description}"
+  original_proposal: "{the compliance spec / regulation / standards being upheld}"
+  prior_session_id: "{prior audit session}"
+  framing: "compliance-calibrated re-audit: verify each gap closed, catch new regressions, detect drift from spec intent"
+```
+
+The audit verdict logic in `agent-council` is compliance-calibrated per `runtime-contracts` for both modes. In finding-driven mode, the four checks run AND the verdict applies the compliance-calibrated table.
 
 ---
 
-## Step 5: Receive & Save
+## Step 6: Receive & Save
 
 Save under `.outputs/audit/{YYYYMMDD-HHMMSS}-deep-audit-{session_id}.md` with frontmatter:
 
@@ -102,6 +130,7 @@ Save under `.outputs/audit/{YYYYMMDD-HHMMSS}-deep-audit-{session_id}.md` with fr
 ---
 skill: deep-audit
 agent_council_tier: 1 | 2 | 3
+agent_council_mode: audit | finding-driven
 session_id: "{session_id}"
 timestamp: "{ISO-8601}"
 verdict: PASS | FAIL | CONCERNS

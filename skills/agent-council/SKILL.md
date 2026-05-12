@@ -131,15 +131,26 @@ Record the selected tier in `council_context.tier`.
 
 ### Finding-driven mode: IC-tier asymmetry
 
-When `mode == "finding-driven"` with `fixes_applied` containing ≥2 fixes, the **Integration Checker may run at a higher tier than the rest of the council**. Fix-interaction analysis (Check #4 in Finding-Driven Mode) is where runtime diversity helps most — one runtime sees the local fix; a different runtime is more likely to catch the cross-fix invariant break.
+When `mode == "finding-driven"` with `fixes_applied` containing ≥2 fixes AND at least one **signal-gating trigger** fires, the **Integration Checker may run at a higher tier than the rest of the council**. Fix-interaction analysis (Check #4 in Finding-Driven Mode) is where runtime diversity helps most — but only when the interaction is non-obvious. When the interaction is encoded directly in the diff, a Tier-1 IC will catch it; running cross-runtime IC adds N× context for the same finding.
+
+**Signal-gating triggers (raise IC tier when one or more is present):**
+
+- Concurrency / locks / mutexes / shared state across goroutines or threads
+- Persistent storage migrations or schema changes
+- Security-sensitive code (auth, crypto, session handling, secret material)
+- Cross-component invariants (e.g., shared cache key, distributed lock, API contract)
+- Reordering of side effects across components
+- More than 5 fixes (combinatorial blast — pairs × triples grow fast)
+
+**Without any trigger, keep IC at the council tier.** Fix count alone is not enough.
 
 | Council intent | Council tier | IC tier |
 |---------------|--------------|---------|
-| Trivial fix re-review (1 fix, 1 domain) | 1 | 1 |
-| Multi-fix re-review (≥2 fixes, may interact) | 1 | **2** |
-| Critical-proposal multi-fix re-review | 2 | **3** |
+| Multi-fix re-review, no signal-gating trigger | 1 | 1 |
+| Multi-fix re-review with concurrency / shared state / security signal | 1 | **2** |
+| Critical-proposal multi-fix re-review, signal-gated | 2 | **3** |
 
-Record both as `council_context.tier` and `council_context.ic_tier`. See **Finding-Driven Mode** below for details.
+Record both as `council_context.tier` and `council_context.ic_tier`. The actual hoist is executed in **Step 6.IC** below. See **Finding-Driven Mode** for the four-check framework.
 
 ---
 
@@ -186,11 +197,26 @@ If no domain in the registry substantially covers a concern, synthesize a sessio
 
 ## Step 6: Tier Dispatch
 
-This is the only step that branches on tier. All other steps are tier-agnostic.
+This step branches first on **mode**, then on **tier**.
+
+### Step 6.0: Mode dispatch selection (runs before any tier branch)
+
+Select the prompt template and conditional inputs to pass:
+
+| `mode` | Prompt template source | Inputs to inject |
+|--------|------------------------|------------------|
+| Any open-ended mode (`review`/`audit`/`brainstorm`/`design`/`research`/`synthesis`) | `runtime-contracts` Agent Prompt Template | `scope`, `task_description`, `task_type`, `mode`, `domains`, `context_summary`, `intensity` |
+| `finding-driven` | Finding-Driven Mode section in this skill (domain-expert prompt + IC prompt below) | All of the above, PLUS `findings`, `fixes_applied`, `original_proposal`, `prior_session_id` (the last three may be empty strings — the prompt templates self-disable corresponding checks when inputs are absent) |
+
+**Tier 0 in finding-driven mode is forbidden.** Tier 0 has no IC role, so Check #4 (fix-interaction) cannot run, and finding-driven without all four checks is misleading. If the user explicitly requests Tier 0 + finding-driven → halt with: `"Tier 0 + finding-driven is contradictory. Use Tier 1 for in-runtime four-check, or Tier 0 + review mode for trivial single-agent review."`
+
+**Tier 2+ in finding-driven mode:** the runtime adapters' `runtime_input` payload MUST include the four finding-driven fields. See Step 6.2.3 for the extended schema.
+
+---
 
 ### Tier 0: Single Review
 
-Single agent, no diversity. Use only when the scope is trivial (1 domain, no integration concerns).
+Single agent, no diversity. Use only when the scope is trivial (1 domain, no integration concerns). Allowed modes: open-ended only (not `finding-driven` — see Step 6.0).
 
 1. Spawn one Task agent with the domain expert's prompt (constructed using the Agent Prompt Template from `runtime-contracts`).
 2. Wait for completion.
@@ -213,13 +239,14 @@ Total parallel agents = `len(domains) + 2`. If `domains > 5`, group related doma
 
 **Dispatch protocol:**
 
-1. Construct one prompt per role using the Agent Prompt Template from `runtime-contracts/SKILL.md`.
+1. Construct one prompt per role using the template selected in Step 6.0. For `finding-driven` mode, use the prompt templates from the Finding-Driven Mode section below (which embed the finding-driven inputs) instead of the generic Agent Prompt Template.
 2. Spawn all agents in parallel using the runtime's native dispatch mechanism. Detect the mechanism by tool availability — see `runtime-contracts/tool-discovery.md`.
 3. After all complete, run the Post-Analysis Protocol from `runtime-contracts`:
    - `intensity: quick` → 1 consolidation pass, 0 debate rounds
    - `intensity: standard` → 1 challenge + 1 response round
    - `intensity: thorough` → up to 3 rounds until convergence
 4. The DA challenges findings, the IC surfaces cross-component gaps, domain experts respond/revise across rounds. Domain expansion via `cross_domain_signals` is handled per `runtime-contracts`.
+5. **IC-hoist (finding-driven mode, optional):** If `council_context.ic_tier > council_context.tier`, additionally dispatch a parallel IC-only fan-out at the higher tier — see Step 6.IC below.
 
 `diversity_sources` = `["role"]` (+ `"debate-layer"` if any debate round ran).
 
@@ -264,7 +291,7 @@ Read: [skills-root]/runtime-kimi/SKILL.md
 
 **Step 6.2.3: Dispatch one Task agent per enabled adapter in parallel.**
 
-For each enabled adapter, spawn a Task agent (the "runtime executor") with the adapter's instructions embedded verbatim and the standard `runtime_input` JSON:
+For each enabled adapter, spawn a Task agent (the "runtime executor") with the adapter's instructions embedded verbatim and the `runtime_input` JSON:
 
 ```json
 {
@@ -273,12 +300,20 @@ For each enabled adapter, spawn a Task agent (the "runtime executor") with the a
     "scope": "{working_scope.artifact}",
     "task_description": "{constructed from intent + mode}",
     "task_type": "{council_context.task_type}",
+    "mode": "{council_context.mode}",
     "domains": ["{domain1}", "{domain2}"],
     "context_summary": "{council_context.context_summary}",
-    "intensity": "{council_context.intensity}"
+    "intensity": "{council_context.intensity}",
+
+    "findings": [],
+    "fixes_applied": "",
+    "original_proposal": "",
+    "prior_session_id": ""
   }
 }
 ```
+
+When `mode == "finding-driven"`, populate `findings` / `fixes_applied` / `original_proposal` / `prior_session_id` from the council's input. For open-ended modes, leave the last four empty — runtime adapters MUST honor this by skipping the finding-driven prompt section per `runtime-contracts` Agent Prompt Template.
 
 Each runtime executor:
 - Performs the adapter's pre-flight (availability, auth, capability detection)
@@ -351,21 +386,43 @@ Return:
 
 ---
 
+### Step 6.IC: IC-Hoist (finding-driven mode only, conditional)
+
+This sub-step runs **in addition to** the main tier dispatch when `council_context.ic_tier > council_context.tier`. It does NOT replace the regular Integration Checker — it adds a higher-tier IC pass that ONLY looks at fix-interaction.
+
+**When to dispatch:**
+
+The IC-hoist runs when ALL of these are true:
+- `mode == "finding-driven"`
+- `fixes_applied` contains 2+ fixes
+- At least one signal-gated trigger fires (set via Step 3 IC-tier asymmetry rule, or by explicit input): the fixes touch shared state, concurrency primitives, security-sensitive code, persistent storage, or cross-component invariants. **Do NOT auto-hoist on fix count alone** — runtime diversity helps where evidence is underdetermined, not where the diff is concrete.
+
+**Dispatch protocol:**
+
+1. After the main tier dispatch completes (and produces a council report at `council_context.tier`), prepare a IC-only fan-out at `council_context.ic_tier`.
+2. The IC-hoist fan-out invokes the same machinery as Tier 2 (Step 6.2) but spawns ONLY the Integration Checker role in each enabled runtime adapter, using the finding-driven IC prompt (see Finding-Driven Mode below).
+3. Each hoisted IC produces fix-interaction findings under their `outputs[]` with `type: "fix-interaction-finding"`.
+4. Merge the hoisted IC outputs into the main council report's `outputs[]` (deduped by similarity), tagged with `agent: "integration-checker-hoisted"`.
+
+**When NOT to hoist:**
+
+If the council tier is already 2 or 3, the IC already ran across runtimes — hoisting adds no diversity. Only hoist when `tier == 1` (or when explicit `ic_tier` is set higher by the orchestrator).
+
+Record in the council report: `ic_tier: <actual tier the IC ran at>`, distinct from the main `tier`.
+
+---
+
 ## Step 7: Synthesis & Verdict
 
-Combine outputs into the unified council report. Apply verdict logic per `runtime-contracts`:
+Combine outputs into the unified council report. **Verdict routes by `mode` first, then `task_type`** — see `runtime-contracts/SKILL.md` "Verdict Logic" for the canonical tables.
 
-For `task_type` in {review, analysis}:
-- `FAIL` — any CRITICAL output
-- `CONCERNS` — ≥1 HIGH output, or ≥3 MEDIUM outputs
-- `PASS` — only MEDIUM/LOW/INFO
+Routing summary:
 
-For `task_type: audit` (compliance-calibrated):
-- `FAIL` — any CRITICAL, or ≥2 HIGH compliance-gaps
-- `CONCERNS` — 1 HIGH compliance-gap, or ≥3 MEDIUM gaps
-- `PASS` — all met or only LOW/INFO gaps
+- `mode == "finding-driven"` → use the finding-driven verdict table (canonical in `runtime-contracts`). The presence of design-drift / regression / fix-interaction findings can flip a "all addressed" verdict to `CONCERNS`. **Takes precedence over `task_type` routing.**
+- `mode` in {`brainstorm`, `design`, `research`, `synthesis`} → no verdict (`verdict: null`). Output proposals / observations / synthesis records instead.
+- Otherwise route by `task_type`: `review`/`analysis` use the standard severity table; `audit` uses the compliance-calibrated table.
 
-For `mode` in {brainstorm, design, research} → no verdict (`verdict: null`). Output proposals/observations instead.
+Refer to `runtime-contracts` for the exact verdict conditions. Do not duplicate them here.
 
 ---
 
@@ -377,9 +434,10 @@ Write to `.outputs/council/{YYYYMMDD-HHMMSS}-tier{N}-{session_id}.md` with front
 ---
 skill: agent-council
 tier: 0 | 1 | 2 | 3
+ic_tier: 0 | 1 | 2 | 3                  # null outside finding-driven; equals tier unless IC-hoist ran
 session_id: "{session_id}"
 timestamp: "{ISO-8601}"
-mode: review | audit | brainstorm | design | research
+mode: review | audit | brainstorm | design | research | synthesis | finding-driven
 task_type: ""
 verdict: PASS | FAIL | CONCERNS | null
 domains: []
@@ -388,6 +446,7 @@ runtimes_used: []        # populated for tier >= 2
 models_used: []          # populated when model diversity is active
 debate_rounds: 0
 tier_history: []         # if escalation occurred
+prior_session_id: ""     # populated when mode == finding-driven and a prior council artifact was passed in
 context_summary: ""
 ---
 ```
@@ -400,6 +459,7 @@ Also save JSON companion: `{YYYYMMDD-HHMMSS}-tier{N}-{session_id}.json` with the
 {
   "type": "agent-council",
   "tier": 0,
+  "ic_tier": null,
   "session_id": "...",
   "mode": "review",
   "task_type": "review",
@@ -418,11 +478,18 @@ Also save JSON companion: `{YYYYMMDD-HHMMSS}-tier{N}-{session_id}.json` with the
   "auto_skipped_halted_runtimes": [],
   "partial_coverage": false,
   "context_summary": "...",
-  "confidence": "high | medium | low"
+  "confidence": "high | medium | low",
+
+  "prior_session_id": null,
+  "input_findings_count": null
 }
 ```
 
-For brainstorm/design/research modes, replace `outputs` with `proposals` or `observations` arrays as defined in `runtime-contracts`.
+**For brainstorm/design/research modes:** replace `outputs` with `proposals` or `observations` arrays as defined in `runtime-contracts`.
+
+**For finding-driven mode:** the four finding-driven output types (`resolution`, `regression-finding`, `design-drift-finding`, `cross-domain-impact`, `fix-interaction-finding`) live in the standard `outputs[]` array, filterable by `type` — they do NOT get their own top-level arrays (the schema previously listed `regression_findings` / `design_drift_findings` / `fix_interaction_findings` as parallel arrays; this duplicated `outputs[]` semantics and has been removed). Consumers should filter `outputs[]` by `type` when they need a specific category. Resolution items additionally carry `resolution_status` and `target_finding_id` fields — see `runtime-contracts` "Finding-driven-mode types".
+
+`ic_tier` is non-null whenever finding-driven mode runs; it equals `tier` unless Step 6.IC (IC-hoist) elevated it. `prior_session_id` is populated when a prior council artifact was passed in as the `findings` source.
 
 ---
 
@@ -470,12 +537,16 @@ A `finding-driven` council is anchored to a specific findings list — the "lens
 ```yaml
 finding_driven_input:
   mode: "finding-driven"
-  findings: []                  # the findings list (the lens)
+  findings: []                  # the findings list (the lens) — see Finding Object Schema below
   fixes_applied: ""             # OPTIONAL — diff/description of changes since findings were surfaced
   original_proposal: ""         # OPTIONAL — the design/spec/intent being upheld
   prior_session_id: ""          # OPTIONAL — if findings came from a prior council session
   # ... + standard fields (scope, domains, tier, intensity)
 ```
+
+**Finding object schema** (canonical definition in `runtime-contracts/SKILL.md` "Finding Object Schema"):
+
+Each item in `findings` must have `{id, title, description, severity, domain, source}`. Items can be lifted directly from a prior `agent-council` artifact's `outputs[]` array — they already conform. For spec-compliance use, each spec requirement becomes one finding (with `source: "spec:<path>"`).
 
 The three optional inputs unlock additional checks:
 - Without `fixes_applied` → only resolution check runs (verify each finding against the artifact)
@@ -550,8 +621,13 @@ Run up to four checks (skip the ones whose inputs are missing):
    Where did a fix in ANOTHER domain affect your domain? (You are positioned to see
    this; the other domain's expert is not.) Produce findings with type: "cross-domain-impact".
 
-Return outputs in the standard council schema, with each output tagged by
-type: "resolution" | "regression-finding" | "design-drift-finding" | "cross-domain-impact".
+Return outputs in the standard council schema. Tag each output by `type`:
+- `resolution` — status check for a prior finding. MUST include `target_finding_id` (referencing the input finding's id) and `resolution_status` (`addressed | partially-addressed | not-addressed | superseded | obsolete`). Severity is `null`.
+- `regression-finding` — new issue introduced by a fix in your domain.
+- `design-drift-finding` — fix-vs-proposal divergence.
+- `cross-domain-impact` — finding where a fix in another domain affects yours.
+
+All items go into the single `outputs[]` array — consumers filter by `type`. Do NOT emit parallel arrays.
 ```
 
 ### Integration Checker prompt (re-review with fixes)
@@ -571,43 +647,36 @@ For each PAIR and TRIPLE of fixes, ask:
 - Does fix(A) change an assumption that fix(B) depends on?
 - Do these fixes together drift further from the original proposal than each alone?
 
-Produce findings with type: "fix-interaction-finding" — each must explicitly name
-the fixes involved and the invariant/interface affected.
+For each interaction you find, emit an output with type: "fix-interaction-finding".
+In the `evidence` field, EXPLICITLY NAME the fixes involved (e.g., "Fix2 + Fix3")
+and the invariant or interface affected.
 
-Also produce standard integration findings (interface mismatches, contract gaps)
-across the post-fix state of the system.
+Also produce standard integration findings (type: "finding", domain: "integration")
+for interface mismatches and contract gaps across the post-fix state of the system.
 ```
 
-### Output schema additions
+### Output
 
-Finding-driven mode adds these arrays to the standard output:
+Finding-driven mode does NOT introduce new top-level arrays. All items go into the canonical `outputs[]` array, tagged by `type`. The council-level schema gains only two finding-driven-specific fields (in addition to the always-present `ic_tier`):
 
 ```json
 {
   "mode": "finding-driven",
-  "prior_session_id": "...",
-  "input_findings_count": 5,
-  "prior_findings_status": [
-    {
-      "finding_id": "F1",
-      "status": "addressed | partially-addressed | not-addressed | superseded | obsolete",
-      "evidence": "..."
-    }
-  ],
-  "regression_findings": [],         // new issues introduced by single fixes
-  "design_drift_findings": [],       // fix-vs-proposal divergence
-  "fix_interaction_findings": [],    // emergent issues from fix combinations
-  "ic_tier": 1                        // tier the Integration Checker actually ran at
+  "prior_session_id": "...",       // already in the council report schema
+  "input_findings_count": 5,        // already in the council report schema
+  "ic_tier": 2                      // already in the council report schema; documents actual IC tier
 }
 ```
 
+Consumer-side filtering (examples):
+- Resolution checks: `outputs.filter(o => o.type === "resolution")`
+- Regression findings: `outputs.filter(o => o.type === "regression-finding")`
+- Design-drift findings: `outputs.filter(o => o.type === "design-drift-finding")`
+- Fix-interaction findings: `outputs.filter(o => o.type === "fix-interaction-finding")`
+
 ### Verdict logic for finding-driven mode
 
-| Verdict | Condition |
-|---------|-----------|
-| `FAIL` | Any `not-addressed` finding that was CRITICAL/HIGH, OR any CRITICAL regression / design-drift / fix-interaction finding |
-| `CONCERNS` | Any HIGH regression / design-drift / fix-interaction finding, OR ≥2 partially-addressed CRITICAL/HIGH findings |
-| `PASS` | All findings addressed, no HIGH+ new issues, no design drift |
+Defined canonically in `runtime-contracts/SKILL.md` "Verdict Logic" → "For `mode == finding-driven`". Do not duplicate the table here. The short version: any unaddressed CRITICAL/HIGH or any CRITICAL new-issue (regression/drift/interaction) → `FAIL`. Any HIGH new-issue → `CONCERNS`. Otherwise → `PASS`.
 
 A re-review that says "all fixes addressed their findings" but introduces design drift is still `CONCERNS` — that's the point of the mode.
 
