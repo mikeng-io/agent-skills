@@ -1,0 +1,69 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write(*.outputs/*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 skills/guardian/hooks/guard-output.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit(*.outputs/*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 skills/guardian/hooks/guard-output.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill(agent-council)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 skills/guardian/hooks/guard-council.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill(deep-review)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 skills/guardian/hooks/guard-council.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill(deep-audit)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 skills/guardian/hooks/guard-council.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill(deep-verify)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 skills/guardian/hooks/guard-council.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill(deep-research)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 skills/guardian/hooks/guard-council.py"
+          }
+        ]
+      }
+    ]
+  }
+}

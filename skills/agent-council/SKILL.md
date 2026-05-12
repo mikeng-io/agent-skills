@@ -1,6 +1,6 @@
 ---
 name: agent-council
-description: Unified multi-agent council skill. Takes a tier parameter (0/1/2/3) that scales from a single review through in-runtime sub-agent dispatch up to cross-runtime council with debate. Replaces the historical separate skills "agent-council", "runtime-council", and "deep-council" — all are tiers of the same operation. Supports review, audit, research, and brainstorm/design modes.
+description: Unified multi-agent orchestration skill. Takes a tier parameter (0/1/2/3) that scales from a single agent through in-runtime sub-agent dispatch up to cross-runtime councils with debate. Replaces the historical separate skills "agent-council", "runtime-council", and "deep-council" — all are tiers of the same operation. Supports review, audit, verify, research, planning, implementation, and brainstorm/design modes.
 location: managed
 dependencies:
   - council-taxonomy
@@ -23,13 +23,16 @@ allowed-tools:
   - Bash(ls *)
   - Bash(which *)
   - Bash(cat *)
+  - Bash(python3 *)
 ---
 
 # Agent Council: Unified Tier-Parameterized Council
 
-Execute this skill to run a multi-agent review at any scale, from a single agent up to a cross-runtime council with debate. **The tier parameter selects the scale.** Do not invoke separate council skills — there is only one.
+Execute this skill to orchestrate agent work at any scale, from a single agent up to a cross-runtime council with debate. **The tier parameter selects the scale; `task_type` selects the authority profile.** Review, verification, planning, implementation, research, and future auto-orchestration are all routed through this same council surface. Do not invoke separate council skills — there is only one.
 
-## Step 0: Read council-taxonomy (MANDATORY)
+Guardian, when installed, enforces the council's registration manifest and output authority. It does not decide orchestration; it blocks malformed or unauthorized registrations before `agent-council` dispatches work.
+
+## Phase 0: Orientation
 
 Before doing anything else, read the vocabulary:
 
@@ -43,7 +46,11 @@ Read: [skills-root]/council-taxonomy/SKILL.md
 
 ---
 
-## Step 1: Dependency Check
+## Phase 1: Registration & Scope
+
+This phase establishes the council manifest. It resolves what the council is allowed to do, what it is acting on, and whether Guardian is available to enforce the registration.
+
+### Required dependencies
 
 Verify required skills are present:
 
@@ -53,6 +60,15 @@ Verify required skills are present:
 [skills-root]/preflight/SKILL.md
 [skills-root]/domain-registry/README.md
 [skills-root]/runtime-contracts/SKILL.md
+```
+
+If a required file is missing, stop and emit an install advisory.
+
+Guardian is optional but should be detected at one of these paths:
+
+```
+[skills-root]/guardian/guardian.py
+.guardian/guardian.py
 ```
 
 For Tier 2+ dispatch, also verify runtime adapters:
@@ -65,12 +81,9 @@ For Tier 2+ dispatch, also verify runtime adapters:
 [skills-root]/runtime-kimi/SKILL.md
 ```
 
-If a *required* file is missing → stop and emit an install advisory.
 If only some *runtime adapters* are missing → log which are unavailable; Tier 2+ will dispatch only the ones present.
 
----
-
-## Step 2: Resolve Scope & Context
+### Scope resolution
 
 **Always invoke `context`:**
 
@@ -88,15 +101,62 @@ Merge into `working_scope`:
 working_scope:
   artifact: ""           # what to analyze
   intent: ""             # review | audit | verify | research | implement | analysis | planning
+  task_type: ""          # canonical runtime-contracts task_type
+  mode: ""               # canonical council mode
   domains: []            # from context (authoritative), supplemented by preflight
   constraints: []        # from preflight (empty if skipped)
   context_summary: ""    # combined description for agent prompts
   intensity: "standard"  # quick | standard | thorough — from routing signals + user request
 ```
 
+### Council manifest
+
+Build a single manifest before routing or dispatch:
+
+```yaml
+council_manifest:
+  skill: agent-council
+  session_id: "council-{YYYYMMDD-HHmmss}"
+  scope: ""                # from working_scope.artifact
+  task_type: ""            # review | audit | research | analysis | planning | implementation
+  mode: ""                 # review | audit | brainstorm | design | research | synthesis | finding-driven
+  domains: []              # from working_scope.domains
+  context_summary: ""      # from working_scope.context_summary
+  intensity: ""            # quick | standard | thorough
+  tier: null               # populated during routing
+  ic_tier: null            # populated for finding-driven mode
+  capability_profile: ""   # inspect | modify, derived from runtime-contracts
+  guardian_enforced: false
+  guardian_warnings: []
+  registration_errors: []
+```
+
+Read `runtime-contracts/SKILL.md` for the canonical capability profile mapping. `task_type` controls authority: inspect tasks (`review`, `audit`, `research`, `analysis`, `planning`) must not modify project state; `implementation` may modify project state.
+
+### Guardian registration enforcement
+
+If Guardian is present, run registration checks against the manifest before selecting a tier or dispatching any agent:
+
+```bash
+python3 {guardian_path} check-preflight agent-council \
+  --scope-set true \
+  --task-type {council_manifest.task_type} \
+  --mode {council_manifest.mode} \
+  --findings-count {len(findings) if council_manifest.mode == "finding-driven" else 0} \
+  --domains-set {true if council_manifest.domains else false}
+
+python3 {guardian_path} check-session-id {council_manifest.session_id}
+```
+
+If Guardian exits `2`, stop and surface the BLOCK message. Do not route, dispatch, or write an artifact. If session ID uniqueness fails, generate a new `session_id` and retry once; if the retry fails, stop.
+
+If Guardian exits `1`, continue but record the warning in `guardian_warnings`. If Guardian is absent, continue and keep `guardian_enforced: false`.
+
+The manifest is the shared registration object for the rest of the run. Runtime adapters receive a projection of it as `runtime_input`; output artifacts preserve it so Guardian can validate the completed registration.
+
 ---
 
-## Step 3: Select Tier
+## Phase 2: Routing
 
 The `tier` parameter determines the council's scale and dispatch mechanism.
 
@@ -127,7 +187,7 @@ If a Tier 1 council completes with:
 
 Do not run Tier 3 for ≤2-domain routine reviews. Tier inflation wastes context and time. If in doubt, start at Tier 1 and let the tier-up rule escalate.
 
-Record the selected tier in `council_context.tier`.
+Record the selected tier in `council_manifest.tier`.
 
 ### Finding-driven mode: IC-tier asymmetry
 
@@ -150,31 +210,11 @@ When `mode == "finding-driven"` with `fixes_applied` containing ≥2 fixes AND a
 | Multi-fix re-review with concurrency / shared state / security signal | 1 | **2** |
 | Critical-proposal multi-fix re-review, signal-gated | 2 | **3** |
 
-Record both as `council_context.tier` and `council_context.ic_tier`. The actual hoist is executed in **Step 6.IC** below. See **Finding-Driven Mode** for the four-check framework.
+Record both as `council_manifest.tier` and `council_manifest.ic_tier`. The actual hoist is executed in **IC-Hoist** below. See **Finding-Driven Mode** for the four-check framework.
 
 ---
 
-## Step 4: Populate Council Context
-
-```yaml
-council_context:
-  tier: 0 | 1 | 2 | 3
-  session_id: "council-{YYYYMMDD-HHmmss}"
-  scope: ""                # from working_scope.artifact
-  context_summary: ""      # from working_scope.context_summary
-  task_type: ""            # review | audit | research | analysis | planning | implement
-  mode: ""                 # review | audit | brainstorm | design | research | synthesis
-  capability_profile: ""   # inspect | modify — derived from task_type via runtime-contracts
-  domains: []              # from working_scope.domains
-  intensity: ""            # quick | standard | thorough
-  diversity_sources: []    # populated as dispatch proceeds (role/model/runtime/toolchain/debate-layer)
-```
-
-Read `runtime-contracts/SKILL.md` for the canonical capability profile mapping (e.g., `task_type: review` → `capability_profile: inspect`).
-
----
-
-## Step 5: Domain Selection
+## Phase 3: Domain & Prompt Planning
 
 Read domain definitions from `domain-registry`:
 
@@ -184,7 +224,7 @@ Read: [skills-root]/domain-registry/domains/business.md
 Read: [skills-root]/domain-registry/domains/creative.md
 ```
 
-For each domain in `working_scope.domains`, resolve:
+For each domain in `council_manifest.domains`, resolve:
 - `expert_role` — domain-registry's named expert
 - `focus_areas` — what the expert should focus on
 - `standards` — what standards or references apply
@@ -192,14 +232,6 @@ For each domain in `working_scope.domains`, resolve:
 These flow into every sub-agent / runtime adapter prompt. **Mode matters:** for `brainstorm` / `design` modes, frame prompts to produce proposals; for `review` / `audit`, frame for findings.
 
 If no domain in the registry substantially covers a concern, synthesize a session-based virtual expert role rather than forcing a mismatched registry entry.
-
----
-
-## Step 6: Tier Dispatch
-
-This step branches first on **mode**, then on **tier**.
-
-### Step 6.0: Mode dispatch selection (runs before any tier branch)
 
 Select the prompt template and conditional inputs to pass:
 
@@ -211,6 +243,12 @@ Select the prompt template and conditional inputs to pass:
 **Tier 0 in finding-driven mode is forbidden.** Tier 0 has no IC role, so Check #4 (fix-interaction) cannot run, and finding-driven without all four checks is misleading. If the user explicitly requests Tier 0 + finding-driven → halt with: `"Tier 0 + finding-driven is contradictory. Use Tier 1 for in-runtime four-check, or Tier 0 + review mode for trivial single-agent review."`
 
 **Tier 2+ in finding-driven mode:** the runtime adapters' `runtime_input` payload MUST include the four finding-driven fields. See Step 6.2.3 for the extended schema.
+
+---
+
+## Phase 4: Dispatch
+
+Dispatch branches first on **mode**, then on **tier**.
 
 ---
 
