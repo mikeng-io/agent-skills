@@ -1,256 +1,226 @@
 ---
 name: council-taxonomy
-description: Shared vocabulary for Agent Council, Model Council, Runtime Council, and Deep Council. Use before designing or invoking council workflows so role, model, runtime/toolchain, and debate-layer diversity are not conflated.
+description: Authoritative vocabulary for the skills suite — tier model, runtime/adapter terms, diversity dimensions, anti-patterns. Every council-related skill reads this first before doing anything else. Installs alongside agent-council as a hard dependency. Read this whenever you encounter the words "council", "tier", "runtime", or "local agent" in any artifact or skill.
 location: managed
 context: reference
 ---
 
-# Council Taxonomy
+# Council Taxonomy — Skills Suite Glossary
 
-This reference defines council primitives used by `agent-council`, `deep-council`, `debate-protocol`, and bridge adapters. Read this before using any council terminology in a skill, lifecycle document, or artifact.
+Authoritative vocabulary for council, runtime, and dispatch terms used across this skills suite.
 
-## Core Principle
+**Every council-related skill reads this first.** Confusion between Tier 1 (in-runtime sub-agents) and Tier 3 (multi-runtime + debate) — historically caused by overloaded names like "council" — is resolved by the tier model defined here.
 
-Deep insight does not come from model diversity alone. Different runtimes using the same model can produce materially different findings because their planning loop, tool affordances, context packaging, file discovery, browser/repo access, session continuity, and error recovery differ.
-
-Council reports must therefore record all diversity sources:
-
-- **Role diversity** — different expert perspectives inside one council.
-- **Model diversity** — different model weights/providers.
-- **Runtime diversity** — different agent executors such as Claude Code, Codex, OpenCode, Gemini CLI, Kimi CLI, or Hermes subagents.
-- **Toolchain diversity** — different available tools, MCP servers, browser/repo access, and shell/file workflows.
-- **Evidence-channel diversity** — different ways of grounding claims: tests, logs, source files, web sources, browser observations, human input.
-- **Debate-layer diversity** — local/intra-council debate and cross-council debate.
+If you are reading this from another skill that read-tooled into it: continue back to that skill once you have the vocabulary. This file is a reference document — it is not invoked as a standalone skill via the Skill tool.
 
 ---
 
-## Council Types
+## Core Vocabulary
+
+### Runtime
+An AI agent executor: Claude Code, Codex CLI, Gemini CLI, Kimi Code, OpenCode, or a custom executor (e.g., Hermes). Each runtime has its own native tools, sub-agent dispatch mechanism, model defaults, and tool surface.
+
+### Runtime adapter
+A skill that defines how to dispatch a council task to a specific runtime. Lives at `skills/runtime-{name}/SKILL.md`. Examples: `runtime-claude`, `runtime-codex`, `runtime-kimi`, `runtime-gemini`, `runtime-opencode`. Each adapter is a reference document — read via the `Read` tool and embedded into an executor agent's prompt. *(Historically called "bridge-\*".)*
+
+### Runtime contracts
+The shared schema all runtime adapters implement: input format, output schema, capability profiles, status values, agent prompt template, artifact format, and the post-analysis protocol. Lives at `skills/runtime-contracts/SKILL.md`. *(Historically `bridge-commons`.)*
+
+### Local agent / sub-agent
+An agent dispatched inside a single runtime using its native mechanism — for example, `Task` in Claude Code, `task` (lowercase) in OpenCode, `delegate_task` in Hermes, the `Agent` tool in Kimi, multi-agent dispatch in Codex or Gemini when enabled. "Local" always means **inside one runtime** — it does not cross runtime boundaries.
 
 ### Agent Council
+The unified multi-agent review skill. Takes a `tier` parameter (0/1/2/3) that scales from a single review (Tier 0) through an in-runtime dispatch (Tier 1) up to a cross-runtime council with debate (Tier 3). This single skill replaces the historical separate names "Agent Council," "Runtime Council," and "Deep Council."
 
-**Diversity source:** role / perspective.
+### Tier
+The scale parameter of Agent Council. Tier 0 = single agent. Tier 1 = in-runtime. Tier 2 = cross-runtime. Tier 3 = cross-runtime + debate. See **The Tier Model** below.
 
-A **single runtime** runs multiple expert roles using its native sub-agent dispatch mechanism. Roles always include domain experts, Devil's Advocate, and Integration Checker; Synthesis Lead is optional. The specific dispatch mechanism differs per runtime — see each bridge's SKILL.md for details (e.g., `Task` tool in Claude Code, `task` tool in OpenCode, `Agent` tool in Kimi).
+### Domain
+A subject area an expert focuses on (e.g., security, performance, accessibility, data integrity). Resolved from `domain-registry/domains/*.md` by matching `trigger_signals` against conversation context.
 
-Use for:
+### Domain expert
+A sub-agent (Tier 1) or a runtime-adapter invocation (Tier 2+) playing the role of an expert in one domain.
 
-- Phase-end reviews and local adversarial validation within one runtime
-- Architecture/design critique
-- Implementation audits
+### Devil's Advocate (DA)
+A fixed cross-domain role that challenges every CRITICAL and HIGH finding produced by domain experts. Present at every tier ≥ 1.
 
-**Key constraint:** Agent Council dispatches sub-agents using the **native mechanism of the current runtime** (see that runtime's bridge document for the specific tool). It does NOT invoke external CLI bridges (e.g., shelling out to `claude`, `codex`, `kimi`, `gemini`). External CLI dispatch belongs to Deep Council or Runtime Council.
+### Integration Checker (IC)
+A fixed role that surfaces cross-component issues missed by per-domain experts — interface mismatches, undocumented contracts, error-propagation gaps, ordering dependencies. Present at every tier ≥ 1.
 
-Limitations:
+### Diversity dimensions
+Orthogonal axes a council can vary along: **role**, **model**, **runtime**, **toolchain**, **evidence-channel**, **debate-layer**. Independent of tier. A Tier 1 council with multiple models configured has model diversity without runtime diversity. See **Diversity Dimensions** below.
 
-- Same runtime/model can share blind spots.
-- Strong role prompts do not equal independent tool/runtime diversity.
+### Capability profile
+`inspect` (no state changes) or `modify` (can edit files). Derived from `task_type` in the council input. Inspect: review, audit, research, analysis, planning. Modify: implementation. Each runtime adapter translates the profile into its own runtime-specific flags or sandbox values.
 
----
+### Status values
+- `COMPLETED` — task ran and outputs are available
+- `SKIPPED` — non-fatal unavailability (runtime missing, timeout, parse failure) — continue with what completed
+- `HALTED` — requires user decision (no provider configured, explicit abort)
+- `ABORTED` — user stopped the entire operation
 
-### Model Council
+### Cross-domain signal
+A flag emitted by a domain expert in its output, indicating that another domain should also examine a finding. Triggers dynamic addition of new domain experts in the next debate round. Mechanism is defined in `runtime-contracts`.
 
-**Diversity source:** model/provider.
+### Multi-agent enablement
+Whether a runtime supports sub-agent dispatch out of the box.
 
-One runtime/toolchain dispatches the same task to multiple configured models and synthesizes the results.
+| Runtime | Default | Enablement required |
+|---------|---------|---------------------|
+| Claude Code | On | None for `Task` tool; Agent Teams needs `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` |
+| OpenCode | On | None |
+| Kimi Code | On | None (`Agent` tool is built-in) |
+| Gemini CLI | Off | `experimental.enableAgents: true` in `.gemini/settings.json` |
+| Codex CLI | Off | `codex features list` must show `multi_agent` enabled |
 
-Use for:
-
-- Style/quality comparison
-- Model-role allocation
-- Subjective scoring
-- Checking model-specific overconfidence
-
-Limitations:
-
-- If all models receive the same over-specified prompt through the same runtime, they may share the same framing and tool-context blind spots.
-
----
-
-### Runtime Council
-
-**Diversity source:** runtime/toolchain/agent loop.
-
-Multiple agent runtimes review or brainstorm the same scope. The models may be identical or different; the runtime/tool flow is the key independent variable.
-
-Examples:
-
-- Claude Code local council
-- Codex local council
-- OpenCode local council or model council
-- Gemini CLI council
-- Kimi CLI council
-- Hermes subagent council
-
-Use for:
-
-- Surfacing tool-affordance discoveries
-- Comparing repo exploration strategies
-- Validating whether findings survive different execution flows
-- Identifying runtime-specific blind spots
+### Tier escalation
+The orchestrator may re-dispatch at a higher tier if a lower-tier council surfaces too many disputed findings, indicates low confidence, or runs into runtime-specific blind spots. Tiers are escalatable; do not commit to a tier prematurely if confidence is borderline.
 
 ---
 
-### Deep Council
+## The Tier Model
 
-**Diversity source:** composed role + model + runtime + toolchain + debate layers.
+| Tier | Label | Scope | When to use |
+|------|-------|-------|-------------|
+| **Tier 0** | Single Review | 1 agent, no diversity | Trivial scope, 1 domain, council overhead unjustified |
+| **Tier 1** | Local Agent Council | 1 runtime, N sub-agents (typically 3–5: domain experts + DA + IC) | ≤5 domains, low-medium granularity, single-runtime context — e.g., a Hermes phase review |
+| **Tier 2** | Cross-Runtime Council | M runtimes × N sub-agents each — each runtime runs its own internal Tier 1 | 5–10 domains, need toolchain or model-family diversity, independent verification |
+| **Tier 3** | Cross-Runtime Council with Debate | Tier 2 + cross-runtime synthesis round with shared-bias challenge | 9–10+ domains, highest stakes (security, compliance, irreversible decisions), maximum confidence required |
 
-Deep Council is a **council-of-councils**. Each bridge/runtime runs a local council using its native strengths. The root orchestrator then runs cross-council debate over the local reports.
+### Picking a tier
 
-```text
-Deep Council
-├─ Claude Code bridge
-│  └─ local Agent Council
-├─ Codex bridge
-│  └─ local Agent Council
-├─ OpenCode bridge
-│  └─ local Agent Council or Model Council
-├─ Kimi bridge
-│  └─ local Agent Council
-└─ Cross-Council Debate
-   ├─ frame comparison
-   ├─ finding challenge
-   ├─ shared-bias challenge
-   └─ final synthesis
-```
+1. **Default to Tier 1.** Most reviews are low-medium granularity, single-runtime appropriate.
+2. **Escalate to Tier 2** when you need diversity beyond role: different toolchains, different model families, independent verification of a finding.
+3. **Escalate to Tier 3** when shared-bias detection matters: high stakes, the cost of all runtimes agreeing for the wrong reason is unacceptable.
+4. **Drop to Tier 0** only when even Tier 1 is overkill — single-domain trivial review with no integration concerns.
 
-Deep Council is not merely "multi-model review." It is layered adversarial synthesis across independently operating councils.
+### Dispatch mechanics by tier
 
-**Deep Council ≠ Runtime Council:** Runtime Council is one layer (multiple runtimes, same task). Deep Council composes Runtime Council + Agent Council + Model Council + cross-council debate. They overlap but are not the same.
+| Tier | Dispatches | Reads runtime adapters? | Cross-runtime debate? |
+|------|-----------|------------------------|----------------------|
+| 0 | 1 single agent | No | No |
+| 1 | N native sub-agents (in-runtime) | No | No |
+| 2 | M runtime adapters in parallel, each runs its own Tier 1 | Yes | No |
+| 3 | Same as Tier 2, plus cross-runtime synthesis round | Yes | Yes |
 
 ---
 
-## "Local Council" — Contextual Role, Not a Type
+## Diversity Dimensions
 
-**"Local council" is not a named council type.** It is a contextual role that any Agent Council, Model Council, or runtime-specific review plays when it runs _inside a bridge_ as the intra-bridge component of Deep Council (Layer 2).
+A council's diversity is described by which dimensions are active, **orthogonal to tier**:
 
-```
-Deep Council (orchestrator)
-  ├── bridge-claude executor
-  │     └── runs Agent Council  ← this is the "local council" for this bridge
-  ├── bridge-kimi executor
-  │     └── runs Agent Council  ← this is the "local council" for this bridge
-  └── Cross-bridge synthesis    ← Layer 1
-```
+| Dimension | What varies | Activated by |
+|-----------|------------|-------------|
+| **Role** | Domain expert perspectives | Always — domain experts + DA + IC |
+| **Model** | Underlying LLM weights | Multi-model runtime config (e.g., OpenCode `models` array, multiple model invocations) |
+| **Runtime** | Agent executor (Claude Code, Codex, etc.) | Tier 2+ — runtime adapters dispatched in parallel |
+| **Toolchain** | Available tools, MCP servers, browser/repo access | Implicit in runtime selection |
+| **Evidence-channel** | How claims are grounded — tests, logs, source files, web sources, browser observations | Task design + runtime selection |
+| **Debate-layer** | Cross-council synthesis with shared-bias challenge | Tier 3 only |
 
-When a bridge document says `local_council_required: true`, it means: "run the richest Agent Council or Model Council this runtime supports before returning to the orchestrator."
-
-**Never use "local council" as a council type in an artifact.** Use the actual type: `agent-council`, `model-council`, or `runtime-native-review` (degraded fallback — not a full council).
-
----
-
-## Brainstorm vs Review
-
-Councils can run in different modes:
-
-- **review/audit mode:** produce findings and validate them adversarially.
-- **brainstorm/design mode:** produce competing proposals, challenge assumptions, merge or reject proposals, and converge on a design recommendation.
-- **research mode:** produce evidence-backed observations, contradictions, and confidence-scored synthesis.
-
-Brainstorm-mode councils must not be forced into finding/severity schemas. They use proposal lifecycle states instead.
-
----
-
-## Discovery-First Context Discipline
-
-Round 1 of any council intended for discovery or brainstorming must receive a minimal, non-leading packet:
-
-Include:
-
-- artifact or topic scope
-- user goal / objective
-- hard constraints
-- allowed mutation level
-- broad domains, if useful
-- output contract
-
-Exclude:
-
-- expected findings
-- suspected root cause
-- coordinator's preferred architecture
-- other participants' findings
-- desired verdict
-- implementation narrative presented as truth
-
-Later rounds may introduce proposal inventories, findings, challenges, prior reports, and reconciliation packets.
+Every council artifact must record which dimensions are active in its `diversity_sources` field. A Tier 2 council with two multi-model runtimes has role + model + runtime + toolchain diversity. A Tier 1 council has only role diversity (and model diversity if multi-model is configured at the runtime level).
 
 ---
 
 ## Common Confusion Points and Anti-Patterns
 
-### Anti-Pattern 1: "Local Council" without definition
+### Anti-Pattern 1: "I ran a council" without naming the tier
 
-**Wrong:** "Ran a local council on this change."
+**Wrong:** "Ran an Agent Council on this change."
 
-**Right:** "Ran an Agent Council (role diversity, `delegate_task` sub-agents, within the current runtime) on this change."
+**Right:** "Ran a Tier 1 Local Agent Council (3 sub-agents in Hermes)."
 
-Why: "Local council" is ambiguous — it could mean Agent Council inside one runtime, or the intra-bridge component of Deep Council. Always name the type explicitly.
+Without the tier, the consumer can't tell whether you spawned 3 sub-agents or dispatched 5 runtime adapters. The artifact's `tier` field is mandatory.
 
----
+### Anti-Pattern 2: "Local council" without first establishing tier
 
-### Anti-Pattern 2: Deep Council overhead when Agent Council suffices
+**Wrong:** "Confirmed by a local council."
 
-**Wrong:** Dispatching Claude Code CLI, Codex CLI, and Gemini CLI for a routine phase-end review that only needs role diversity.
+**Right:** "Confirmed by a Tier 1 council in the Hermes runtime." After establishing tier, "local council" is acceptable shorthand within the same artifact.
 
-**Right:** Run an Agent Council using `delegate_task` sub-agents within the current runtime. Reserve Deep Council / Runtime Council for high-stakes decisions where runtime/toolchain diversity materially improves confidence.
+"Local" always means in-runtime (Tier 1). It is never a council *type* — it is a description of dispatch scope.
 
-Why: External CLI dispatch is Deep Council overhead. It introduces latency, requires bridge availability, and adds complexity. Agent Council is sufficient when the goal is role diversity, not runtime diversity.
+### Anti-Pattern 3: Tier inflation
 
----
+**Wrong:** Dispatching Tier 3 (all five runtime adapters + cross-runtime debate) for a 2-domain code-style review.
 
-### Anti-Pattern 3: Fabricating council findings when a bridge is unavailable
+**Right:** Tier 1 with 3 sub-agents.
 
-**Wrong:** Returning fabricated findings labeled as "Claude Code review" when the `claude` CLI is not installed.
+Tier inflation wastes time, burns context window, and devalues Tier 3 signals when they actually matter. Match tier to scope.
 
-**Right:** Return `status: SKIPPED` for that bridge, document the gap in the council artifact, and proceed with whatever bridges are available.
+### Anti-Pattern 4: Tier deflation
 
-Why: Fabricated findings corrupt multi-model confirmation reliability — the entire value of runtime diversity is that findings are independently produced. A SKIPPED bridge with transparent documentation is always preferable to a fabricated report.
+**Wrong:** Dispatching Tier 1 for a 9-domain security/compliance audit because "it's faster."
 
----
+**Right:** Tier 2 or Tier 3 to surface runtime-specific blind spots that a single runtime cannot self-detect.
 
-### Anti-Pattern 4: Calling runtime diversity "Agent Council"
+A single runtime's blind spots become the audit's blind spots. For high-stakes work, single-runtime confidence is misleading confidence.
 
-**Wrong:** "We ran an Agent Council using Claude Code, Codex, and Gemini."
+### Anti-Pattern 5: Fabricated runtime outputs
 
-**Right:** "We ran a Runtime Council (or Deep Council) dispatching Claude Code, Codex, and Gemini bridges."
+**Wrong:** Returning fabricated findings labeled as "from Claude Code review" when the `claude` CLI is not installed.
 
-Why: Agent Council = role diversity inside one runtime. Dispatching multiple runtimes = Runtime Council / Deep Council. Conflating them hides the actual diversity source and makes the artifact misleading.
+**Right:** Mark the runtime adapter `SKIPPED`, document the gap in the council artifact, proceed with whatever completed.
 
----
+Fabricated findings corrupt the entire value proposition of multi-runtime confirmation. SKIPPED with transparent documentation always beats fake confidence.
 
-## Quick Reference
+### Anti-Pattern 6: Confusing diversity with tier
 
-| Term | Type? | Diversity source | Dispatch mechanism |
-|------|-------|-----------------|-------------------|
-| Agent Council | Named type | Role / perspective | `delegate_task` within current runtime |
-| Model Council | Named type | Model / provider | Same runtime, multiple model targets |
-| Runtime Council | Named type | Runtime / toolchain | Multiple agent runtimes |
-| Deep Council | Named type | All of the above + cross-debate | Council-of-councils via bridge adapters |
-| Local Council | Contextual role | Depends on type | Intra-bridge component of Deep Council |
+**Wrong:** "We achieved runtime diversity by running OpenCode with three different models."
 
----
+**Right:** "Tier 1 council in OpenCode with model diversity (three model invocations) — no runtime diversity."
 
-## Required Reporting Fields
+Multi-model dispatch inside a single runtime is **model diversity**, not runtime diversity. Tier 2+ requires multiple runtime adapters. Dimensions are orthogonal to tier.
 
-Council artifacts should record:
+### Anti-Pattern 7: Saying "Deep Council" or "Runtime Council"
 
-```json
-{
-  "council_type": "agent-council | model-council | runtime-council | deep-council",
-  "mode": "review | audit | brainstorm | design | research | synthesis",
-  "diversity_sources": ["role", "model", "runtime", "toolchain", "evidence", "debate-layer"],
-  "participants": [],
-  "models_used": [],
-  "runtimes_used": [],
-  "toolchains_used": [],
-  "exchange_modes_used": [],
-  "debate_layers": [],
-  "context_policy": "minimal-non-leading | packetized-summary | full-context | targeted-challenge"
-}
-```
+These names are deprecated. Use "Tier 3 Agent Council" and "Tier 2 Agent Council" respectively. The old names obscured that all three are the same skill at different scales.
 
 ---
 
-## Project-Specific Governance
+## Old → New Vocabulary Mapping
 
-Project-specific closure rules should live in the consuming project docs. For example, a project may require every phase to end with an Agent Council artifact and every major milestone to run Deep Council when bridge runtimes are available.
+| Old term | New term |
+|----------|----------|
+| Agent Council (role-only, single runtime) | Agent Council, Tier 1 |
+| Runtime Council | Agent Council, Tier 2 |
+| Deep Council | Agent Council, Tier 3 |
+| Local council / local review | Tier 1 (in-runtime dispatch) |
+| Bridge / bridge adapter | Runtime adapter |
+| `bridge-commons` skill | `runtime-contracts` skill |
+| `bridge-claude` / `bridge-codex` / `bridge-gemini` / `bridge-opencode` / `bridge-kimi` | `runtime-claude` / `runtime-codex` / `runtime-gemini` / `runtime-opencode` / `runtime-kimi` |
+| `.bridge-settings.json` | `.runtime-settings.json` |
+| Deep Council escalation | Tier escalation (Tier 1 → 2 → 3) |
+| `deep-council` skill | Deleted. Invoke `agent-council` with `tier: 3` |
+| `deep-explorer` skill | Deprecated. Codebase exploration handled by `context` skill + runtime's native `explore` sub-agent |
+
+---
+
+## Quick Decision Reference
+
+**"I need a review."**
+→ Tier 1 Local Agent Council in your current runtime.
+
+**"I need a review with toolchain/model-family diversity."**
+→ Tier 2 — dispatch multiple runtime adapters.
+
+**"I need maximum confidence — this decision is irreversible / high-stakes."**
+→ Tier 3 — Tier 2 + cross-runtime debate.
+
+**"This task is trivial / single-domain."**
+→ Tier 0 — single agent, no council.
+
+**"The Tier 1 council I just ran has too many disputes."**
+→ Escalate to Tier 2 or Tier 3, re-dispatch.
+
+**"A runtime adapter returned SKIPPED."**
+→ Continue with what completed. Document the gap. Do not fabricate.
+
+---
+
+## Where to Read Next
+
+- `agent-council/SKILL.md` — the unified, tier-parameterized council skill
+- `runtime-contracts/SKILL.md` — the shared contract all runtime adapters implement
+- `runtime-{claude,codex,gemini,kimi,opencode}/SKILL.md` — runtime adapter specs
+- `domain-registry/README.md` — domain definitions and trigger signals

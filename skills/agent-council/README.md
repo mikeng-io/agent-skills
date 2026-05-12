@@ -1,118 +1,74 @@
 # Agent Council
 
-Role-diverse local council orchestrator. Dispatches multiple expert roles (Devil's Advocate, Integration Checker, Domain Experts, Synthesis Lead) within one runtime/model family to catch local assumptions, failure modes, and integration gaps.
+Unified multi-agent council skill. The single entry point for any council-style review, audit, research, or brainstorm — from a 1-agent trivial review (Tier 0) up to a cross-runtime council with shared-bias debate (Tier 3).
 
-## What it does
+## Tier model
 
-1. Extracts review scope, mode, and domains from conversation context
-2. Selects expert roles based on domains and task type
-3. Dispatches expert agents in parallel via the available local agent mechanism
-4. Runs debate protocol between expert perspectives
-5. Produces a consolidated expert council report
+`tier` is the scale parameter. The `agent-council` skill branches on it:
 
-## When to use it
+| Tier | Label | Scope |
+|------|-------|-------|
+| 0 | Single Review | 1 agent, no diversity |
+| 1 | Local Agent Council | 1 runtime, N sub-agents (domain experts + DA + IC) |
+| 2 | Cross-Runtime Council | M runtimes × N sub-agents each — each runtime runs its own Tier 1 internally |
+| 3 | Cross-Runtime Council with Debate | Tier 2 + cross-runtime synthesis with shared-bias challenge |
 
-| Scenario | Use Agent Council | Use Deep Council |
-| --- | --- | --- |
-| Need fast local role-diverse review | ✓ | Optional |
-| Need phase-end closure artifact | ✓ | Optional for high-risk phases |
-| Need each bridge/runtime to run its own local council | As child council | ✓ |
-| Need runtime/toolchain diversity (Codex vs Claude Code vs OpenCode) | ✗ alone | ✓ |
-| Need model diversity inside a bridge | ✗ alone | ✓ if bridge supports Model Council |
-| Need cross-council debate | ✗ alone | ✓ |
+See `council-taxonomy/SKILL.md` for the full glossary, anti-patterns, and decision matrix. **Read it before using `agent-council`.**
 
-**Agent Council is the local role-diverse primitive. Deep Council may compose multiple Agent Councils, Model Councils, or runtime-native councils and then run cross-council debate.**
+## Replaces
+
+This skill supersedes the historical separate skills `agent-council` (role-only, single runtime) and `deep-council` (multi-runtime + debate). Both are tiers of the same operation:
+
+- Old "Agent Council" → Tier 1
+- Old "Runtime Council" → Tier 2
+- Old "Deep Council" → Tier 3
 
 ## Modes
 
-- `review` / `audit` — produce findings, challenge them, and return a verdict
-- `brainstorm` / `design` — produce competing proposals, challenge assumptions, merge/reject/select proposals, and recommend a direction
-- `research` — produce evidence-backed observations, contradictions, confidence levels, and gaps
+Mode is independent of tier. Any tier can run any mode:
 
-## Expert Roles
+- `review` / `audit` — produce findings with severity, return verdict
+- `brainstorm` / `design` — produce competing proposals, no verdict
+- `research` — produce evidence-backed observations and contradictions, no verdict
 
-| Role | Purpose | Always Present |
-| --- | --- | --- |
-| Primary Reviewer | Domain-specific analysis | One per domain |
-| Devil's Advocate | Challenge assumptions, find failure modes | ✓ |
-| Integration Checker | Surface cross-component implications | ✓ |
-| Synthesis Lead | Aggregate findings, resolve disputes | ✓ |
+## When to invoke directly vs. through a wrapper
+
+| Use case | Invoke |
+|----------|--------|
+| Generic council work, you know the tier | `agent-council` |
+| Constructive improvement feedback | `deep-review` (sets tier=1, framing=improvement) |
+| Compliance / standards audit | `deep-audit` (sets tier=2, mode=audit, capability-calibrated verdict) |
+| Spec verification | `deep-verify` (sets tier=2, attaches spec) |
+| Multi-domain research | `deep-research` (sets tier=2, mode=research, observation schema) |
 
 ## Architecture
 
-```text
-agent-council (local orchestrator)
-├── primary-reviewer-{domain1}
-├── primary-reviewer-{domain2}
-├── devils-advocate
-├── integration-checker
-└── debate-coordinator / synthesis lead
+```
+agent-council
+├── Step 0: Read council-taxonomy (vocabulary)
+├── Step 1: Dependency check
+├── Step 2: Scope & context (context + preflight)
+├── Step 3: Tier selection (explicit or auto)
+├── Step 4: Populate council context
+├── Step 5: Domain selection (from domain-registry)
+├── Step 6: Tier dispatch
+│   ├── Tier 0: single agent
+│   ├── Tier 1: in-runtime sub-agents via native dispatch
+│   ├── Tier 2: parallel runtime adapters → each runs Tier 1 internally
+│   └── Tier 3: Tier 2 + cross-runtime synthesis with shared-bias challenge
+├── Step 7: Synthesis & verdict
+└── Step 8: Save artifact
 ```
 
-Experts run within the same local runtime/model family but receive different role framings. Diversity comes from perspective and adversarial structure, not independent runtime/toolchain paths.
+## Dependencies
 
-## Debate Protocol
-
-After initial expert analysis, a mandatory debate round:
-
-1. **Challenge Phase** — Devil's Advocate challenges primary findings
-2. **Synthesis Phase** — Integration Checker surfaces cross-component implications
-3. **Resolution Phase** — Synthesis Lead resolves disputes and aggregates
-
-Debate outcomes:
-
-- **CONFIRMED** — finding holds after challenge
-- **DOWNGRADED** — severity reduced
-- **DISPUTED** — challenge has merit but finding not withdrawn
-- **WITHDRAWN** — challenge reveals finding was invalid
-
-## Brainstorm Mode
-
-Brainstorm mode generates proposals before critique. Round 1 receives minimal, non-leading context only: scope, objective, constraints, and output contract. Later rounds publish proposal inventories, challenge assumptions, revise/merge/split proposals, and converge on an accepted direction.
-
-## Confidence Tiers
-
-| Tier | Meaning |
-| --- | --- |
-| `multi_expert_confirmed` | 2+ experts independently surfaced |
-| `single_expert` | One expert surfaced, survived challenge |
-| `integration` | Cross-component implications |
-| `disputed` | Challenge not resolved |
-
-## Verdict Logic
-
-| Verdict | Condition |
-| --- | --- |
-| FAIL | Any multi-expert-confirmed CRITICAL, or 3+ HIGH confirmed |
-| CONCERNS | 1-2 HIGH confirmed, or disputed CRITICAL/HIGH |
-| PASS | No CRITICAL/HIGH confirmed |
-
-## Comparison to Deep Council
-
-| Feature | Agent Council | Deep Council |
-| --- | --- | --- |
-| Primary diversity | Roles/perspectives | Roles + models + runtimes + toolchains + debate layers |
-| Scope | One local runtime/model family | Multiple bridge/runtime councils |
-| Dispatch method | Local agents/roles | Bridge adapters, each running a local council when possible |
-| Catches | Local assumptions and integration gaps | Cross-runtime blind spots, shared-bias failures, runtime/toolchain-specific discoveries |
-| Latency | Lower | Higher |
-| Availability | Available when local agent dispatch exists | Conditional on bridges/runtimes |
-| Confidence tier | Local debate-confirmed | Cross-council debate-confirmed |
-
-## Availability
-
-Available when the executor can run local agent roles or equivalent subagents. No external bridge CLI is required.
-
-## Recommendation
-
-1. Run `agent-council` as the default local phase-end council
-2. Run `deep-council` when runtime/tool diversity, model diversity, or cross-council debate materially improves confidence
-3. Use both for critical milestones: local role-diverse review first, then cross-runtime council-of-councils
-
-## Schema
-
-Output validated against `schemas/agent-council-report-schema.json`.
+- `council-taxonomy` — vocabulary (mandatory)
+- `context` — artifact classification, domain detection
+- `preflight` — clarifying questions when scope is fuzzy
+- `domain-registry` — domain definitions
+- `runtime-contracts` — shared contract for runtime adapters (formerly `bridge-commons`)
+- `runtime-{claude,codex,gemini,opencode,kimi}` — runtime adapters (only loaded at Tier 2+)
 
 ## Outputs
 
-Artifacts saved to `.outputs/council/` with YAML frontmatter and JSON companion.
+Artifacts saved to `.outputs/council/{YYYYMMDD-HHMMSS}-tier{N}-{session_id}.md` with YAML frontmatter and JSON companion. `tier` field is always populated. `diversity_sources` field records which axes were active (role/model/runtime/toolchain/debate-layer).

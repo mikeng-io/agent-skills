@@ -2,46 +2,50 @@
 
 This document describes the relationship between all skills, how they depend on each other, and how routing decisions are made based on context, complexity, and user input.
 
+**Read `council-taxonomy/SKILL.md` first** for the vocabulary (runtime, runtime adapter, tier, diversity dimensions, etc.) used throughout this document.
+
 ---
 
 ## Component Map
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                       Deep Skills Suite                              │
+│                       Skills Suite                                   │
 │                                                                     │
 │  Foundation                                                         │
-│  ├── domain-registry     Knowledge base — expert roles & signals    │
-│  ├── bridge-commons      Shared contract — all bridges implement     │
-│  └── debate-protocol     5-phase structured review debate           │
+│  ├── council-taxonomy     Authoritative vocabulary (mandatory read) │
+│  ├── domain-registry      Knowledge base — expert roles & signals   │
+│  ├── runtime-contracts    Shared contract — all runtime adapters    │
+│  └── debate-protocol      5-phase structured review debate          │
 │                                                                     │
 │  Context Intelligence                                               │
-│  ├── context        Classify artifact, select domains, route   │
-│  └── preflight           Ask 1–3 clarifying questions when scope is fuzzy │
+│  ├── context              Classify artifact, select domains, route  │
+│  └── preflight            Ask 1–3 clarifying questions when fuzzy   │
 │                                                                     │
-│  Bridge Adapters (reference — not invocable standalone)            │
-│  ├── bridge-claude       Task tool → claude -p → Anthropic API     │
-│  ├── bridge-gemini       gemini -p → SKIPPED                       │
-│  ├── bridge-codex        MCP → codex exec → SKIPPED                │
-│  ├── bridge-opencode     HTTP API → opencode run → SKIPPED         │
-│  └── bridge-kimi         native subagents → kimi --print → SKIPPED │
+│  Runtime Adapters (reference — not invocable standalone)            │
+│  ├── runtime-claude       Task tool → claude -p → Anthropic API     │
+│  ├── runtime-gemini       gemini -p → SKIPPED                       │
+│  ├── runtime-codex        MCP → codex exec → SKIPPED                │
+│  ├── runtime-opencode     HTTP API → opencode run → SKIPPED         │
+│  └── runtime-kimi         native subagents → kimi --print → SKIPPED │
 │                                                                     │
-│  Orchestrators                                                      │
-│  ├── parallel-workflow   DAG dispatch — independent sub-agents      │
-│  └── deep-council        Multi-model council — all bridges + debate │
+│  Council (the only council skill — tier-parameterized)              │
+│  └── agent-council        Tier 0/1/2/3 unified council orchestrator │
 │                                                                     │
-│  Deep Skills (user-invocable)                                       │
-│  ├── deep-explorer       Explore and map an artifact or codebase    │
-│  ├── context        Classify and route (also standalone)       │
-│  ├── deep-review         Multi-agent review with findings           │
-│  ├── deep-audit          Compliance, security, standards audit      │
-│  ├── deep-verify         Verify spec compliance and correctness     │
-│  └── deep-research       Multi-domain research and synthesis        │
+│  Thin Entry Points (user-invocable, wrap agent-council)             │
+│  ├── deep-review          Constructive review — Tier 1 default     │
+│  ├── deep-audit           Compliance audit — Tier 2 default        │
+│  ├── deep-verify          Spec verification — Tier 2 default       │
+│  ├── deep-research        Multi-domain research — Tier 2 default   │
+│  └── deep-explorer        DEPRECATED — use context + runtime exp.  │
 │                                                                     │
-│  Optional Data Sources (invokable standalone or by other skills)   │
-│  ├── deepwiki            Devin DeepWiki — codebase wiki Q&A        │
-│  ├── brave-search        Brave Search MCP — web/news/local search  │
-│  └── perplexity          Perplexity MCP — AI-synthesized answers   │
+│  Orchestration Primitive                                            │
+│  └── parallel-workflow    DAG dispatch — independent sub-agents     │
+│                                                                     │
+│  Optional Data Sources (invokable standalone or by other skills)    │
+│  ├── deepwiki             Devin DeepWiki — codebase wiki Q&A        │
+│  ├── brave-search         Brave Search MCP — web/news/local search  │
+│  └── perplexity           Perplexity MCP — AI-synthesized answers   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -50,164 +54,120 @@ This document describes the relationship between all skills, how they depend on 
 ## Dependency Graph
 
 ```
-domain-registry ◄─────────────────────────── all bridges
-                                              deep-council
-                                              deep-* skills
+council-taxonomy ◄──────────────────────── agent-council (mandatory Step 0 read)
+                                            deep-* skills (mandatory Step 0 read)
 
-bridge-commons ◄──────────────────────────── bridge-claude
-                                              bridge-gemini
-                                              bridge-codex
-                                              bridge-opencode
-                                              bridge-kimi
+domain-registry ◄────────────────────────── all runtime adapters
+                                            agent-council
+                                            context
 
-debate-protocol ◄─────────────────────────── deep-council (embedded inline)
-                                              deep-verify (optional)
+runtime-contracts ◄──────────────────────── runtime-claude
+                                            runtime-gemini
+                                            runtime-codex
+                                            runtime-opencode
+                                            runtime-kimi
+                                            agent-council (Tier 2+ dispatch)
+
+debate-protocol ◄────────────────────────── agent-council (Tier 3 cross-runtime debate)
 
 context ──────────────────────────────► domain selection
                                              routing decision
 
-parallel-workflow ◄───────────────────────── deep-* skills (default path)
-                                              deep-council (bridge dispatch)
+agent-council ◄──────────────────────────── deep-review (tier=1)
+                                            deep-audit (tier=2)
+                                            deep-verify (tier=2)
+                                            deep-research (tier=2)
+  └── reads (at Tier 2+):
+      runtime-contracts
+      runtime-claude
+      runtime-gemini
+      runtime-codex
+      runtime-opencode
+      runtime-kimi
+      debate-protocol (Tier 3 only)
 
-deep-council ◄────────────────────────────── deep-* skills (escalation path)
-  └── uses: bridge-claude
-            bridge-gemini
-            bridge-codex
-            bridge-opencode
-            bridge-kimi
-            debate-protocol (inline)
-            parallel-workflow (for bridge dispatch)
+parallel-workflow                          Used internally by agent-council
+                                            for parallel sub-agent dispatch
 ```
 
 ---
 
-## Routing Decision
+## Tier-Based Execution
 
-Every deep skill performs a routing decision — either inline or by calling `context`. The routing determines which execution path to use.
+The single `agent-council` skill branches on the `tier` parameter. There is no separate "deep-council" — Tier 3 is what was historically called Deep Council.
 
 ```
-Context analysis
-  │
-  ├─► Artifact type detected (code, financial, marketing, creative, research, mixed)
-  ├─► Domains selected from domain-registry
-  └─► Routing decided:
-
-        Condition                              → Route
-        ─────────────────────────────────────────────────────────────
-        < 3 domains, no high-stakes signals   → parallel-workflow
-        ≥ 3 domains OR high-stakes signals    → parallel-workflow + debate-protocol
-        Explicit "multi-model" request        → deep-council
-        intensity = "thorough"               → deep-council (recommended)
-        User override                         → user choice wins
+agent-council
+│
+├── Tier 0: Single Review
+│   └── one agent, no diversity, no debate
+│
+├── Tier 1: Local Agent Council (in-runtime)
+│   ├── domain experts (one per domain)
+│   ├── Devil's Advocate
+│   ├── Integration Checker
+│   └── debate (intensity-dependent rounds)
+│
+├── Tier 2: Cross-Runtime Council
+│   └── parallel dispatch to enabled runtime adapters
+│       ├── runtime-claude    ─→ runs its own Tier 1 internally
+│       ├── runtime-gemini    ─→ runs its own Tier 1 internally
+│       ├── runtime-codex     ─→ runs its own Tier 1 internally
+│       ├── runtime-opencode  ─→ runs its own Tier 1 internally
+│       │                       (multi-model when configured)
+│       └── runtime-kimi      ─→ runs its own Tier 1 internally
+│
+└── Tier 3: Cross-Runtime Council with Debate
+    ├── (Tier 2 dispatch)
+    └── Cross-runtime synthesis with shared-bias challenge
+        ├── frame comparison
+        ├── multi-runtime-confirmed finding validation
+        ├── single-runtime finding promotion/demotion
+        └── integration findings surfaced from cross-runtime comparison
 ```
 
-High-stakes signals include: security-critical changes, financial data, compliance requirements, production incidents, cryptographic systems.
+**Tier escalation:** A Tier 1 council with 3+ disputed findings or low confidence may auto-escalate to Tier 2 or 3 and preserve the prior report in `tier_history`.
 
 ---
 
-## Execution Paths
+## Routing
 
-### Path A: Parallel Workflow
-
-Default path for most tasks. Independent sub-agents work in parallel; no inter-agent communication. Results reported back to coordinator.
+Every thin entry point (`deep-review`, `deep-audit`, etc.) and direct `agent-council` invocations follow the same path:
 
 ```
-deep-{skill}
-  └── parallel-workflow
-        ├── agent: {domain_1} expert
-        ├── agent: {domain_2} expert
-        └── agent: Integration Checker
-              │
-              └── synthesize → output
+1. Read council-taxonomy (mandatory)
+2. Resolve scope/context (context + preflight)
+3. Select tier (from explicit input or heuristics)
+4. Call agent-council with task_type, mode, tier, domains
+5. agent-council branches on tier (see Tier-Based Execution)
+6. Save artifact under .outputs/{type}/
 ```
-
-Best for: focused reviews, clear scope, < 3 domains, quick or standard intensity.
-
-### Path B: Parallel Workflow + Debate
-
-Adds a structured debate phase after parallel analysis. Domain experts challenge each other's findings through 3–5 rounds; a Devil's Advocate drives cross-examination.
-
-```
-deep-{skill}
-  ├── parallel-workflow  (Phase 1: independent analysis)
-  └── debate-protocol    (Phases 2–5: challenge, synthesis, verdict)
-        ├── domain experts
-        ├── Devil's Advocate (cross-challenges)
-        └── Integration Checker
-              │
-              └── confirmed / withdrawn / disputed / merged findings
-```
-
-Best for: ≥ 3 domains, high-stakes changes, standard or thorough intensity.
-
-### Path C: Deep Council (Council-of-Councils)
-
-Dispatches discovery-first packets to multiple council-capable runtimes in parallel. The architecture has **two debate layers**:
-
-- **Layer 2 (intra-bridge):** Each bridge extracts maximum value from its own runtime/toolchain/model setup before reporting
-- **Layer 1 (cross-bridge):** After all bridges report, a Debate Coordinator challenges the aggregated findings/proposals across bridge/runtime/model sources
-
-```
-deep-council
-  │
-  ├── Layer 2: Each bridge runs independently in parallel
-  │     ├── bridge-claude    → full 5-phase debate (DA + IC + domain experts)
-  │     ├── bridge-gemini    → Post-Analysis Protocol rounds   ← SKIPPED if unavailable
-  │     ├── bridge-codex     → Post-Analysis Protocol rounds   ← SKIPPED if unavailable
-  │     └── bridge-opencode  → single-model: Post-Analysis rounds
-  │                            multi-model:  N parallel models → mini-synthesis
-  │                            (configured via .bridge-settings.json models array)
-  │                                                            ← SKIPPED if unavailable
-  │
-  └── Layer 1: Cross-bridge synthesis (deep-council Step 6)
-        Stage A: Mechanical deduplication (find overlapping findings)
-        Stage B: Debate Coordinator Task agent
-                 ├── DA challenges multi-source-confirmed findings
-                 │   ("all bridges agreed — shared bias or genuine?")
-                 ├── IC checks cross-bridge integration gaps
-                 └── 2–3 challenge rounds (standard/thorough)
-                       │
-                       └── confirmed / downgraded / disputed / withdrawn
-                           integration_findings (new — emerged from cross-bridge debate)
-```
-
-Best for: maximum confidence, cross-runtime verification, brainstorm/design councils, explicit user request, thorough intensity.
 
 ---
 
-## Skill Routing Table
+## Runtime Availability
 
-| Skill | Default path | Can escalate to | Notes |
-|-------|-------------|----------------|-------|
-| `deep-explorer` | parallel-workflow | — | Exploration only; no debate needed |
-| `context` | single-agent | — | Classifier; always single-agent |
-| `deep-review` | parallel-workflow | deep-council | Escalates on high-stakes or user request |
-| `deep-audit` | parallel-workflow | deep-council | Escalates on compliance/security signals |
-| `deep-verify` | parallel-workflow + debate-protocol | deep-council | Debate is default for verification |
-| `deep-research` | parallel-workflow | deep-council | Deep Council adds runtime/model/toolchain perspective diversity |
-
----
-
-## Bridge Availability and Fallback
-
-Deep council is non-blocking — bridges that are unavailable are skipped and the council continues with whatever is available.
+`agent-council` at Tier 2+ is non-blocking — runtime adapters that are unavailable are skipped and the council continues with whatever is available.
 
 ```
-Executor is Claude Code    → bridge-claude available (Task tool accessible)
-gemini CLI installed       → bridge-gemini available
+Executor is Claude Code     → runtime-claude available (Task tool accessible)
+gemini CLI installed        → runtime-gemini available
 Codex MCP configured
-  OR codex CLI installed   → bridge-codex available
+  OR codex CLI installed    → runtime-codex available
 opencode serve running
-  OR opencode CLI installed → bridge-opencode available
-  + .bridge-settings.json models array has 2+ entries → multi-model dispatch
+  OR opencode CLI installed → runtime-opencode available
+  + .runtime-settings.json models array has 2+ entries → multi-model dispatch
 kimi-code-mcp configured
-  OR kimi CLI installed    → bridge-kimi available
+  OR kimi CLI installed     → runtime-kimi available
 
-Minimum viable council: any single bridge that returns COMPLETED
-Zero bridges complete → ABORTED (emitted by deep-council)
+Minimum viable Tier 2/3 council: any single runtime adapter that returns COMPLETED
+Zero adapters complete → ABORTED (emitted by agent-council)
+
+Tier 0/1 has no runtime adapter dependency — always works in any executor with
+native sub-agent dispatch (Claude Code, OpenCode, Kimi, or Hermes via delegate_task).
 ```
 
-Bridge availability is not guaranteed for any bridge — all depend on the executor environment and installed tools. See bridge-commons for the two-layer debate architecture and `.bridge-settings.json` schema.
+Runtime adapter availability is not guaranteed — all depend on the executor environment and installed tools. See `council-taxonomy` for the multi-agent enablement table and `runtime-contracts` for the full adapter contract.
 
 ---
 
@@ -221,22 +181,24 @@ Skills with **no `context` field** run **inline** in the invoking agent — full
 
 | Component | context | Inherits conversation? | Invocable standalone? |
 |-----------|---------|----------------------|-----------------------|
+| `council-taxonomy` | reference | n/a | No |
 | `domain-registry` | — (pure reference) | n/a | No |
-| `bridge-commons` | reference | n/a | No |
-| `bridge-claude` | reference | n/a | No |
-| `bridge-gemini` | reference | n/a | No |
-| `bridge-codex` | reference | n/a | No |
-| `bridge-opencode` | reference | n/a | No |
+| `runtime-contracts` | reference | n/a | No |
+| `runtime-claude` | reference | n/a | No |
+| `runtime-gemini` | reference | n/a | No |
+| `runtime-codex` | reference | n/a | No |
+| `runtime-opencode` | reference | n/a | No |
+| `runtime-kimi` | reference | n/a | No |
 | `debate-protocol` | *(inline)* | **Yes** | Yes |
 | `context` | *(inline)* | **Yes** | Yes |
 | `preflight` | *(inline)* | **Yes** | Yes |
 | `parallel-workflow` | *(inline)* | **Yes** | Yes |
-| `deep-council` | *(inline)* | **Yes** | Yes |
-| `deep-explorer` | *(inline)* | **Yes** | Yes |
+| `agent-council` | *(inline)* | **Yes** | Yes |
 | `deep-review` | *(inline)* | **Yes** | Yes |
 | `deep-audit` | *(inline)* | **Yes** | Yes |
 | `deep-verify` | *(inline)* | **Yes** | Yes |
 | `deep-research` | *(inline)* | **Yes** | Yes |
+| `deep-explorer` | *(deprecated)* | n/a | No (deprecated) |
 | `deepwiki` | fork | No — stateless lookup | Yes |
 | `brave-search` | fork | No — stateless lookup | Yes |
 | `perplexity` | fork | No — stateless lookup | Yes |
@@ -245,9 +207,27 @@ Skills with **no `context` field** run **inline** in the invoking agent — full
 
 ## Key Design Principles
 
-1. **Non-blocking bridges** — A missing CLI never halts a session; it produces `SKIPPED`.
-2. **Generic, not review-specific** — All components handle review, planning, implementation, analysis, and research.
-3. **No hardcoded models** — Every bridge detects the latest available model at runtime.
-4. **Progressive enhancement** — Multi-agent mode, debate, model diversity, and runtime/toolchain councils are additive. Each skill works with the minimum available capability.
-5. **Composable** — Any skill can be used standalone or as part of a larger orchestration.
-6. **Shared contract** — All bridges implement `bridge-commons` — one schema to learn, four runtimes.
+1. **Tier model unification** — One council skill (`agent-council`), parameterized by tier. No separate `deep-council`.
+2. **Council-taxonomy is mandatory** — Every council-related skill reads it as Step 0. Vocabulary confusion is the most common failure mode.
+3. **Non-blocking runtime adapters** — A missing CLI never halts a session; it produces `SKIPPED`.
+4. **Generic, not review-specific** — All components handle review, planning, implementation, analysis, research, audit, and brainstorm.
+5. **No hardcoded models** — Every runtime adapter detects the latest available model at runtime.
+6. **Progressive enhancement** — Multi-agent enablement, debate, model diversity, and runtime diversity are additive. Each skill works with the minimum available capability.
+7. **Composable** — Any skill can be used standalone or as part of a larger orchestration.
+8. **Shared contract** — All runtime adapters implement `runtime-contracts` — one schema to learn, five runtimes.
+
+---
+
+## Historical Naming (Deprecated — see council-taxonomy for full mapping)
+
+| Old | New |
+|-----|-----|
+| Bridge / bridge adapter | Runtime adapter |
+| `bridge-commons` | `runtime-contracts` |
+| `bridge-{claude,codex,gemini,opencode,kimi}` | `runtime-{claude,codex,gemini,opencode,kimi}` |
+| `.bridge-settings.json` | `.runtime-settings.json` |
+| Agent Council (role-only) | `agent-council` at Tier 1 |
+| Runtime Council | `agent-council` at Tier 2 |
+| Deep Council | `agent-council` at Tier 3 |
+| `deep-council` skill | Removed — use `agent-council` with `tier: 3` |
+| `deep-explorer` skill | Deprecated — use `context` + runtime adapter's native explore |

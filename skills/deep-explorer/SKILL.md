@@ -1,7 +1,9 @@
 ---
 name: deep-explorer
-description: Git-based codebase exploration with delta analysis. Performs full exploration on first run, then incremental delta exploration tracking committed and uncommitted changes.
+description: DEPRECATED — codebase exploration is now handled by the context skill (for routing/domain detection) and each runtime adapter's native explore sub-agent (for repo mapping). See council-taxonomy/SKILL.md for the migration. This file is retained only for backward compatibility and will be removed in a future cleanup.
 location: managed
+deprecated: true
+deprecated_replacement: "context skill + runtime adapters' native explore sub-agents"
 dependencies:
   - context
   - preflight
@@ -17,6 +19,20 @@ allowed-tools:
   - Task
   - Write
   - Bash(mkdir *)
+---
+
+# Deep Explorer — DEPRECATED
+
+> **⚠ DEPRECATED.** This skill is no longer the recommended path for codebase exploration. Its responsibilities have been split:
+>
+> - **Routing / domain detection / architecture context** → `context` skill (calls `deepwiki` for codebase architecture if available)
+> - **Repo mapping during a review** → each runtime adapter's native `explore`-type sub-agent (e.g., Claude Code's `explore` Task agent, Kimi's `explore` Agent, OpenCode's `explore` task)
+> - **Multi-domain exploration as part of a council** → `agent-council` with `task_type: research` and `mode: research`
+>
+> The standalone git-delta tracking that this skill provided is not used by anything downstream. It produces a structural map artifact that no other skill programmatically consumes. The file is retained for backward compatibility but will be removed in a future cleanup.
+>
+> **If you are reading this from a new invocation:** stop and use the alternatives listed above instead. Do not invoke `deep-explorer` for new work.
+
 ---
 
 # Deep Explorer: Git-Based Codebase Exploration
